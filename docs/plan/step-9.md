@@ -91,7 +91,6 @@ the name. Arthur's horse farm example is the pattern. An article names a
 thing, such as a farm, a trading name or a company. The registers tie that
 thing to the subject. The article is then connected to the subject by the
 register's link, and the subject's own name need not appear in it.
-(Arthur to write the example in.)
 
 For this, every register's light has to be green or grey (Arthur, 4
 November). The things the search looks for come from the stage-1 records:
@@ -117,12 +116,17 @@ line and a pushed commit (ruling 244).
    contextual connection made through a register, shown on a real subject.
 8. **Stage 2: near links on request.**
 
+## Settled (Arthur, 9 November; ruling 157)
+
+- **The checks.** The one report carries one combined set of red, amber and
+  clear checks, the product templates' checks merged, each once. This is
+  built in tranche 6.
+- **The horse farm example** stays as the pattern written above.
+
 ## Open, for Arthur
 
-- **The checks.** One combined set of red, amber and clear on the one
-  report, or the records with no verdicts. Not yet answered.
-- **The horse farm example,** in his words.
-- **Two sources to be looked at from scratch, with Arthur, before any work
-  touches them.** The recovered news dump held on node1, and the news
-  publisher group that the withdrawn hard limit 8 named. Earlier work on both had problems that
-  kept coming back. No session relies on past notes about either.
+- **Two sources to be looked at from scratch, with Arthur, before tranches 3
+  and 4 touch them.** These are the recovered news dump held on node1, and
+  the news publisher group that the withdrawn hard limit 8 named. Both are
+  needed. Earlier work on both had problems that kept coming back, and no
+  session relies on past notes about either.

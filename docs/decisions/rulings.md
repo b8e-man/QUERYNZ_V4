@@ -1396,3 +1396,8 @@ name; fyi.org.nz stays held (old ruling 321). The step 7 line on paywalled
 outlets is removed: "you are just going to be reading APIs, not scraping.
 you are just going to be handling the corpora. You already built the
 scrapers for the corpora but they will run elsewhere".
+
+157. Arthur, 9 November, on step 9's open items: the one report carries one
+combined set of red, amber and clear checks; the horse farm pattern stays as
+the plan writes it; both news sources set aside by ruling 154 are needed,
+and are looked at from scratch with him before they are measured or copied.
