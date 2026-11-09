@@ -6,7 +6,9 @@ on the board's search pane, with a one-line reason in plain words.
           grace; or the fetch gate holds (ruling 141) a host the lane names
           as its own (`hosts`), or every host the lane reads; or, for a lane
           the ingest MCP feeds, the last pull caught a record or met new
-          fields in the lane's corpus
+          fields in the lane's corpus, or the provider's copy of a corpus it
+          reads has had nothing new for over three times its source's
+          cadence (ruling 159)
   orange  updates working, the corpus not whole: the gate holds some of the
           many hosts the lane reads under its positions (a council of 78),
           the rest still asked; a reader or backfill with
@@ -15,7 +17,8 @@ on the board's search pane, with a one-line reason in plain words.
           source's, an update job of the lane switched off in the catalogue
           while another still runs (the register holds what the switched-off
           job last gathered: 9 November 2026, the nine sources the boxes
-          stopped gathering), or a declared gap (`checks/source_gaps.toml`). A declared gap that names a held
+          stopped gathering), the provider's copy of a corpus it reads older
+          than its source's cadence, or a declared gap (`checks/source_gaps.toml`). A declared gap that names a held
           host (`hosts`) says that hold in its own words: the gate's line for
           it is not repeated, red or orange (a person declared what cannot be
           read while the host is held; only a person clears the hold)
@@ -37,6 +40,18 @@ the last pull's run record, and two published views.
 
     python -m checks.source_lights            compute and write <live>/checks/source-lights.json
     python -m checks.source_lights --print    compute and print, writing nothing
+
+The provider's freshness (ruling 159). Every reading of the MCP's `corpora`
+by qv4-mcp-pull is kept per corpus in `mcpsource.freshness`
+(support/mcpsource/freshness.py). A copy is judged by the provider's own
+`newest_arrival`, never by our pull, against its source's cadence in
+`checks/mcp_cadence.toml` (days, measured or a marked default, a reason, a
+declared pause): older than the cadence, orange; three times, red. A corpus
+the last pull did not reach is not red for that alone (its budget spent:
+the estate-* corpora come last). Each MCP-fed light carries a short `fresh`
+line for the board, and the job rewrites the provider's list,
+`<work>/handover/mcp-stale.md`: every corpus past its cadence, dated, at most
+a page.
 
 The `qv4-source-lights` job runs it every 30 minutes. The board reads the
 file (products/board/lights.py). Tests: checks/tests/test_source_lights.py."""
@@ -60,6 +75,10 @@ REPO = os.path.dirname(HERE)
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 LIGHTS_FILE = os.path.join(LIVE, "checks", "source-lights.json")
 GAPS_FILE = os.path.join(HERE, "source_gaps.toml")
+CADENCE_FILE = os.path.join(HERE, "mcp_cadence.toml")
+STALE_FILE = os.environ.get("QV4_MCP_STALE") or "/home/user/querynzv4-work/handover/mcp-stale.md"
+STALE_JSON = os.path.splitext(STALE_FILE)[0] + ".json"           # the same list, for the provider's tool
+STALE_CLOSING = os.path.splitext(STALE_FILE)[0] + ".closing.md"  # the integrator's closing section, when kept apart
 CATALOGUE = os.path.join(REPO, "products", "board", "catalogue.py")
 JOB = "qv4-source-lights"
 MCP_PULL = "qv4-mcp-pull"
@@ -107,7 +126,8 @@ LANES = {
     "societies": Lane(update=("qv4-societies-capture",), hosts=("api.business.govt.nz",)),
     "charities": Lane(update=("qv4-charities-capture", "qv4-charities-load"), hosts=("charities.govt.nz",),
                       positions=("charities-register",)),
-    "candidate_returns": Lane(update=("qv4-candidate-returns-load",), read=("qv4-read-pages-candidates",)),
+    "candidate_returns": Lane(update=("qv4-candidate-returns-load",), read=("qv4-read-pages-candidates",),
+                              corpora=("estate-candidate_returns",)),
     "gazette": Lane(update=("qv4-gazette-capture", "qv4-gazette-load"), hosts=("gazette.govt.nz", "api.digitalnz.org"),
                     positions=("new-zealand-gazette", "digitalnz-api")),
     "party_boards": Lane(update=("qv4-party-boards-load",)),
@@ -117,11 +137,12 @@ LANES = {
                    positions=("dia-gambling-and-lottery-grants", "class-4-society-grant-publications")),
     "commerce_commission": Lane(update=("qv4-commerce-commission-capture", "qv4-commerce-commission-load"),
                                 hosts=("comcom.govt.nz",), positions=("commerce-commission-case-register",),
-                                asks=("qv4-commerce-commission-capture",)),
+                                asks=("qv4-commerce-commission-capture",), corpora=("estate-commerce_commission",)),
     "fma": Lane(update=("qv4-fma-capture", "qv4-fma-load"), hosts=("fma.govt.nz",),
-                positions=("fma-warnings-and-enforcement",)),
+                positions=("fma-warnings-and-enforcement",), corpora=("estate-fma",)),
     "worksafe": Lane(update=("qv4-worksafe-capture", "qv4-worksafe-load"), hosts=("worksafe.govt.nz",),
-                     positions=("worksafe-prosecutions-and-undertakings",), asks=("qv4-worksafe-capture",)),
+                     positions=("worksafe-prosecutions-and-undertakings",), asks=("qv4-worksafe-capture",),
+                     corpora=("estate-worksafe",)),
     "tenders": Lane(update=("qv4-tenders-refresh", "qv4-tenders-load"),
                     hosts=("mbie.govt.nz", "data.govt.nz", "catalogue.data.govt.nz"),
                     positions=("government-procurement-award-notices",)),
@@ -132,12 +153,13 @@ LANES = {
     "building_practitioners": Lane(update=("qv4-building-practitioners-capture",
                                            "qv4-building-practitioners-register-capture", "qv4-building-practitioners-load"),
                                    hosts=("kete-lbp.mbie.govt.nz",), positions=("building-practitioners-register",),
-                                   asks=("qv4-building-practitioners-capture", "qv4-building-practitioners-register-capture")),
+                                   asks=("qv4-building-practitioners-capture", "qv4-building-practitioners-register-capture"),
+                                   corpora=("estate-building_practitioners",)),
     "linz": Lane(update=("qv4-linz-capture", "qv4-linz-load"), positions=("linz-data-service",)),
     "real_estate_authority": Lane(update=("qv4-real-estate-authority-capture", "qv4-real-estate-authority-load"),
                                   hosts=("publicregister.rea.govt.nz",), positions=("real-estate-authority-decisions",)),
     "courts": Lane(update=(MCP_PULL, "qv4-courts-load", "qv4-courts-jdo-capture", "qv4-courts-era-capture"),
-                   read=("qv4-courts-read", "qv4-courts-pages"), corpora=("courts",),
+                   read=("qv4-courts-read", "qv4-courts-pages"), corpora=("courts", "estate-courts-jdo", "estate-courts-era"),
                    hosts=("justice.govt.nz", "determinations.era.govt.nz"),
                    positions=("court-judgments", "specialist-court-and-authority-decisions"),
                    waiting=(("court_documents", "outcome LIKE 'waiting%'"),),
@@ -149,13 +171,14 @@ LANES = {
     "council_minutes": Lane(update=("qv4-council-minutes-capture", "qv4-council-minutes-load"),
                             read=("qv4-council-minutes-read", "qv4-council-minutes-pages"),
                             hosts=("*.infocouncil.biz",), positions=("council-meeting-platform-infocouncil",),
-                            asks=("qv4-council-minutes-capture",)),
+                            asks=("qv4-council-minutes-capture",), corpora=("estate-council_minutes",)),
     "councillor_interests": Lane(update=("qv4-councillor-interests-capture", "qv4-councillor-interests-load"),
                                  read=("qv4-councillor-interests-read",), positions=("councillors-registers-of-interests",),
-                                 asks=("qv4-councillor-interests-capture",)),
+                                 asks=("qv4-councillor-interests-capture",), corpora=("estate-councillor_interests",)),
     "local_elections": Lane(update=("qv4-local-elections-listings", "qv4-local-elections-files", "qv4-local-elections-load"),
                             positions=("local-election-candidate-returns",), coverage="local_elections",
-                            asks=("qv4-local-elections-listings", "qv4-local-elections-files")),
+                            asks=("qv4-local-elections-listings", "qv4-local-elections-files"),
+                            corpora=("estate-local_elections",)),
     "links": Lane(update=("qv4-links-build", "qv4-sightings-forms", "qv4-sightings-beehive", "qv4-sightings-hansard",
                           "qv4-sightings-parliament", "qv4-sightings-courts")),
     "insolvency": Lane(update=("qv4-insolvency-removals", "qv4-insolvency-capture", "qv4-insolvency-load"),
@@ -329,6 +352,257 @@ def every_words(jt) -> str:
     return "daily"
 
 
+# ── the provider's freshness (ruling 159) ────────────────────────────────────
+
+def cadences(path: str = None) -> dict:
+    """corpus -> {days, basis, reason, paused_until (a date or None)} from checks/mcp_cadence.toml."""
+    with open(path or CADENCE_FILE, "rb") as f:
+        raw = tomllib.load(f)
+    out = {}
+    for c in raw.get("corpus") or []:
+        for k in ("corpus", "basis", "reason"):
+            if not c.get(k):
+                raise ValueError(f"a cadence in {path or CADENCE_FILE} names no {k}: {c}")
+        days = c.get("days")
+        if not isinstance(days, int) or isinstance(days, bool) or days < 0:
+            raise ValueError(f"a cadence's days is a whole number of days, 0 for a closed corpus: {c}")
+        if c["basis"] not in ("measured", "default"):
+            raise ValueError(f"a cadence's basis is measured or default: {c}")
+        if c["corpus"] in out:
+            raise ValueError(f"{c['corpus']} has two cadences in {path or CADENCE_FILE}")
+        until = c.get("paused_until")
+        if until is not None:
+            until = dt.date.fromisoformat(str(until))
+        out[c["corpus"]] = {"days": days, "basis": c["basis"], "reason": str(c["reason"]), "paused_until": until}
+    return out
+
+
+def publishes(days: int) -> str:
+    """A cadence in plain words."""
+    return {1: "daily", 2: "about daily", 3: "every few days", 7: "about weekly", 8: "about weekly",
+            14: "about fortnightly", 30: "about monthly", 31: "about monthly", 92: "about quarterly"}.get(
+        days, f"about every {days} days")
+
+
+def copy_state(corpus: str, facts: dict, now: dt.datetime) -> dict:
+    """How fresh the provider's copy of one corpus is: {state, corpus, newest, age_days, days, over_days, paused,
+    row}. state: "red" (older than three times its cadence), "orange" (older than its cadence), "fresh", "paused"
+    (a declared pause), "closed" (days 0), "uncadenced" (no line in mcp_cadence.toml) or "unmeasured" (no reading
+    of `corpora` holds it). Judged by the provider's `newest_arrival`, never by our pull; after a declared pause
+    the age counts from the pause's end."""
+    cad = facts.get("cadence", {}).get(corpus)
+    row = facts.get("freshness", {}).get(corpus)
+    out = {"corpus": corpus, "cadence": cad, "row": row, "newest": row and row.get("newest_arrival")}
+    if cad is None:
+        return {**out, "state": "uncadenced"}
+    if cad["days"] == 0:
+        return {**out, "state": "closed"}
+    until = cad.get("paused_until")
+    if until and now.astimezone(ZONE).date() < until:
+        return {**out, "state": "paused"}
+    if row is None or row.get("newest_arrival") is None:
+        return {**out, "state": "unmeasured"}
+    since = row["newest_arrival"]
+    if until:
+        since = max(since, dt.datetime.combine(until, dt.time(), ZONE))
+    age = (now - since).total_seconds() / DAY_S
+    state = RED if age > 3 * cad["days"] else ORANGE if age > cad["days"] else "fresh"
+    return {**out, "state": state, "age_days": age, "over_days": age - cad["days"]}
+
+
+def _stale_line(x: dict) -> str:
+    cad = x["cadence"]
+    line = (f"the provider's copy of {x['corpus']} has had nothing new since {when(x['newest'])}; "
+            f"its source publishes {publishes(cad['days'])}")
+    if x["state"] == RED:
+        line += f" ({x['age_days']:.0f} days, over three times that)"
+    return line
+
+
+def red_stale_copy(c: "Ctx") -> list:
+    return [_stale_line(x) for x in (copy_state(k, c.facts, c.now) for k in c.lane.corpora) if x["state"] == RED]
+
+
+def orange_stale_copy(c: "Ctx") -> list:
+    return [_stale_line(x) for x in (copy_state(k, c.facts, c.now) for k in c.lane.corpora) if x["state"] == ORANGE]
+
+
+def fresh_line(lane: Lane, facts: dict, now: dt.datetime) -> str:
+    """One short line for the board: the stalest judged copy the lane reads; "" for a lane the MCP does not feed."""
+    if not lane.corpora:
+        return ""
+    xs = [copy_state(k, facts, now) for k in lane.corpora]
+    judged = [x for x in xs if x["state"] in (RED, ORANGE, "fresh")]
+    if judged:
+        x = max(judged, key=lambda x: x["age_days"])
+        n = x["row"].get("arrivals_last_24h")
+        return (f"provider's copy: newest {when(x['newest'])}"
+                + (f", {n:,} in its last day" if n else "")
+                + f"; its source publishes {publishes(x['cadence']['days'])}")
+    paused = [x for x in xs if x["state"] == "paused"]
+    if paused:
+        until = min(x["cadence"]["paused_until"] for x in paused)
+        return f"provider's copy: not judged until {until.day} {until:%b} (a declared pause, checks/mcp_cadence.toml)"
+    if any(x["state"] == "unmeasured" for x in xs):
+        return "provider's copy: no freshness measure yet"
+    return ""
+
+
+def stale_corpora(facts: dict, now: dt.datetime) -> list:
+    """Every corpus past its cadence, the most overdue first: what the provider is asked to refresh."""
+    xs = [copy_state(k, facts, now) for k in sorted(facts.get("freshness", {}))]
+    return sorted((x for x in xs if x["state"] in (RED, ORANGE)), key=lambda x: -x["over_days"])
+
+
+PAGE_ROWS = 30      # never more than a page
+ASKED = "a running collector at the cadence, or word that it is a one-time copy"
+CLOSING_TITLE = "For the provider: closing the loop"
+REPAIRED_KEEP_DAYS = 7     # a repair stays in the feed this long after the fresh arrival that showed it
+
+
+def closing_section(previous_page: str = None, template: str = None) -> str:
+    """The integrator's closing section, carried through verbatim: the template file when there is one
+    (<handover>/mcp-stale.closing.md), else the section of that title in the page as last written; "" for none."""
+    for text, whole in ((template, True), (previous_page, False)):
+        if not text:
+            continue
+        if whole:
+            return text.strip("\n") + "\n"
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("#") and line.lstrip("#").strip() == CLOSING_TITLE:
+                return "\n".join(lines[i:]).strip("\n") + "\n"
+    return ""
+
+
+def _lane_words(row: dict) -> str:
+    if row.get("pipeline_lane"):
+        return row["pipeline_lane"] + (f" ({row['pipeline_status']})" if row.get("pipeline_status") else "")
+    return "no lane in pipeline.yaml" if row.get("pipeline_read") else "not known (`pipeline` did not answer)"
+
+
+def _iso(t) -> str:
+    return t.astimezone(dt.timezone.utc).isoformat(timespec="seconds") if t else None
+
+
+def request_id(corpus: str, newest) -> str:
+    """Stable per corpus and staleness episode: the episode ends with a fresh arrival, which moves newest_arrival."""
+    return f"{corpus}@{_iso(newest)}"
+
+
+def provider_feed(facts: dict, now: dt.datetime, previous: dict = None) -> dict:
+    """The machine-readable list (schema 1; Arthur, 10 November 2026): one object per stale corpus, and `repaired`:
+    corpora stale on the last run whose newest arrival has moved since, so fresh arrivals, never the provider's word,
+    confirm a repair. Kept REPAIRED_KEEP_DAYS after the arrival that showed it."""
+    stale = []
+    for x in stale_corpora(facts, now):
+        row, cad = x["row"], x["cadence"]
+        stale.append({"corpus": x["corpus"], "newest_arrival": _iso(x["newest"]), "records": row.get("records"),
+                      "arrivals_last_24h": row.get("arrivals_last_24h"), "cadence_days": cad["days"],
+                      "cadence_measured": cad["basis"] == "measured", "days_overdue": round(x["over_days"], 1),
+                      "pipeline_lane": row.get("pipeline_lane"), "asked": ASKED,
+                      "request_id": request_id(x["corpus"], x["newest"])})
+    stale.sort(key=lambda o: o["corpus"])
+    now_stale = {o["corpus"] for o in stale}
+    fresh = facts.get("freshness", {})
+    repaired = {}
+    prev = previous if isinstance(previous, dict) else {}
+    for o in prev.get("repaired") or []:          # still inside the keeping period, and not stale again
+        try:
+            kept = (now - dt.datetime.fromisoformat(o["repaired_at"])).total_seconds() < REPAIRED_KEEP_DAYS * DAY_S
+        except (KeyError, TypeError, ValueError):
+            continue
+        if kept and o.get("corpus") not in now_stale:
+            repaired[o["corpus"]] = o
+    for o in prev.get("stale") or []:
+        c = o.get("corpus")
+        row = fresh.get(c)
+        was = o.get("newest_arrival")
+        if c in now_stale or not row or not row.get("newest_arrival") or not was:
+            continue
+        try:
+            moved = row["newest_arrival"] > dt.datetime.fromisoformat(was)
+        except (TypeError, ValueError):
+            continue
+        if moved:                                  # fresh arrivals since the run that listed it
+            repaired[c] = {"corpus": c, "request_id": o.get("request_id"), "stale_newest_arrival": was,
+                           "repaired_at": _iso(row["newest_arrival"]), "seen_at": _iso(now)}
+    at = [r["at"] for r in fresh.values() if r.get("at")]
+    return {"schema_version": 1, "measured_at": _iso(max(at)) if at else None, "written_at": _iso(now),
+            "stale": stale, "repaired": sorted(repaired.values(), key=lambda o: o["corpus"])}
+
+
+def provider_list(facts: dict, now: dt.datetime, closing: str = "", feed: dict = None) -> str:
+    """The provider's list (ruling 159): dated, plain, at most a page. Arthur passes it on. `closing` (the
+    integrator's section) is carried through verbatim at the end."""
+    rows = stale_corpora(facts, now)
+    at = [r["at"] for r in facts.get("freshness", {}).values() if r.get("at")]
+    t = now.astimezone(ZONE)
+    out = [f"# The ingest MCP's stale copies, {t.day} {t:%B %Y} {t:%H:%M} NZ time", "",
+           "Each corpus here has had no new record for longer than its source's usual gap between publications. "
+           "The dates are the MCP's own (`corpora`: newest arrival)"
+           + (f", read {when(max(at))}" if at else "") + ". The cadences and their reasons are in "
+           "checks/mcp_cadence.toml. This file is rewritten every half hour; the same list is in mcp-stale.json.", ""]
+    if not rows:
+        out.append("Nothing is stale: every corpus is inside its cadence." if at else
+                   "No reading of `corpora` is held yet, so nothing can be judged.")
+    else:
+        out += ["| Corpus | Newest arrival | Its source publishes | Days overdue | Provider's pipeline lane |",
+                "| --- | --- | --- | --- | --- |"]
+        for x in rows[:PAGE_ROWS]:
+            over = x["over_days"]
+            out.append(f"| {x['corpus']} | {when(x['newest'])} | {publishes(x['cadence']['days'])} "
+                       f"(every {x['cadence']['days']} days) | {'under 1' if over < 1 else f'{over:.0f}'} | "
+                       f"{_lane_words(x['row'])} |")
+        if len(rows) > PAGE_ROWS:
+            out.append(f"\nAnd {len(rows) - PAGE_ROWS} more.")
+        out += ["", f"What is asked, for each: {ASKED}."]
+    rep = (feed or {}).get("repaired") or []
+    if rep:
+        out += ["", "Repaired (new records have arrived since it was listed): "
+                + ", ".join(f"{o['corpus']} ({when(o['repaired_at'])})" for o in rep) + "."]
+    text = "\n".join(out) + "\n"
+    return text + ("\n" + closing if closing else "")
+
+
+def _write(text: str, path: str) -> str:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+    return path
+
+
+def write_provider_list(text: str, path: str = None) -> str:
+    return _write(text, path or STALE_FILE)
+
+
+def write_provider_feed(feed: dict, path: str = None) -> str:
+    return _write(json.dumps(feed, ensure_ascii=False, indent=1, sort_keys=True) + "\n", path or STALE_JSON)
+
+
+def _read(path: str):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def provider_outputs(facts: dict, now: dt.datetime, page_path: str = None, json_path: str = None,
+                     template_path: str = None) -> tuple:
+    """(page, feed) from the facts, the last feed (for repairs) and the closing section (template, or the last page)."""
+    page_path, json_path = page_path or STALE_FILE, json_path or STALE_JSON
+    try:
+        previous = json.loads(_read(json_path) or "null")
+    except ValueError:
+        previous = None
+    feed = provider_feed(facts, now, previous)
+    closing = closing_section(_read(page_path), _read(template_path or STALE_CLOSING))
+    return provider_list(facts, now, closing, feed), feed
+
+
 # ── the lights ───────────────────────────────────────────────────────────────
 
 def corpus_reds(lane: Lane, facts: dict) -> list:
@@ -341,10 +615,14 @@ def corpus_reds(lane: Lane, facts: dict) -> list:
         return [f"{MCP_PULL}'s last run failed at {when(last['finished_at'])}"] if last and last["state"] == "failed" else []
     out = []
     at = when(rec.get("ended") or rec.get("started"))
+    detail = str(rec.get("detail") or "")
     for c in lane.corpora:
         if f"{c}_to" not in rec:
-            if not rec.get("ok", True):
-                out.append(f"{MCP_PULL} failed before it reached the {c} corpus ({at})")
+            # red only when the run says it failed on this corpus, or on `corpora` itself. A corpus the run did not
+            # reach (its budget spent: the estate-* corpora come last in the pull's list) is not a failure; the
+            # copy's freshness is judged by the provider's newest arrival instead (ruling 159)
+            if not rec.get("ok", True) and (f"{c}: FAILED" in detail or "`corpora` failed" in detail):
+                out.append(f"{MCP_PULL} failed on the {c} corpus ({at})")
             continue
         if rec.get(f"{c}_caught"):
             out.append(f"{MCP_PULL} caught {rec[f'{c}_caught']:,} {c} record(s) it could not land ({at})")
@@ -457,12 +735,20 @@ def green_up_to_date(c: Ctx) -> list:
     return [f"up to date: last good update {when(last)}"]
 
 
-RED_RULES = [red_held_host, red_failed_run, red_corpus, red_late]
-ORANGE_RULES = [orange_held_host, orange_switched_off, orange_pieces, orange_waiting, orange_short_count, orange_gap]
+RED_RULES = [red_held_host, red_failed_run, red_corpus, red_stale_copy, red_late]
+ORANGE_RULES = [orange_held_host, orange_switched_off, orange_stale_copy, orange_pieces, orange_waiting, orange_short_count,
+                orange_gap]
 GREEN_RULES = [green_up_to_date]
 
 
 def light_of(register: str, held: bool, facts: dict, now: dt.datetime) -> dict:
+    out = _light_of(register, held, facts, now)
+    lane = LANES.get(register)
+    fresh = fresh_line(lane, facts, now) if lane else ""
+    return {**out, "fresh": fresh} if fresh else out
+
+
+def _light_of(register: str, held: bool, facts: dict, now: dt.datetime) -> dict:
     registry = facts["registry"]
     lane = LANES.get(register)
     if lane is None:
@@ -504,7 +790,7 @@ def compute(facts: dict, now: dt.datetime = None, regs: list = None) -> dict:
 def empty_facts(registry: dict = None) -> dict:
     return {"registry": registry if registry is not None else reg.load(), "last_finished": {}, "last_done": {},
             "open": [], "timetable": {}, "refusals": {}, "positions": {}, "mcp_run": None, "waiting": {},
-            "coverage": {}, "gaps": []}
+            "coverage": {}, "gaps": [], "freshness": {}, "cadence": {}}
 
 
 def gather(conn, schema: str = "scheduler") -> dict:
@@ -534,6 +820,9 @@ def gather(conn, schema: str = "scheduler") -> dict:
         if lane.coverage:
             facts["coverage"][register] = tuple(int(x) for x in conn.execute(COVERAGE[lane.coverage][0]).fetchone())
     facts["gaps"] = gaps()
+    from support.mcpsource import freshness
+    facts["freshness"] = freshness.latest(conn)
+    facts["cadence"] = cadences()
     return facts
 
 
@@ -554,6 +843,8 @@ def summary(result: dict) -> str:
         for x in result["lights"]:
             if x["light"] == k:
                 lines.append(f"  {k:<6} {x['register']:<24} {x['reason']}")
+                if x.get("fresh"):
+                    lines.append(f"  {'':<6} {'':<24} {x['fresh']}")
     return "\n".join(lines)
 
 
@@ -567,11 +858,16 @@ def main(argv=None) -> int:
     started = dt.datetime.now().astimezone()
     with db.connect(db.READ_KEY, a.database, autocommit=True) as conn:
         conn.execute("SET statement_timeout = 60000")
-        result = compute(gather(conn))
+        facts = gather(conn)
+        result = compute(facts)
     print(summary(result))
+    stale, feed = provider_outputs(facts, dt.datetime.fromisoformat(result["computed_at"]))
     if a.print:
+        print("\n" + stale, end="")
         return 0
     write(result)
+    write_provider_list(stale)
+    write_provider_feed(feed)
     counts = {k: sum(1 for x in result["lights"] if x["light"] == k) for k in LIGHTS}
     jobrun.record(JOB, True, ", ".join(f"{k} {v}" for k, v in counts.items()), started, counts)
     return 0

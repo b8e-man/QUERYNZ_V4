@@ -4,7 +4,10 @@ written every 30 minutes by the `qv4-source-lights` job (checks/source_lights.py
 for each register a light, red, orange, green or grey, and a reason. The
 file is read at most once a minute. Missing, unreadable, or computed more
 than STALE_S ago, every dot is grey with the reason "the lights are stale".
-A register the file does not name is grey, "no light computed"."""
+A register the file does not name is grey, "no light computed".
+A register the ingest MCP feeds carries one short `fresh` line beside its
+reason (ruling 159: the provider's newest arrival against its source's
+cadence), shown after the reason on hover and to a screen reader."""
 from __future__ import annotations
 
 import datetime as dt
@@ -51,7 +54,8 @@ def parse(data, now: dt.datetime) -> dict:
     out = {}
     for x in data.get("lights") or []:
         if isinstance(x, dict) and x.get("light") in LIGHTS and x.get("register"):
-            out[x["register"]] = (x["light"], str(x.get("reason") or ""))
+            reason, fresh = str(x.get("reason") or ""), str(x.get("fresh") or "").strip()
+            out[x["register"]] = (x["light"], f"{reason}; {fresh}" if reason and fresh else reason or fresh)
     return out
 
 

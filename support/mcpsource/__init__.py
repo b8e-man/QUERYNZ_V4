@@ -624,18 +624,21 @@ def download_files(conn, client, corpus: str, schema: str = SCHEMA, pause_s: flo
 
 
 def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bool = True, files: bool = True,
-             **kw) -> dict:
+             on_listing=None, **kw) -> dict:
     """Every corpus `corpora` names (or `only`), each from its cursor, then
     (with `follow`) each one's change feed from the stamp followed last,
     then (with `files`) the files its records point at, in what is left of
     `budget_s` after the records of every corpus, so a short budget still
     lands the listings: {corpus: counts}. A corpus that fails is recorded
-    with its error and the others still run."""
+    with its error and the others still run. `on_listing`, when given, is
+    called with the whole `corpora` listing before any corpus is pulled."""
     t0 = time.monotonic()
     listing = client.call_retrying("corpora", {}, log=log, sleep=kw.get("sleep", time.sleep))
     corpora = listing.get("corpora") if isinstance(listing, dict) else None
     if not isinstance(corpora, list) or not all(isinstance(c, dict) and "name" in c for c in corpora):
         raise ShapeError(f"`corpora` is not the MCP's shape: {type(listing).__name__}")
+    if on_listing:      # every corpus of the listing, `only` or not: the freshness record (ruling 159, freshness.py)
+        on_listing(corpora)
     held = Tables(conn, schema).cursors()
     res = {}
     for c in corpora:

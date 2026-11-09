@@ -1,0 +1,252 @@
+# How old the ingest MCP's copy of each corpus may get before it is stale (ruling 159, 10 November 2026).
+#
+# `days`: about how often the source publishes something new, so how long the provider's copy may go with no new
+# arrival. The lights (checks/source_lights.py) judge each corpus by the provider's own `newest_arrival` from
+# `corpora` (kept in mcpsource.freshness), never by our pull: past `days` the lanes reading it are orange, past three
+# times `days` red, and the corpus goes on the provider's list (<work>/handover/mcp-stale.md).
+# `basis`: "measured" from the history the estate holds (the days our own captures landed new documents before the
+#   boxes stopped gathering on 9 November, docs.documents by source; or, for the MCP's own corpora, the days the pull
+#   took new records, mcpsource.arrivals), or "default": a conservative guess, to be measured once the history allows.
+# `paused_until`: a declared pause (the source publishes nothing until then). Until that day the corpus is not judged;
+#   after it, its age counts from that day, so a copy that was quiet for a reason is not red the morning after.
+# `days = 0`: a closed corpus (a one-off survey, a complete set), never judged.
+# Measured on 10 November 2026 (stream F): new-document days per source, 18 October to 9 November.
+
+# ── the sources handed to the provider on 5 November (estate-*) ──
+
+[[corpus]]
+corpus = "estate-commerce_commission"
+days = 8
+basis = "measured"
+reason = "our weekly pass found new cases on 22 Oct, 29 Oct and 6 Nov, seven and eight days apart: about weekly"
+
+[[corpus]]
+corpus = "estate-worksafe"
+days = 8
+basis = "measured"
+reason = "our captures found new prosecutions on 22 Oct, 29 Oct and 6 Nov, seven and eight days apart: about weekly"
+
+[[corpus]]
+corpus = "estate-councillor_interests"
+days = 31
+basis = "measured"
+reason = "councils update their registers rarely: after the first pass (23 Oct) new documents only on 3 Nov; each council's page is asked monthly"
+
+[[corpus]]
+corpus = "estate-council_minutes"
+days = 7
+basis = "measured"
+reason = "new minutes found on 29 Oct, 2 Nov and 5 Nov: every three to seven days; each council's listing is asked weekly"
+
+[[corpus]]
+corpus = "estate-local_elections"
+days = 7
+basis = "measured"
+reason = "new return files on 12 of the 14 days 25 Oct to 7 Nov, but the listings are walked weekly: at most a week"
+
+[[corpus]]
+corpus = "estate-building_practitioners"
+days = 2
+basis = "measured"
+reason = "new register pages every day 2 to 9 Nov (about 4,400 a day); the provider adds about 3,000 a day"
+
+[[corpus]]
+corpus = "estate-fma"
+days = 7
+basis = "measured"
+reason = "our weekly pass found new items on 29 Oct and 5 Nov: about weekly"
+
+[[corpus]]
+corpus = "estate-courts-jdo"
+days = 2
+basis = "measured"
+reason = "new decisions every night 3 to 8 Nov (1,284 to 4,618 a night)"
+
+[[corpus]]
+corpus = "estate-courts-era"
+days = 2
+basis = "measured"
+reason = "new determinations every night 5 to 9 Nov (307 to 1,283 a night)"
+
+[[corpus]]
+corpus = "estate-courts-finder"
+days = 7
+basis = "default"
+reason = "our finder walk ran once (3 Nov), so no history; the Ministry's finder adds decisions most weeks: a week, conservative"
+
+[[corpus]]
+corpus = "estate-courts"
+days = 7
+basis = "measured"
+reason = "new case pages on 22 Oct, 24 Oct, 29 Oct and 30 Oct: every two to five days"
+
+[[corpus]]
+corpus = "estate-courts-survey"
+days = 0
+basis = "default"
+reason = "reference pages of a one-off site survey (3 Nov): closed, not judged"
+
+[[corpus]]
+corpus = "estate-candidate_returns"
+days = 30
+basis = "default"
+reason = "the Commission publishes general-election candidate returns in batches after an election; our one load (20 Oct) gives no cadence: a month, conservative"
+
+[[corpus]]
+corpus = "estate-disclosures"
+days = 3
+basis = "measured"
+reason = "new disclosure files on every day 20 Oct to 9 Nov (one to nine a day)"
+
+[[corpus]]
+corpus = "estate-charities"
+days = 8
+basis = "measured"
+reason = "new register documents on 12 of the 19 days 22 Oct to 9 Nov, daily but for one gap of eight days (27 Oct to 4 Nov)"
+
+[[corpus]]
+corpus = "estate-real_estate_authority"
+days = 2
+basis = "measured"
+reason = "new documents every day 23 Oct to 9 Nov (10 to 29 a day)"
+
+[[corpus]]
+corpus = "estate-grants"
+days = 7
+basis = "measured"
+reason = "new grant documents on 7 of the days 23 Oct to 6 Nov, the longest gap 31 Oct to 4 Nov: about weekly"
+
+[[corpus]]
+corpus = "estate-tenancy_tribunal"
+days = 3
+basis = "measured"
+reason = "after the backfill, new orders on most days 28 Oct to 3 Nov; the Tribunal publishes orders daily"
+
+[[corpus]]
+corpus = "estate-iwi_directory"
+days = 31
+basis = "measured"
+reason = "the directory changed once after the first pass (22 Oct to 30 Oct): rarely; a month"
+
+[[corpus]]
+corpus = "estate-settlement_commitments"
+days = 7
+basis = "measured"
+reason = "the watched pages changed on 29 Oct, 4 Nov and 9 Nov: about weekly"
+
+[[corpus]]
+corpus = "estate-council_procurement"
+days = 31
+basis = "default"
+reason = "four terms pages, changed once since 22 Oct; the lane is switched off (ruling 136): a month"
+
+# ── the MCP's own corpora ──
+
+[[corpus]]
+corpus = "courts"
+days = 2
+basis = "measured"
+reason = "the pull took new records every day 30 Oct to 10 Nov (800 to 9,927 a day)"
+
+[[corpus]]
+corpus = "beehive"
+days = 7
+basis = "measured"
+reason = "new releases on 6 of the 8 days 2 to 9 Nov; quieter in the election period: a week"
+
+[[corpus]]
+corpus = "gets"
+days = 3
+basis = "measured"
+reason = "new notices on 6 of the 7 days 3 to 9 Nov; GETS publishes notices every working day"
+
+[[corpus]]
+corpus = "court-mlc-data"
+days = 0
+basis = "default"
+reason = "the provider's lane is complete (27 of 27 bulk datasets, 3 Nov): closed, not judged"
+
+[[corpus]]
+corpus = "parliament-wayback"
+days = 3
+basis = "measured"
+reason = "the provider's archive walk added records every day 26 Oct to 9 Nov (464 to 6,652 a day)"
+
+[[corpus]]
+corpus = "parliament-diaries"
+days = 92
+basis = "default"
+reason = "ministers release their diaries in batches, months in arrears (the copy runs to 31 Aug); a quarter, conservative"
+
+[[corpus]]
+corpus = "parliament-hansard-index"
+days = 7
+basis = "measured"
+reason = "the provider's sitemap pages added records every day 27 Oct to 8 Nov, even with the House not sitting"
+
+# The House rose for the 7 November general election: the copies' last sitting is 23 Sep and the last written
+# question 6 Oct. Nothing is published until the new Parliament meets. 1 December is a guess, not a date anyone has
+# set: revise it when the first sitting day is known.
+
+[[corpus]]
+corpus = "parliament-hansard-debates"
+days = 7
+basis = "default"
+paused_until = "2026-12-01"
+reason = "a sitting week's debates are published within days while the House sits; it rose for the election"
+
+[[corpus]]
+corpus = "parliament-written-questions"
+days = 7
+basis = "default"
+paused_until = "2026-12-01"
+reason = "questions are lodged and answered every sitting week; none can be lodged while Parliament is dissolved"
+
+[[corpus]]
+corpus = "parliament-bills"
+days = 14
+basis = "default"
+paused_until = "2026-12-01"
+reason = "bills move a stage most sitting weeks; none while Parliament is dissolved"
+
+[[corpus]]
+corpus = "parliament-bills-historical"
+days = 31
+basis = "default"
+paused_until = "2026-12-01"
+reason = "a bill joins the historical list when it ends; few end outside sittings"
+
+[[corpus]]
+corpus = "parliament-sops"
+days = 14
+basis = "default"
+paused_until = "2026-12-01"
+reason = "supplementary order papers come with bills in committee; none while Parliament is dissolved"
+
+[[corpus]]
+corpus = "parliament-sc-reports"
+days = 14
+basis = "default"
+paused_until = "2026-12-01"
+reason = "select committees report most sitting weeks; committees lapse at dissolution"
+
+[[corpus]]
+corpus = "parliament-sc-submissions"
+days = 14
+basis = "default"
+paused_until = "2026-12-01"
+reason = "committees call for submissions most sitting weeks; committees lapse at dissolution"
+
+[[corpus]]
+corpus = "parliament-sc-evidence"
+days = 14
+basis = "default"
+paused_until = "2026-12-01"
+reason = "evidence and advice are published as committees hear bills; committees lapse at dissolution"
+
+[[corpus]]
+corpus = "parliament-papers"
+days = 14
+basis = "default"
+paused_until = "2026-12-01"
+reason = "papers are presented to the House on sitting days; few while Parliament is dissolved"

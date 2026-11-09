@@ -99,3 +99,20 @@ def test_the_colours_are_the_sheet_s_and_hold_the_floor():
     broken = panes.CSS.replace("span.light.red{border-color:#f05050}", "span.light.red{border-color:#301010}")
     assert any("red light" in p for p in panes.contrast_problems(broken))
     assert {c for c, _ in panes.LIGHT_COLOURS} == set(lights.LIGHTS)
+
+
+def test_an_mcp_fed_register_shows_its_copy_s_freshness_in_one_line(tmp_path):
+    """Ruling 159: the light of a register the ingest MCP feeds carries one short line on the provider's copy, after
+    its reason, on hover and for a screen reader; a register without one shows its reason alone."""
+    line = "provider's copy: newest 8 Nov 00:15; its source publishes about weekly"
+    L = fresh(file(tmp_path, rows=[
+        {"register": HELD[0], "light": "green", "reason": "up to date", "fresh": line},
+        {"register": HELD[1], "light": "orange", "reason": "a gap"},
+        {"register": HELD[2], "light": "green", "reason": "", "fresh": line}]))
+    assert lights.light_for(L, HELD[0]) == ("green", f"up to date; {line}")
+    assert lights.light_for(L, HELD[1]) == ("orange", "a gap")
+    assert lights.light_for(L, HELD[2]) == ("green", line)
+    got = dots(panes.register_boxes(HELD, search.FIRST, "q", lights=L))
+    green = [(t, sr) for k, t, sr in got if k == "green"]
+    assert any(t.endswith("up to date; " + line.replace("'", "&#x27;")) and sr.endswith("up to date; " + line.replace("'", "&#x27;"))
+               for t, sr in green), green

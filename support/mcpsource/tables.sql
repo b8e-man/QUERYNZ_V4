@@ -76,3 +76,20 @@ CREATE INDEX IF NOT EXISTS mcpsource_files_waiting ON mcpsource.files (corpus, s
 CREATE INDEX IF NOT EXISTS mcpsource_files_hash ON mcpsource.files (capture_sha256);
 -- a page's copies by address, newest arrival first: what a lane replaying its walk from the MCP reads (replay.py)
 CREATE INDEX IF NOT EXISTS mcpsource_files_url ON mcpsource.files (url, seq DESC);
+
+-- the MCP's own freshness per corpus, each time the pull reads `corpora` (ruling 159, freshness.py): never wiped, so a
+-- corpus that stops growing is seen in its history even when nothing else changes. The lights judge a copy by the
+-- provider's `newest_arrival` against its source's cadence (checks/mcp_cadence.toml), never by our pull
+CREATE TABLE IF NOT EXISTS mcpsource.freshness (
+    at                timestamptz NOT NULL,     -- when `corpora` was read
+    corpus            text NOT NULL,
+    records           bigint,                   -- `records`
+    ingest_cursor     bigint,                   -- `ingest_cursor`
+    newest_arrival    timestamptz,              -- `newest_arrival`: when the provider last added a record
+    arrivals_last_24h bigint,                   -- `arrivals_last_24h`
+    date_to           text,                     -- `date_to`, as served
+    pipeline_lane     text,                     -- the `pipeline` lane whose corpus this is; NULL: none, or not read
+    pipeline_status   text,                     -- that lane's status (active, complete, blocked)
+    pipeline_read     boolean NOT NULL,         -- false: `pipeline` did not answer, so a NULL lane says nothing
+    PRIMARY KEY (corpus, at)
+);

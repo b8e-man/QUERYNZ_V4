@@ -215,8 +215,12 @@ def test_the_mcp_pull_is_judged_per_corpus(registry):
     f["mcp_run"]["mcorp_drift"] = 0
     f["mcp_run"]["mcorp_caught"] = 2
     assert light(f, "m") == "red"
-    f["mcp_run"] = {"job": sl.MCP_PULL, "ok": False}                 # stopped before the corpus
-    assert light(f, "m") == "red" and "failed before it reached the mcorp corpus" in lights(f)["m"]["reason"]
+    f["mcp_run"] = {"job": sl.MCP_PULL, "ok": False, "detail": "othercorp: FAILED HTTP 500"}   # never reached it
+    assert light(f, "m") == "green"            # its budget spent before the corpus: not red for that (ruling 159)
+    f["mcp_run"]["detail"] = "othercorp: 1→2 of 2; mcorp: FAILED McpError: HTTP 502"
+    assert light(f, "m") == "red" and "failed on the mcorp corpus" in lights(f)["m"]["reason"]
+    f["mcp_run"] = {"job": sl.MCP_PULL, "ok": False, "detail": "`corpora` failed: McpError: refused"}
+    assert light(f, "m") == "red"
     f["mcp_run"] = None                                               # no run record at all: the queue row says
     assert light(f, "m") == "red"
 
@@ -355,6 +359,115 @@ def test_two_reasons_say_how_many_more(registry):
     assert x["reason"].endswith("(and 1 more)") and len(x["reasons"]) == 2
 
 
+# ── the provider's freshness (ruling 159) ──
+
+def fresh_facts(registry, days_old, cadence=7, paused_until=None, lane="mcorp-lane", read=True):
+    """Lane m reads mcorp; the provider's newest arrival `days_old` days before NOW."""
+    f = good_facts(registry)
+    f["cadence"] = {"mcorp": {"days": cadence, "basis": "measured", "reason": "r", "paused_until": paused_until}}
+    f["freshness"] = {"mcorp": {"at": ago(1), "corpus": "mcorp", "records": 10, "ingest_cursor": 10,
+                                "newest_arrival": NOW - dt.timedelta(days=days_old), "arrivals_last_24h": 0,
+                                "date_to": None, "pipeline_lane": lane, "pipeline_status": "active" if lane else None,
+                                "pipeline_read": read, "grew_at": None}}
+    return f
+
+
+def test_a_copy_past_its_cadence_is_orange_and_past_three_times_red(registry):
+    f = fresh_facts(registry, 6.5)
+    assert light(f, "m") == "green" and lights(f)["m"]["fresh"].startswith("provider's copy: newest 29 Oct 00:00;")
+    f = fresh_facts(registry, 7.5)
+    m = lights(f)["m"]
+    assert m["light"] == "orange", m
+    assert m["reason"] == "the provider's copy of mcorp has had nothing new since 28 Oct 00:00; its source publishes about weekly"
+    f = fresh_facts(registry, 20.5)
+    assert light(f, "m") == "orange"
+    f = fresh_facts(registry, 21.5)
+    m = lights(f)["m"]
+    assert m["light"] == "red" and m["reason"].endswith("(22 days, over three times that)"), m
+    assert "fresh" not in lights(f)["x"]                                    # a lane the MCP does not feed
+
+
+def test_freshness_is_the_provider_s_newest_arrival_not_our_pull(registry):
+    """A pull that ran out of budget before the corpus (the estate-* corpora come last) is not red, and a pull that
+    took everything does not make a stale copy fresh."""
+    f = fresh_facts(registry, 1)
+    f["mcp_run"] = {"job": sl.MCP_PULL, "ok": False, "ended": ago(1).isoformat(), "detail": "othercorp: 0→5 of 9 (budget)"}
+    assert light(f, "m") == "green"
+    f = fresh_facts(registry, 30)
+    f["last_done"][sl.MCP_PULL] = f["last_finished"][sl.MCP_PULL] = done(0.5)
+    assert light(f, "m") == "red"                                           # our pull an hour ago changes nothing
+
+
+def test_a_declared_pause_and_a_closed_corpus_are_not_judged(registry):
+    soon = (NOW + dt.timedelta(days=3)).date()
+    f = fresh_facts(registry, 60, paused_until=soon)
+    assert light(f, "m") == "green" and "not judged until 6 Nov" in lights(f)["m"]["fresh"]
+    gone = (NOW - dt.timedelta(days=9)).date()                             # the pause ended nine days ago
+    f = fresh_facts(registry, 60, paused_until=gone)
+    m = lights(f)["m"]
+    assert m["light"] == "orange", m                                       # 9 days since the pause, not 60
+    f = fresh_facts(registry, 60, cadence=0)
+    assert light(f, "m") == "green" and "fresh" not in lights(f)["m"]
+    f = fresh_facts(registry, 60)
+    f["cadence"] = {}                                                       # no line: not judged, and the cadence test
+    assert light(f, "m") == "green"                                         # below holds every real corpus to a line
+
+
+def test_no_freshness_measure_yet_says_so(registry):
+    f = good_facts(registry)
+    f["cadence"] = {"mcorp": {"days": 7, "basis": "default", "reason": "r", "paused_until": None}}
+    m = lights(f)["m"]
+    assert m["light"] == "green" and m["fresh"] == "provider's copy: no freshness measure yet"
+
+
+def test_the_provider_list(registry):
+    f = fresh_facts(registry, 30, lane=None)
+    f["freshness"]["other"] = {**f["freshness"]["mcorp"], "corpus": "other", "pipeline_lane": "other-capture",
+                               "pipeline_status": "blocked", "newest_arrival": NOW - dt.timedelta(days=9.5)}
+    f["freshness"]["fine"] = {**f["freshness"]["mcorp"], "corpus": "fine", "newest_arrival": NOW - dt.timedelta(days=1)}
+    f["freshness"]["unread"] = {**f["freshness"]["mcorp"], "corpus": "unread", "pipeline_lane": None,
+                                "pipeline_read": False, "newest_arrival": NOW - dt.timedelta(days=7.4)}
+    for k in ("other", "fine", "unread"):
+        f["cadence"][k] = {"days": 7, "basis": "measured", "reason": "r", "paused_until": None}
+    text = sl.provider_list(f, NOW)
+    lines = text.splitlines()
+    assert lines[0] == "# The ingest MCP's stale copies, 4 November 2026 12:00 NZ time"
+    rows = [l for l in lines if l.startswith("| ") and not l.startswith("| Corpus") and not l.startswith("| ---")]
+    assert rows == ["| mcorp | 5 Oct 12:00 | about weekly (every 7 days) | 23 | no lane in pipeline.yaml |",
+                    "| other | 26 Oct 00:00 | about weekly (every 7 days) | 2 | other-capture (blocked) |",
+                    "| unread | 28 Oct 02:24 | about weekly (every 7 days) | under 1 | not known (`pipeline` did not answer) |"]
+    f["freshness"] = {"fine": f["freshness"]["fine"]}
+    assert "Nothing is stale" in sl.provider_list(f, NOW)
+    f["freshness"] = {}
+    assert "No reading of `corpora` is held yet" in sl.provider_list(f, NOW)
+    many = fresh_facts(registry, 30)
+    for i in range(sl.PAGE_ROWS + 5):
+        many["freshness"][f"c{i:02}"] = {**many["freshness"]["mcorp"], "corpus": f"c{i:02}"}
+        many["cadence"][f"c{i:02}"] = many["cadence"]["mcorp"]
+    text = sl.provider_list(many, NOW)
+    assert sum(1 for l in text.splitlines() if l.startswith("| c")) == sl.PAGE_ROWS and "And 6 more." in text
+
+
+def test_the_provider_list_is_written_whole(tmp_path):
+    p = tmp_path / "handover" / "mcp-stale.md"
+    sl.write_provider_list("# x\n", str(p))
+    assert p.read_text() == "# x\n" and not (tmp_path / "handover" / "mcp-stale.md.tmp").exists()
+
+
+def test_a_bad_cadence_is_refused(tmp_path):
+    p = tmp_path / "c.toml"
+    for bad in ('corpus = "a"\ndays = 7\nbasis = "measured"\n',                                  # no reason
+                'corpus = "a"\ndays = "weekly"\nbasis = "measured"\nreason = "r"\n',           # not a number
+                'corpus = "a"\ndays = 7\nbasis = "guessed"\nreason = "r"\n',                   # not measured or default
+                'corpus = "a"\ndays = 7\nbasis = "default"\nreason = "r"\n[[corpus]]\ncorpus = "a"\ndays = 1\n'
+                'basis = "default"\nreason = "r"\n'):                                             # two lines
+        p.write_text("[[corpus]]\n" + bad)
+        with pytest.raises(ValueError):
+            sl.cadences(str(p))
+    p.write_text('[[corpus]]\ncorpus = "a"\ndays = 7\nbasis = "default"\nreason = "r"\npaused_until = "2026-12-01"\n')
+    assert sl.cadences(str(p))["a"]["paused_until"] == dt.date(2026, 12, 1)
+
+
 # ── mutants: each rule removed in turn is caught by the scenarios above ──
 
 SCENARIOS = [test_everything_working_is_green, test_a_failed_last_run_is_red, test_a_failed_reader_is_red,
@@ -363,7 +476,8 @@ SCENARIOS = [test_everything_working_is_green, test_a_failed_last_run_is_red, te
              test_the_mcp_pull_is_judged_per_corpus, test_a_held_host_is_red,
              test_a_held_host_among_many_a_position_names_is_orange_not_red, test_pieces_to_go_is_orange,
              test_documents_waiting_is_orange, test_a_short_count_is_orange, test_a_declared_gap_is_orange,
-             test_a_switched_off_capture_beside_a_running_load_is_orange]
+             test_a_switched_off_capture_beside_a_running_load_is_orange,
+             test_a_copy_past_its_cadence_is_orange_and_past_three_times_red]
 
 
 def caught(registry) -> bool:
@@ -502,3 +616,125 @@ def test_the_nine_stopped_sources_on_the_real_lanes(monkeypatch):
         x = sl.light_of(r, True, f, NOW)
         assert x["light"] == "green", (r, x)
         assert not any("fndc" in w for w in x["reasons"]), (r, x)
+
+
+
+def test_every_corpus_a_lane_reads_or_the_pull_takes_has_a_cadence():
+    """Ruling 159: a corpus with no cadence is never judged, so every corpus a lane reads and every corpus
+    qv4-mcp-pull takes has its line in checks/mcp_cadence.toml, with a reason."""
+    import os
+    import tomllib
+    cad = sl.cadences()
+    with open(os.path.join(sl.REPO, "support", "scheduler", "jobs.toml"), "rb") as f:
+        cmd = tomllib.load(f)["jobs"][sl.MCP_PULL]["command"]
+    pulled = {cmd[i + 1] for i, a in enumerate(cmd) if a == "--corpus"}
+    named = {c for lane in REAL_LANES.values() for c in lane.corpora}
+    assert (pulled | named) - set(cad) == set()
+    assert all(v["reason"] and v["basis"] in ("measured", "default") for v in cad.values())
+
+
+def test_every_lane_reading_the_mcp_s_copy_names_its_corpus():
+    """A capture or load run with --from-mcp reads its corpus only through the provider's copy, so its lane lists the
+    corpus and its light shows the copy's freshness (10 November 2026: the six lanes of stream A3, FMA, the courts'
+    two walks, the candidate returns)."""
+    real = reg.load()
+    for register, lane in REAL_LANES.items():
+        mcp = [j for j in lane.update if j in real and "--from-mcp" in tuple(real[j].command or ())]
+        if mcp:
+            assert any(c.startswith("estate-") for c in lane.corpora), (register, mcp, lane.corpora)
+    assert set(REAL_LANES["courts"].corpora) >= {"courts", "estate-courts-jdo", "estate-courts-era"}
+
+
+def test_the_stale_copies_of_10_november_on_the_real_lanes(monkeypatch):
+    """The MCP's `corpora` at 05:07 NZDT on 10 November 2026, judged on the real lanes and cadences: estate-courts
+    (newest 30 Oct, weekly) is the one copy past its cadence; commerce commission, worksafe and councillors' interests
+    (newest 8 Nov NZ time) are inside theirs, and go orange a week on if nothing arrives."""
+    monkeypatch.setattr(sl, "LANES", REAL_LANES)
+    real = reg.load()
+    f = sl.empty_facts(real)
+    f["cadence"] = sl.cadences()
+    now = dt.datetime(2026, 11, 9, 16, 14, tzinfo=UTC)
+    newest = {"estate-courts": "2026-10-30 03:38:35+13:00", "estate-commerce_commission": "2026-11-07 11:15:01+00:00",
+              "estate-worksafe": "2026-11-07 12:02:47+00:00", "estate-councillor_interests": "2026-11-07 11:49:22+00:00",
+              "estate-courts-jdo": "2026-11-10 00:41:34+13:00", "parliament-written-questions": "2026-10-23T13:33:24+00:00"}
+    from support.mcpsource import freshness as F
+    f["freshness"] = {c: {"at": now, "corpus": c, "newest_arrival": F.parse_time(t), "arrivals_last_24h": 0,
+                          "pipeline_lane": None, "pipeline_status": None, "pipeline_read": True} for c, t in newest.items()}
+    assert [x["corpus"] for x in sl.stale_corpora(f, now)] == ["estate-courts"]
+    later = now + dt.timedelta(days=7)
+    assert {x["corpus"] for x in sl.stale_corpora(f, later)} >= {"estate-commerce_commission", "estate-worksafe"}
+    for j in REAL_LANES["commerce_commission"].update:
+        f["last_done"][j] = f["last_finished"][j] = {"state": "done", "finished_at": later - dt.timedelta(hours=2)}
+    x = sl.light_of("commerce_commission", True, f, later)
+    assert x["light"] == "orange" and x["reason"].startswith(
+        "the provider's copy of estate-commerce_commission has had nothing new since 8 Nov 00:15"), x
+
+
+# ── the provider's machine-readable list (Arthur, 10 November 2026) ──
+
+def two_stale(registry):
+    f = fresh_facts(registry, 30)                                           # mcorp: 23 days overdue, measured
+    f["freshness"]["later"] = {**f["freshness"]["mcorp"], "corpus": "later", "pipeline_lane": None,
+                               "newest_arrival": NOW - dt.timedelta(days=9.5), "records": 4, "arrivals_last_24h": 0}
+    f["freshness"]["fine"] = {**f["freshness"]["mcorp"], "corpus": "fine", "newest_arrival": NOW - dt.timedelta(days=1)}
+    f["cadence"]["later"] = {"days": 7, "basis": "default", "reason": "r", "paused_until": None}
+    f["cadence"]["fine"] = f["cadence"]["mcorp"]
+    return f
+
+
+def test_the_feed_and_the_page_list_the_same_corpora(registry):
+    f = two_stale(registry)
+    feed = sl.provider_feed(f, NOW)
+    page = sl.provider_list(f, NOW, feed=feed)
+    on_page = [l.split(" | ")[0][2:] for l in page.splitlines() if l.startswith("| ") and not l.startswith(("| Corpus", "| ---"))]
+    assert sorted(on_page) == [o["corpus"] for o in feed["stale"]] == ["later", "mcorp"]
+    assert feed["schema_version"] == 1 and feed["measured_at"] == ago(1).isoformat() and feed["repaired"] == []
+    m = feed["stale"][1]
+    assert m == {"corpus": "mcorp", "newest_arrival": (NOW - dt.timedelta(days=30)).isoformat(), "records": 10,
+                 "arrivals_last_24h": 0, "cadence_days": 7, "cadence_measured": True, "days_overdue": 23.0,
+                 "pipeline_lane": "mcorp-lane", "asked": sl.ASKED,
+                 "request_id": "mcorp@" + (NOW - dt.timedelta(days=30)).isoformat()}
+    assert feed["stale"][0]["cadence_measured"] is False and feed["stale"][0]["pipeline_lane"] is None
+    assert sl.provider_feed(f, NOW + dt.timedelta(hours=5))["stale"][1]["request_id"] == m["request_id"]   # stable
+
+
+def test_a_repair_is_confirmed_only_by_fresh_arrivals(registry, tmp_path):
+    f = two_stale(registry)
+    page, json_path = tmp_path / "mcp-stale.md", tmp_path / "mcp-stale.json"
+    _, feed = sl.provider_outputs(f, NOW, str(page), str(json_path), str(tmp_path / "none.md"))
+    sl.write_provider_feed(feed, str(json_path))
+    assert json.loads(json_path.read_text()) == feed
+    later = NOW + dt.timedelta(hours=1)
+    f["cadence"]["later"] = {**f["cadence"]["later"], "days": 31}           # no longer stale, but nothing arrived
+    f["freshness"]["mcorp"] = {**f["freshness"]["mcorp"], "newest_arrival": later - dt.timedelta(minutes=5)}
+    text, feed2 = sl.provider_outputs(f, later, str(page), str(json_path), str(tmp_path / "none.md"))
+    assert feed2["stale"] == [] and [o["corpus"] for o in feed2["repaired"]] == ["mcorp"]
+    r = feed2["repaired"][0]
+    assert r["request_id"] == feed["stale"][1]["request_id"] and r["repaired_at"] == (later - dt.timedelta(minutes=5)).isoformat()
+    assert "Repaired (new records have arrived since it was listed): mcorp (" in text
+    sl.write_provider_feed(feed2, str(json_path))                           # the next run keeps it, a week at most
+    assert [o["corpus"] for o in sl.provider_outputs(f, later + dt.timedelta(days=6), str(page), str(json_path),
+                                                     str(tmp_path / "none.md"))[1]["repaired"]] == ["mcorp"]
+    f["freshness"]["mcorp"] = {**f["freshness"]["mcorp"], "newest_arrival": later + dt.timedelta(days=7.9)}   # still fresh
+    assert sl.provider_outputs(f, later + dt.timedelta(days=8), str(page), str(json_path),
+                               str(tmp_path / "none.md"))[1]["repaired"] == []
+
+
+CLOSING = "## For the provider: closing the loop\n\nCall the tool `x`. Keep *this* verbatim.\n\n- one\n- two\n"
+
+
+def test_the_closing_section_is_carried_through_verbatim(registry, tmp_path):
+    f = two_stale(registry)
+    page = tmp_path / "mcp-stale.md"
+    page.write_text("# A hand-made list\n\n| old | table |\n\n" + CLOSING)
+    text, _ = sl.provider_outputs(f, NOW, str(page), str(tmp_path / "x.json"), str(tmp_path / "none.md"))
+    assert text.endswith("\n" + CLOSING) and "hand-made" not in text
+    page.write_text(text)                                                   # and again from our own page
+    again, _ = sl.provider_outputs(f, NOW, str(page), str(tmp_path / "x.json"), str(tmp_path / "none.md"))
+    assert again == text and again.count(sl.CLOSING_TITLE) == 1
+    tpl = tmp_path / "mcp-stale.closing.md"
+    tpl.write_text("## For the provider: closing the loop\n\nThe template wins.\n")
+    assert sl.provider_outputs(f, NOW, str(page), str(tmp_path / "x.json"), str(tpl))[0].endswith("The template wins.\n")
+    page.write_text("# no section\n")
+    assert sl.provider_outputs(f, NOW, str(page), str(tmp_path / "x.json"), str(tmp_path / "none.md"))[0].rstrip().endswith(
+        f"What is asked, for each: {sl.ASKED}.")

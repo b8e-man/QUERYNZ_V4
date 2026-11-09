@@ -10,6 +10,9 @@
     python -m support.mcpsource --adopt SCHEMA          the integrator, once: a session's pull carried live
                                                         (resumable: a rerun after a kill finishes the rest)
 
+Each reading of `corpora` is kept, a row per corpus, with the `pipeline`
+lane that fills it (mcpsource.freshness, ruling 159: freshness.py).
+
 The files a record points at (ruling 126) are fetched after the records of
 every corpus, in what is left of --budget-s. Prints counts only, never a
 record (hard limit 11). Exit 1 when the run is red: a corpus failed, a
@@ -20,6 +23,7 @@ import argparse
 import sys
 
 from support import mcpsource as M
+from support.mcpsource import freshness as F
 from support.mcpsource.client import TIMEOUT_S
 
 
@@ -73,9 +77,17 @@ def main(argv=None) -> int:
                 n = M.retry_caught(conn, client, a.schema, log=log)
                 print(f"{M.SOURCE}: {n['asked']} caught records asked again, {n['landed']} landed")
                 return 0
+            def fresh(corpora):     # the MCP's freshness, every corpus, each reading kept (ruling 159)
+                try:
+                    n = F.record(conn, a.schema, corpora, F.poll_pipeline(client, log=log))
+                    log(f"mcpsource: freshness of {n} corpora recorded")
+                except Exception as e:      # the pull itself goes on; the lights say the measure is old
+                    log(f"mcpsource: freshness not recorded: {type(e).__name__}: {e}"[:300])
+
             try:
                 res = M.pull_all(conn, client, a.schema, only=a.corpus, log=log, budget_s=a.budget_s,
-                                 pause_s=a.pause_s, rewalk=a.rewalk, follow=not a.no_changes, files=not a.no_files)
+                                 pause_s=a.pause_s, rewalk=a.rewalk, follow=not a.no_changes, files=not a.no_files,
+                                 on_listing=fresh)
             except (M.McpError, M.ShapeError) as e:     # `corpora` itself did not answer: a red run, recorded
                 detail = f"`corpora` failed: {type(e).__name__}: {e}"[:2000]
                 print(f"{M.SOURCE}: RED: {detail}")
