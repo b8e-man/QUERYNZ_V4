@@ -133,7 +133,7 @@ def dates(v: cat.View, r: dict) -> dict:
         bits.append(f"as in the file {as_in}")
     undated = not (start or end or on or year or filed or published or as_in)
     if undated:
-        bits.append(UNDATED)
+        bits.append(f"{UNDATED}: {v.undated}" if v.undated else UNDATED)
     if period and any(period) and undated:
         a, b = (period + (None, None))[:2]
         if a and b:

@@ -18,7 +18,8 @@ def test_every_view_has_a_register_a_title_and_a_kind():
 
 def test_a_role_view_dates_its_connection_or_falls_back_to_the_files():
     for v in cat.VIEWS:
-        assert v.start or v.on or v.year or v.period, f"{v.name} has no way to date or bound a connection"
+        assert v.start or v.on or v.year or v.period or v.undated, f"{v.name} has no way to date or bound a connection"
+    assert all(len(v.undated) > 30 for v in cat.VIEWS if v.undated)   # an undated view says why, in words
 
 
 def test_not_held_and_held_do_not_overlap():
@@ -31,12 +32,13 @@ def test_the_not_held_list_carries_the_health_and_property_keys_and_keeps_the_re
     template cites; the keys report-3 added stay; charities is no longer
     among them (it is held)."""
     assert "retirement_villages" not in cat.NOT_HELD_NAME and cat.SUPERSEDED_NOT_HELD["retirement_villages"] == "companies"   # read 2 November 2026
-    assert "personal bankruptcies" in cat.NOT_HELD_NAME["insolvency"] and "companies file" in cat.NOT_HELD_NAME["insolvency"]
+    for key in ("insolvency", "linz", "sanctions", "building_practitioners"):   # published; the old keys kept as superseded (9 November 2026)
+        assert key not in cat.NOT_HELD_NAME and cat.SUPERSEDED_NOT_HELD[key] in dict(cat.REGISTERS), key
     for key, word in (("hdc", "Health and Disability Commissioner"), ("certification", "rest homes"),
                       ("health_providers", "Ministry of Health"), ("aged_care_commissioner", "Aged Care Commissioner"),
                       ("building_consents", "code compliance")):
         assert key in cat.NOT_HELD_NAME and word in cat.NOT_HELD_NAME[key], key
-    for key in ("court_coverage", "insolvency", "securities", "linz", "fsp", "sanctions", "tender_coverage", "overseas",
+    for key in ("court_coverage", "securities", "fsp", "tender_coverage", "overseas",
                 "trusts", "unincorporated", "company_history", "nzbn_interface", "credit_bureau", "mpi", "fire", "employment",
                 "disputes", "tribunals", "disciplinary"):
         assert key in cat.NOT_HELD_NAME, key
@@ -53,3 +55,21 @@ def test_the_spec_carries_its_five_lines():
     for line in ("owns:", "reads:", "publishes:", "outside check:", "jobs:"):
         assert line in spec, line
     assert "local network only" in spec and "never shown as cause" in spec
+
+
+def test_every_published_table_is_read_or_left_out_with_a_reason():
+    """The diagnostic report's inventory (9 November 2026): a table a lane defines is in the catalogue, the links
+    lane's, or in NOT_READ with why; never both; and every catalogued table's register is in the register list."""
+    import glob
+    import os
+    import re
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    defined = set()
+    for f in glob.glob(os.path.join(root, "registers", "*", "publish.sql")) + [os.path.join(root, "links", "publish.sql")]:
+        defined |= {v.lower() for v in re.findall(r"VIEW\s+pub\.([a-z_0-9]+)", open(f, encoding="utf-8").read(), re.I)}
+    placed = set(cat.BY_NAME) | set(cat.LINKS_VIEWS) | set(cat.NOT_READ)
+    assert not defined - placed, sorted(defined - placed)
+    assert not set(cat.BY_NAME) & set(cat.NOT_READ)
+    assert all(len(why) > 20 for why in cat.NOT_READ.values())
+    assert {v.register for v in cat.VIEWS} <= {r for r, _ in cat.REGISTERS}
+
