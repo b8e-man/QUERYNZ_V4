@@ -13,6 +13,8 @@ One line per problem, by kind (plan: `diagnostic-report-plan-2026-11-09.md`). Th
 | 3 | register not catalogued | The report read 59 of 131 published tables; 34 more name a person or a body | catalogued; the other 37 listed with why, under a test |
 | 4 | wrong date | Councillors' interests and the iwi directory print their dates as text ("16 February 2026", "11/03/2025"): a report that reached one failed to build | text dates in those forms read; anything else shown as printed |
 | 5 | other | The land-title sentences said "owner", which the report's own wording check refuses (a shareholder is never called an owner): every report reaching a title refused 396 lines | "registered proprietor", the title's own term |
+| 18 | other | Six live-data tests failed on today's data: the star tests' own setup queries timed out on pub.links (millions of land-title links); the legal and healthcare tests expected the courts "not held"; the construction test predated the phoenix check's director path | setup in the walk's query shape; tests read the courts as held in part (amber only on a confirmed party, info on a namesake) |
+| 21 | other | The board's live checks: a body's name ("… (Retirement) …") read as a person's home; eight links rules with no words (the judgment-address, judgment-number, shared-contact, land-title and licence-number rules), on the board and in the report; seven people registers with no dossier line, so a near entry read "name · key" (land titles, Real Estate Authority decisions, a minister's diary, insolvency, building practitioners, sanctions, court people) | a row's own kind read; the words and lines written |
 
 ## Found by the test set, to decide or fix
 
@@ -30,8 +32,9 @@ One line per problem, by kind (plan: `diagnostic-report-plan-2026-11-09.md`). Th
 | 15 | missing date | **Shareholdings and land titles are undated** (the registers state no date): up to 121 undated items in one report. Stated as undated, with why | most reports |
 | 16 | other | **A table carries one kind for all its rows**, though sanctions, land title owners, Hansard, Beehive and Parliament mentions and diary attendees mix people and bodies; a body in such a table is walked as a person | the catalogue |
 | 17 | other | **The name index calls a marae a person**, and a marae's row reference carries its street location | the iwi directory |
-| 18 | other | Six live-data tests fail on the current release too (star namesakes, a prohibition spoke, legal: deed of company arrangement and amalgamation, construction: a shared name never red, healthcare: a liquidated care company); each a template behaving differently on today's data from when it was written | the template tests |
+| 18 | other | (fixed, above) Six live-data tests fail on the current release too (star namesakes, a prohibition spoke, legal: deed of company arrangement and amalgamation, construction: a shared name never red, healthcare: a liquidated care company); each a template behaving differently on today's data from when it was written | the template tests |
 | 19 | other | Two leftover folders (`registers/charities_a`, `charities_b`) hold only cached files; the OpenLaw lane, dropped on 3 November (ruling 137), still defines pub.court_cases beside the courts lane | the repository |
+| 20 | stale not held | **Eleven use-case templates still say the Insolvency Register is "interface awaited" and court judgments are "step 5.4"**, and the legal template that real estate agents' and builders' findings are not held; all are published. Which of them each template reads is ruling 146's choice, product by product | the use-case templates |
 
 ## Working as designed (checked, no change)
 
