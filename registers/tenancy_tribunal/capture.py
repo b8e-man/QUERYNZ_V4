@@ -37,6 +37,14 @@ holds the host (ruling 141) a run asks nothing at all and ends well, saying
 so: only a person clears the hold, and the next run after that goes on.
 
     python -m registers.tenancy_tribunal.capture [--budget-s N] [--max-items N] [--list-only] [--anytime]
+                                                 [--from-mcp]
+
+From 10 November 2026 the crawl is the ingest MCP provider's (the 5 November split): the nightly job runs with
+`--from-mcp`, which answers every listing and order of the walk from the newest copy in `estate-tenancy_tribunal`
+(taken by qv4-mcp-pull) and asks the web, and the gate, nothing. The order is kept: the copy's orders soonest to be
+taken down first. An order or a month the copy does not hold yet holds no host and fails nothing: it stays due and
+is asked again next run, after the pull may have brought it. A copy that is a challenge page is a block (hard limit
+6). The gate's own hold on the host is not cleared (ruling 141); the boxes' own run still asks nothing while it holds.
 """
 import argparse
 import datetime as dt
@@ -48,6 +56,7 @@ import time
 import urllib.parse
 
 import support.fetchgate as fg
+from support.mcpsource.replay import NotHeld
 
 SOURCE = SCHEMA = "tenancy_tribunal"
 JOB = "qv4-tenancy-tribunal-capture"
@@ -64,6 +73,7 @@ WINDOW_MONTHS = 37            # three years and the month in hand
 STOP_AFTER_FAILURES = 3
 DEFAULT_BUDGET_S = 16200      # four and a half hours a night
 HERE = os.path.dirname(os.path.abspath(__file__))
+NOT_HELD = object()           # `get`'s answer for an address the MCP's copy does not hold yet
 
 
 # ── pure pieces ───────────────────────────────────────────────────────────────
@@ -233,6 +243,32 @@ class Stop(RuntimeError):
     """The run stops here: a block, a challenge, or the host not answering."""
 
 
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
+MCP_CORPORA = ("estate-tenancy_tribunal",)
+
+
+class NoPace:
+    """No request leaves the boxes, so nothing to space."""
+
+    def wait(self, host, floor):
+        return 0.0
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's opener and pacing when the crawl is the MCP provider's (the 5 November split; 10 November 2026):
+    every address answered with the newest copy the MCP holds, an address it lacks `NotHeld` (kept due, never a
+    failure), and no request leaving the boxes, so no pacing, no off-peak hours and no gate asked. A copy that is a
+    challenge page is a block, as it would be from the web (hard limit 6)."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def opener(url, timeout=None, **_):
+        f = open_copy(url, timeout)
+        why = fg.looks_challenged(f.status, decode(f.body))
+        return fg.Fetched(url=f.url, status=f.status, body=f.body, final_url=f.final_url, blocked=why) if why else f
+    return {"opener": opener, "pacer": NoPace(), "anytime": True}
+
+
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, pacer=None, gate_pacer=None, clock=None, now_local=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_items: int = 100000, anytime: bool = False, log=print,
@@ -247,8 +283,9 @@ class Run:
         self.budget_s, self.max_items, self.anytime, self.log = budget_s, max_items, anytime, log
         self.started = self.clock()
         self.failures = 0
+        self.tried = set()
         self.counts = {"requests": 0, "listings": 0, "listed": 0, "landed": 0, "already_held": 0, "set_aside": 0,
-                       "rows_kept": 0}
+                       "rows_kept": 0, "not_held": 0}
         self.stopped = ""
 
     def time_left(self) -> bool:
@@ -264,7 +301,9 @@ class Run:
         """One gated, paced request. Returns the Fetched (a 404 is the host
         answering); None on a transport failure, which is a catch-log line;
         raises Stop on a block, a challenge or three failures in a row.
-        A gate refusal (fg.Refused) is never caught."""
+        A gate refusal (fg.Refused) is never caught. An address the MCP's
+        copy does not hold yet (`NotHeld`) is `NOT_HELD`: no line, no
+        failure and no hold; it stays due."""
         self.pacer.wait(HOST, FLOOR_S)
         self.counts["requests"] += 1
         try:
@@ -272,6 +311,9 @@ class Run:
             f = self.opener(url, timeout=60, **kw)
         except fg.Refused:
             raise
+        except NotHeld:                       # the MCP's copy lacks it (yet): asked again next run, not a failure
+            self.counts["not_held"] += 1
+            return NOT_HELD
         except Exception as exc:  # noqa: BLE001 — a transport failure is a line, three in a row a stop
             self.failures += 1
             self.t.set_aside(url, "fetch", f"transport: {type(exc).__name__}: {str(exc)[:200]}")
@@ -298,6 +340,8 @@ class Run:
         while True:
             url = listing_url(month, start)
             f = self.get(url)
+            if f is NOT_HELD:                 # the month stays unlisted, so due: listed when the copy holds it
+                return
             if f is None or f.status != 200:
                 self.t.set_aside(month.isoformat(), "listing", f"HTTP {getattr(f, 'status', 'none')} for {url}")
                 self.counts["set_aside"] += 1
@@ -327,15 +371,18 @@ class Run:
     def fetch_pending(self):
         done = 0
         while done < self.max_items and self.time_left():
-            batch = self.t.pending(min(200, self.max_items - done))
+            # an order tried this run and not held (a failed read, or not in the MCP's copy) waits for the next run
+            batch = [(o, u) for o, u in self.t.pending(min(200, self.max_items - done) + len(self.tried))
+                     if o not in self.tried]
             if not batch:
                 break
             for order_id, url in batch:
                 if done >= self.max_items or not self.time_left():
                     break
+                self.tried.add(order_id)
                 f = self.get(url)
                 done += 1
-                if f is None:
+                if f is None or f is NOT_HELD:
                     continue
                 if f.status != 200 or not f.body.startswith(b"%PDF"):
                     self.t.set_aside(order_id, "fetch", f"HTTP {f.status}" + ("" if f.status != 200 else ", not a PDF"))
@@ -379,6 +426,8 @@ def main(argv=None) -> int:
     ap.add_argument("--max-items", type=int, default=100000)
     ap.add_argument("--list-only", action="store_true")
     ap.add_argument("--anytime", action="store_true", help="run outside off-peak (by hand, on purpose)")
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-tenancy_tribunal), never the web")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
     a = ap.parse_args(argv)
@@ -392,12 +441,15 @@ def main(argv=None) -> int:
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             jobrun.record(JOB, True, "skipped: another run holds the lane", started, {})
             return 0
-        run = Run(t, land_fn=landing(conn), budget_s=a.budget_s, max_items=a.max_items, anytime=a.anytime)
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; no request leaves the boxes
+        run = Run(t, land_fn=landing(conn), budget_s=a.budget_s, max_items=a.max_items,
+                  anytime=mcp.pop("anytime", a.anytime), **mcp)
         out = run.run(dt.date.today(), list_only=a.list_only)
     ok = not out["stopped"].startswith("stopped:")
     detail = (f"{out['listings']} listings, {out['listed']} orders listed, {out['rows_kept']} listing rows kept whole, "
               f"{out['landed']} landed, "
-              f"{out['already_held']} already held, {out['set_aside']} set aside; {out['stopped'] or 'done'}")
+              f"{out['already_held']} already held, {out['set_aside']} set aside, "
+              f"{out['not_held']} not in the MCP's copy yet; {out['stopped'] or 'done'}")
     print(f"{SOURCE}: {detail}")
     jobrun.record(JOB, ok, detail, started, out)
     return 0 if ok else 1

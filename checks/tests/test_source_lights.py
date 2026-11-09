@@ -560,6 +560,14 @@ def test_the_tenancy_tribunal_held_host_is_red_on_the_real_lanes(monkeypatch):
         f["last_done"][j] = f["last_finished"][j] = done(2)
     f["refusals"] = {"forms.justice.govt.nz": {"host": "forms.justice.govt.nz", "state": "held",
                                                "why": "the order PDFs reset every request", "at": "2026-11-04T00:24:31+13:00"}}
+    # from 10 November 2026 the capture reads the MCP's copy (--from-mcp) and asks the host nothing: the hold is not
+    # its light. The boxes' own walk, were it switched back, is red on it again.
+    import dataclasses
+    assert "--from-mcp" in real["qv4-tenancy-tribunal-capture"].command
+    assert sl.light_of("tenancy_tribunal", False, f, NOW)["light"] != "red"
+    own = dataclasses.replace(real["qv4-tenancy-tribunal-capture"],
+                              command=tuple(a for a in real["qv4-tenancy-tribunal-capture"].command if a != "--from-mcp"))
+    f["registry"] = {**f["registry"], "qv4-tenancy-tribunal-capture": own}
     x = sl.light_of("tenancy_tribunal", False, f, NOW)
     assert x["light"] == "red" and x["reason"].startswith("the fetch gate holds forms.justice.govt.nz")
     for other in ("contract_disclosures", "courts"):                   # justice.govt.nz's other hosts are not held

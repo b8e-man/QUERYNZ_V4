@@ -1452,3 +1452,11 @@ candidates and tg_96cf7cd31c89 schemas, and the 21 press-graph tables of extract
 stream I's inventory classes DERIVED. The decision and verdict tables beside them in v3
 (NEW in the inventory) are copied into the new estate and go on being sent. The tables
 stay in the old database until it is retired: the frozen product runs from it (limits 20, 22).
+
+165. Arthur, 10 November ("do it", to the integrator's proposal): the Tenancy Tribunal and
+Real Estate Authority lanes read the ingest MCP's copy (estate-tenancy_tribunal,
+estate-real_estate_authority), and qv4-mcp-pull takes both corpora; the boxes' own crawl of
+both stops (the 5 November split). As ruling 159 for the blocked councils, the provider's
+copy is taken for forms.justice.govt.nz, which our fetch gate holds (ruling 141): the
+provider has its own compliance relationship. The hold itself stays; nothing of ours asks
+the host. The orders neither copy holds go to the provider's list, soonest to leave first.

@@ -38,6 +38,13 @@ stops early after landing something exits green with a "stopped early" line
 and its counts; red only when nothing landed. A gate refusal is never caught.
 
     python -m registers.real_estate_authority.capture [--budget-s N] [--max-items N] [--list-only] [--anytime]
+                                                      [--from-mcp]
+
+From 10 November 2026 the crawl is the ingest MCP provider's (the 5 November split): the nightly job runs with
+`--from-mcp`, which answers every listing page, abstract and PDF of the walk from the newest copy in
+`estate-real_estate_authority` (taken by qv4-mcp-pull) and asks the web nothing. An address the copy does not hold
+yet fails nothing and stops nothing: the year stays to be listed, the case stays due, and both are asked again next
+run. A copy that is a challenge page is a block (hard limit 6).
 """
 import argparse
 import datetime as dt
@@ -49,6 +56,7 @@ import time
 import urllib.parse
 
 import support.fetchgate as fg
+from support.mcpsource.replay import NotHeld
 
 SOURCE = SCHEMA = "real_estate_authority"
 JOB = "qv4-real-estate-authority-capture"
@@ -66,6 +74,7 @@ SERVER_ERRORS = (500, 502, 503, 504)   # the server's own error, unless the page
 REST_S = 60.0                         # the gap after a failed read, before the next request
 DEFAULT_BUDGET_S = 16200
 HERE = os.path.dirname(os.path.abspath(__file__))
+NOT_HELD = object()           # `get`'s answer for an address the MCP's copy does not hold yet
 
 _RESULTS = re.compile(r"Search Results \((\d+)\)")
 _PAGES = re.compile(r"Page (\d+) of (\d+)")
@@ -219,6 +228,32 @@ class Stop(RuntimeError):
     """The run stops here: a block, a challenge, or the host not answering."""
 
 
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
+MCP_CORPORA = ("estate-real_estate_authority",)
+
+
+class NoPace:
+    """No request leaves the boxes, so nothing to space."""
+
+    def wait(self, host, floor):
+        return 0.0
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's opener and pacing when the crawl is the MCP provider's (the 5 November split; 10 November 2026):
+    every address answered with the newest copy the MCP holds, an address it lacks `NotHeld` (kept due, never a
+    failure), and no request leaving the boxes, so no pacing and no off-peak hours. A copy that is a challenge page
+    is a block, as it would be from the web (hard limit 6)."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def opener(url, timeout=None, **_):
+        f = open_copy(url, timeout)
+        why = fg.looks_challenged(f.status, f.body)
+        return fg.Fetched(url=f.url, status=f.status, body=f.body, final_url=f.final_url, blocked=why) if why else f
+    return {"opener": opener, "pacer": NoPace(), "anytime": True}
+
+
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, pacer=None, gate_pacer=None, clock=None, now_local=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_items: int = 100000, anytime: bool = False, log=print):
@@ -232,7 +267,7 @@ class Run:
         self.failures = 0
         self.tried = set()
         self.counts = {"requests": 0, "listings": 0, "listed": 0, "cases": 0, "landed": 0, "already_held": 0,
-                       "set_aside": 0}
+                       "set_aside": 0, "not_held": 0}
         self.stopped = ""
 
     def time_left(self) -> bool:
@@ -253,7 +288,8 @@ class Run:
         (a transport failure, or a server error with no challenge on the page),
         set aside with its reason, the next request resting `REST_S`. Raises
         Stop on a block, a challenge or three failed reads in a row; a gate
-        refusal is never caught."""
+        refusal is never caught. An address the MCP's copy does not hold yet
+        (`NotHeld`) is `NOT_HELD`: no line, no failure, no rest; it stays due."""
         self.pacer.wait(HOST, REST_S if self.failures else FLOOR_S)
         self.counts["requests"] += 1
         try:
@@ -261,6 +297,9 @@ class Run:
             f = self.opener(url, timeout=60, **kw)
         except fg.Refused:
             raise
+        except NotHeld:                       # the MCP's copy lacks it (yet): asked again next run, not a failure
+            self.counts["not_held"] += 1
+            return NOT_HELD
         except Exception as exc:  # noqa: BLE001
             return self.failed(url, f"transport: {type(exc).__name__}: {str(exc)[:200]}")
         if f.status in SERVER_ERRORS and not fg.looks_challenged(200, f.body):
@@ -295,6 +334,8 @@ class Run:
                 return
             url = listing_url(year, page)
             f = self.get(url)
+            if f is NOT_HELD:                 # the year stays unlisted, so due: listed when the copy holds it
+                return
             if f is None or f.status != 200:
                 self.aside(f"{year}/{page}", "listing", "a failed read" if f is None else f"HTTP {f.status}")
                 return
@@ -315,7 +356,7 @@ class Run:
 
     def capture_case(self, case_id: int):
         f = self.get(abstract_url(case_id))
-        if f is None:
+        if f is None or f is NOT_HELD:        # the case stays due
             return
         if f.status != 200:
             self.aside(case_id, "abstract", f"HTTP {f.status}")
@@ -332,7 +373,7 @@ class Run:
             if not self.time_left():
                 return
             p = self.get(url)
-            if p is None:
+            if p is None or p is NOT_HELD:    # the case is not held whole, so stays due
                 complete = False
                 continue
             if p.status != 200 or not p.body.startswith(b"%PDF"):
@@ -399,6 +440,8 @@ def main(argv=None) -> int:
     ap.add_argument("--max-items", type=int, default=100000)
     ap.add_argument("--list-only", action="store_true")
     ap.add_argument("--anytime", action="store_true", help="run outside off-peak (by hand, on purpose)")
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-real_estate_authority), never the web")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
     a = ap.parse_args(argv)
@@ -412,11 +455,13 @@ def main(argv=None) -> int:
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             jobrun.record(JOB, True, "skipped: another run holds the lane", started, {})
             return 0
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; no request leaves the boxes
         out = Run(t, land_fn=landing(conn), budget_s=a.budget_s, max_items=a.max_items,
-                  anytime=a.anytime).run(dt.date.today(), list_only=a.list_only)
+                  anytime=mcp.pop("anytime", a.anytime), **mcp).run(dt.date.today(), list_only=a.list_only)
     ok, last = outcome(out)
     detail = (f"{out['listings']} listing pages, {out['listed']} cases listed, {out['cases']} cases held, "
-              f"{out['landed']} PDFs landed, {out['set_aside']} set aside; {last}")
+              f"{out['landed']} PDFs landed, {out['set_aside']} set aside, {out['not_held']} not in the MCP's copy yet; "
+              f"{last}")
     print(f"{SOURCE}: {detail}")
     jobrun.record(JOB, ok, detail, started, out)
     return 0 if ok else 1

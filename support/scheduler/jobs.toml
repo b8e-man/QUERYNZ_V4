@@ -709,26 +709,26 @@ concurrency = 2
 # (UTC+13) until 5 April 2027; move them with the founding jobs.
 
 [jobs.qv4-tenancy-tribunal-capture]
-description = "Track E: the Tenancy Tribunal's published orders (public for three years, then taken down), through the fetch gate, soonest to leave first, each fetched once. Nightly at 22:30 NZDT, at most 4.5 hours."
+description = "Track E: the Tenancy Tribunal's published orders (public for three years, then taken down), soonest to leave first, each taken once; from 10 November 2026 answered from the ingest MCP's copy (estate-tenancy_tribunal, taken by qv4-mcp-pull), never the web, an order the copy lacks yet kept due. Nightly at 22:30 NZDT, at most 4.5 hours."
 needs = "processor"
 memory_gb = 0.5
 deadline_s = 21600
 query_timeout_s = 60
 class = "due"
 priority = 33
-command = ["python", "-m", "registers.tenancy_tribunal.capture", "--budget-s", "16200"]
+command = ["python", "-m", "registers.tenancy_tribunal.capture", "--budget-s", "16200", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's (the 5 November split); docs/research/step-9-mcp-lanes.md: 20,778 of 20,778 orders held, same sha256
 at_utc = "09:30"
 nice = 10
 
 [jobs.qv4-real-estate-authority-capture]
-description = "Track E: the Real Estate Authority's decisions database (Committee decisions leave after three years), through the fetch gate, the Committee's oldest first, each page fetched once. Nightly at 23:00 NZDT, at most 4 hours."
+description = "Track E: the Real Estate Authority's decisions database (Committee decisions leave after three years), the Committee's oldest first, each page taken once; from 10 November 2026 answered from the ingest MCP's copy (estate-real_estate_authority, taken by qv4-mcp-pull), never the web, a page the copy lacks yet kept due. Nightly at 23:00 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.5
 deadline_s = 18000
 query_timeout_s = 60
 class = "due"
 priority = 31
-command = ["python", "-m", "registers.real_estate_authority.capture", "--budget-s", "14400"]
+command = ["python", "-m", "registers.real_estate_authority.capture", "--budget-s", "14400", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's (the 5 November split); docs/research/step-9-mcp-lanes.md: 319 of 319 listing pages read the same, 3,063 of 3,065 abstracts same sha256
 at_utc = "10:00"
 nice = 10
 
@@ -1407,13 +1407,14 @@ class = "due"
 priority = 100
 # the corpora by name (3 November 2026): a corpus the MCP adds is pulled only once Arthur has said so; `gets` (GETS tender
 # notices) by ruling 138; `parliament-papers`, `parliament-sc-evidence` and `court-mlc-data` (4 November) by ruling 142
-# ("Get ... all available information ... Always do this")
+# ("Get ... all available information ... Always do this"); estate-tenancy_tribunal and estate-real_estate_authority
+# (10 November 2026) with their lanes' `--from-mcp`
 command = ["python", "-m", "support.mcpsource", "--budget-s", "12600", "--corpus", "gets",
            "--corpus", "parliament-papers", "--corpus", "parliament-sc-evidence", "--corpus", "court-mlc-data",
            "--corpus", "beehive", "--corpus", "parliament-wayback", "--corpus", "parliament-written-questions",
            "--corpus", "parliament-bills", "--corpus", "parliament-diaries", "--corpus", "parliament-hansard-index",
            "--corpus", "parliament-hansard-debates", "--corpus", "parliament-bills-historical", "--corpus", "parliament-sops",
-           "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts", "--corpus", "estate-disclosures", "--corpus", "estate-candidate_returns", "--corpus", "estate-fma", "--corpus", "estate-worksafe", "--corpus", "estate-commerce_commission", "--corpus", "estate-councillor_interests", "--corpus", "estate-building_practitioners", "--corpus", "estate-local_elections", "--corpus", "estate-council_minutes", "--corpus", "estate-courts-jdo", "--corpus", "estate-courts-era"]
+           "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts", "--corpus", "estate-disclosures", "--corpus", "estate-candidate_returns", "--corpus", "estate-fma", "--corpus", "estate-worksafe", "--corpus", "estate-commerce_commission", "--corpus", "estate-councillor_interests", "--corpus", "estate-building_practitioners", "--corpus", "estate-local_elections", "--corpus", "estate-council_minutes", "--corpus", "estate-courts-jdo", "--corpus", "estate-courts-era", "--corpus", "estate-tenancy_tribunal", "--corpus", "estate-real_estate_authority"]
 then = ["qv4-courts-read"]   # the reader reads what the pull lands; it never waited on a green load (3 November: a red load left 6,447 unread)
 every_s = 21600   # every six hours from 31 October (Arthur: the MCP is gathered continuously); was nightly 02:30 NZDT
 nice = 10

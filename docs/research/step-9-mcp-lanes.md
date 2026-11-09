@@ -121,3 +121,52 @@ mode dropping them, no challenge check, and the in-run hold dropped.
 **For the integrator:** `support.mcpsource.replay.opener` serves every copy as a 200. Gisborne's and Dunedin's
 "Page Not Found" copies are not reached by this walk. A copy of a 404 that a walk does reach would land as a page.
 If the pull records the provider's HTTP status, the opener could carry it (stream F's file).
+
+## tenancy_tribunal and real_estate_authority (10 November 2026)
+
+Two more lanes get `--from-mcp`, as above: `MCP_CORPORA`, `from_mcp(conn)` (the replay opener, no pacing, no
+off-peak hours), the challenge check, and `NotHeld` kept due. Neither corpus was in qv4-mcp-pull's list, so
+`mcpsource.files` holds none of their records. Both are added to the pull's command (`estate-tenancy_tribunal`,
+`estate-real_estate_authority`; their cadences were already in `checks/mcp_cadence.toml`). The proofs below
+compare our capture tables with the MCP's own `records` (metadata: address, sha256, provenance), and the reading
+proof uses bytes taken by `download`. Both corpora were read whole: 20,888 and 8,507 records.
+
+**Beyond the six.** In both lanes `get` answers `NOT_HELD` for an address the copy lacks. That writes no set-aside
+line, counts no failure, needs no rest, and three in a row do not stop the run. A month or year that is not held
+stays unlisted. An order, or a case whose abstract or one of whose PDFs is not held, stays due. The Tenancy Tribunal
+walk had no record of what it had tried in a run, so a not-held order would have come back in every batch. It now
+keeps one, as the REA walk already did. Its challenge check reads the decoded body, because the listing service
+answers gzip. The soonest-to-be-taken-down order (the Committee's oldest first, for REA) is kept for what the copy
+holds.
+
+| Lane | The copy | Proof | Job |
+| --- | --- | --- | --- |
+| tenancy_tribunal | 20,888 records: 20,777 order PDFs and 61 field-list listings from our store; 50 whole listings (ruling 143's shape) the provider fetched 4 to 8 November | All 20,778 of our order documents: same address, same sha256. The copy holds no order PDF we lack: the provider has fetched none. Our 69 listings are all in it, same sha256. Its 50 whole listings cover the window (November 2023 to November 2026) at our addresses, so a run lists every month whole from the copy. They name 33,444 orders. 181 are not in our table (earliest take-down 6 October 2029). 584 of ours are not named: 411 were published before the window, 157 of November 2023 have been taken down since, and 16 others are no longer listed. | **on**, `--from-mcp` |
+| real_estate_authority | 8,507 records: 8,110 from our store, 397 listing pages the provider fetched 5 to 9 November | 3,063 of our 3,065 abstracts and 4,438 of our 4,442 PDF rows: same address, same sha256. The 2 cases missing (4 PDF rows) were captured on 9 November at 23:02, after the copy. All 319 listing addresses are held, and each newest copy has other bytes. Read by `parse_listing`, all 319 read the same (count, pages and rows). Across them they name 3,092 cases, all ours. On mismatched pairs, 0 of 319 read the same. A pass from the copy would fetch **0** cases. | **on**, `--from-mcp` |
+
+**Orders neither side holds (Tenancy Tribunal).** 13,069 listed orders are not held by us or by the copy, and
+another 181 are named only by the copy's listings: 13,250 in all. The earliest take-down date among them is
+23 June 2028. Every order due to be taken down before that is held.
+
+**Tests.** `registers/<lane>/tests/test_<lane>_from_mcp.py` run on invented pages, with the web, the gate and
+`time.sleep` made to fail if asked. Each file checks that the job carries `--from-mcp` and that qv4-mcp-pull takes
+the corpus. These mutants were tried in both lanes and each was caught: the opener left as the web's, the wrong
+corpus, the hours binding, pacing kept, the challenge check removed, and `NotHeld` as a failure. Two more were tried
+in the Tenancy Tribunal lane: the challenge check made on the gzip bytes, and no record of what was tried (caught
+as the run never ending).
+
+**Lights.** `checks/source_lights.py` gives both lanes `asks=(capture)` and their corpus. The gate's hold on
+forms.justice.govt.nz (since 4 November) no longer lights the Tenancy Tribunal red, because the capture asks it
+nothing. The hold is not cleared (ruling 141), and the boxes' own walk would still be red on it.
+`test_the_tenancy_tribunal_held_host_is_red_on_the_real_lanes` now asserts both. The declared gap in
+`checks/source_gaps.toml` still holds (13,069 wait), so the lane stays orange.
+
+**For the integrator.** Deploy the pull's new corpora first. Until it lands their files, a `--from-mcp` run reads
+nothing: every address is `NotHeld`, and the run goes green over nothing (WorkSafe's case). No `--from-mcp` run
+was made here, because neither lane has a dry mode and the store holds no copy yet. The REA load job reads landed
+abstracts only, so it is unchanged.
+
+**For Arthur.** Under `--from-mcp`, the Tenancy Tribunal takes the provider's whole listings, which were fetched
+after our gate held the host (because of connection resets, not a challenge). Ruling 159 settled this for the
+councils that blocked the boxes. Whether it reaches this host is your call; no default. The provider has listed
+but fetched no order PDF, so the 13,069 orders wait on it.
