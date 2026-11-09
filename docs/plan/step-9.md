@@ -101,8 +101,14 @@ companies, trading names, bodies and roles.
 Each tranche closes with a check that can fail against real data, a status
 line and a pushed commit (ruling 244).
 
-1. **Rulings and retirement.** Rulings 150 to 153 recorded. The templates
-   are marked retired. The board's report tab points at the one report.
+1. **Rulings and retirement.** Rulings 150 to 157 recorded. The templates
+   02 to 13 are marked retired, which means frozen, not removed. Each gets a
+   retired line in its README naming ruling 150. Nothing new is built in
+   them; they still load, run and keep their tests green. The board's
+   report tab opens the one report (for now, the diagnostic template) by
+   default. Their code is deleted only after tranche 6 passes on real data,
+   once their checks are merged into the one report's combined set
+   (ruling 157).
 2. **The archive (9.1).** Built and checked against its manifest, then
    handed to Arthur.
 3. **Measure the old news tables.** Their count, size and rows, from the
