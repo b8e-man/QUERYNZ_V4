@@ -1444,3 +1444,11 @@ articles (32,584) and OIA requests (302) inside the copied tables are copied any
 (c) The old estate's Papers Past rows are not copied, because the new estate holds all
 of them: every one of the 4,648,837 is matched in papers_past.items (held_in_old),
 checked by the integrator on 10 November; the inventory leaves them out of `articles`.
+
+164. Arthur, 10 November: the old press graph and the article vectors are dropped
+entirely, not only left uncopied (163a). The off-site copy no longer sends them, nor keeps
+the vectors' second local copy: incoming_news.public.article_embeddings, extractions'
+candidates and tg_96cf7cd31c89 schemas, and the 21 press-graph tables of extractions.v3 that
+stream I's inventory classes DERIVED. The decision and verdict tables beside them in v3
+(NEW in the inventory) are copied into the new estate and go on being sent. The tables
+stay in the old database until it is retired: the frozen product runs from it (limits 20, 22).

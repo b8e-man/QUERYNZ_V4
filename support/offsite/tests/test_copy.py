@@ -17,8 +17,12 @@ MONDAY = dt.datetime(2026, 10, 26, 20, 0).astimezone()
 
 def test_rebuildable_tables_are_out_and_the_rest_are_sent():
     assert P.fate("extractions", "candidates", "candidate")[0] == P.OUT
-    assert P.fate("incoming_news", "public", "article_embeddings")[0] == P.LOCAL
-    assert P.fate("extractions", "v3", "claims")[0] == P.SEND
+    # ruling 164: the vectors and the old press graph are let go; the decision tables beside the graph are sent
+    assert P.fate("incoming_news", "public", "article_embeddings")[0] == P.OUT
+    assert P.fate("extractions", "v3", "claims")[0] == P.OUT
+    assert P.fate("extractions", "tg_96cf7cd31c89", "anything")[0] == P.OUT
+    assert P.fate("extractions", "v3", "review_decisions")[0] == P.SEND
+    assert P.fate("extractions", "v3", "claim_suppressions")[0] == P.SEND
     assert P.fate("nzbn_canonical", "bulk", "a_table_added_next_month")[0] == P.SEND
 
 

@@ -60,9 +60,17 @@ RULES = {
         f"{OLD_REPO}/ingestion/geonames/sync.py"),
     "nzbn_canonical.bulk.geonames_alternate": (OUT, "public reference data, fetched again",
         f"{OLD_REPO}/ingestion/geonames/sync.py"),
-    "incoming_news.public.article_embeddings": (LOCAL,
-        "the vectors, 38 GB: days of a graphics card to rebuild, so a second local copy",
+    "incoming_news.public.article_embeddings": (OUT,
+        "the vectors, 38 GB: let go (Arthur, 10 November, ruling 164)",
         f"{OLD_REPO}/ops/embed_articles.py"),
+    # ruling 164: the old press graph is let go whole; stream I's inventory classes these DERIVED. The decision and
+    # verdict tables beside them in v3 (NEW in the inventory) are not named here and go on being sent.
+    "extractions.tg_96cf7cd31c89.*": (OUT, "the old press graph's build schema: let go (ruling 164)", f"{OLD_REPO}/v3/cli.py"),
+    **{f"extractions.v3.{t}": (OUT, "the old press graph: let go (ruling 164)", f"{OLD_REPO}/v3/cli.py") for t in (
+        "alias", "alias_link", "alias_sighting", "claim_entities", "claims", "detector_signals", "entities",
+        "entity_key_proposal_articles", "entity_key_proposals", "entity_keys", "entity_merges", "entity_prominence",
+        "entity_renames", "entity_type_changes", "er_split_candidates", "extraction_log", "gazette_feed_state",
+        "guard_drops", "mentions", "mint_lane_state", "model_claims")},
 }
 
 # File trees no database dump covers: name -> (root, fate, why, exclude).
