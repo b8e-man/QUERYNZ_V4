@@ -25,6 +25,6 @@ subdomains). The page answers, in plain words and in this order:
    information in it; what may be shown; what must be held apart.
 
 Then: the stated crawl delay if any, the floor we use, and the date and
-author of the position. Nothing in step 1 captures, so this folder holds no
-position yet; the first lanes of step 4 write theirs before their first
-fetch.
+author of the position. On 10 November 2026 this folder held 41 positions,
+one per class of source (ruling 61: each is written before the product that
+shows its source).
