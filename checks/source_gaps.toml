@@ -14,9 +14,9 @@ source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 1"
 
 [[gap]]
 register = "courts"
-reason = "the estate's own capture of Judicial Decisions Online, the decisions finder and the Employment Relations Authority is walking the back catalogue, about 10 to 12 nights from 3 November"
-since = "2026-11-04"
-source = "support/scheduler/jobs.toml, qv4-courts-jdo-capture and qv4-courts-era-capture (about nine, three and four nights); Arthur, 4 November 2026"
+reason = "the boxes stopped their own capture of Judicial Decisions Online, the decisions finder and the Employment Relations Authority on 9 November, since the ingest MCP gathers them; qv4-mcp-pull copies its estate-courts-jdo and estate-courts-era, but the courts load does not take them yet (an adapter is owed), so those decisions stand as captured to 9 November"
+since = "2026-11-09"
+source = "commit 3429166 (Arthur, 9 November 2026); docs/research/mcp-copying-plan-2026-11-09.md, step 3; was the walk of the back catalogue declared 2026-11-04"
 
 [[gap]]
 register = "tenders"
@@ -57,14 +57,14 @@ hosts = ["forms.justice.govt.nz"]
 
 [[gap]]
 register = "local_elections"
-reason = "the Dunedin, Gisborne and Kaipara councils' sites answered 403 to return files from 23 October (Kaipara to every one, the other two often to the first request of a night), and the fetch gate holds them since 4 November: 97 of their returns wait (Dunedin 76, Gisborne 6, Kaipara 15) and 42 met a 403, until a person clears the hosts"
-since = "2026-11-05"
-source = "ruling 141; the gate's ledger, 4 November 22:20; local_elections.capture_files and capture_passes 1 to 16"
+reason = "the Dunedin, Gisborne and Kaipara councils' sites answered 403 to return files from 23 October (Kaipara to every one, the other two often to the first request of a night), and the fetch gate holds them since 4 November: 97 of their returns wait (Dunedin 76, Gisborne 6, Kaipara 15) and 42 met a 403. The boxes stopped asking on 9 November (the ingest MCP gathers the source); whether its copy, estate-local_elections, holds them is known once the lane takes that copy"
+since = "2026-11-09"
+source = "ruling 141; the gate's ledger, 4 November 22:20; local_elections.capture_files and capture_passes 1 to 16; commit 3429166 (declared 2026-11-05, reworded 2026-11-09)"
 hosts = ["www.dunedin.govt.nz", "www.gdc.govt.nz", "www.kaipara.govt.nz"]
 
 [[gap]]
 register = "councillor_interests"
-reason = "no register of the Dunedin or Gisborne councils is held (both sites answered the survey with 403 on 22 October), and the fetch gate holds both and Kaipara's since 4 November, so Kaipara's register, held from 22 October, is not re-read until a person clears the hosts"
-since = "2026-11-05"
-source = "ruling 141; the gate's ledger, 4 November 22:20; councillor_interests.capture_held_hosts and capture_items"
+reason = "no register of the Dunedin or Gisborne councils is held (both sites answered the survey with 403 on 22 October), and the fetch gate holds both and Kaipara's since 4 November, so Kaipara's register is held as read on 22 October. The boxes stopped asking on 9 November (the ingest MCP gathers the source); whether its copy, estate-councillor_interests, holds the three is known once the lane takes that copy"
+since = "2026-11-09"
+source = "ruling 141; the gate's ledger, 4 November 22:20; councillor_interests.capture_held_hosts and capture_items; commit 3429166 (declared 2026-11-05, reworded 2026-11-09)"
 hosts = ["www.dunedin.govt.nz", "www.gdc.govt.nz", "www.kaipara.govt.nz"]

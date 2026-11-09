@@ -12,7 +12,10 @@ on the board's search pane, with a one-line reason in plain words.
           the rest still asked; a reader or backfill with
           pieces outstanding, documents waiting on a reader in the lane's
           published documents view, the lane's own count short of the
-          source's, or a declared gap (`checks/source_gaps.toml`). A declared gap that names a held
+          source's, an update job of the lane switched off in the catalogue
+          while another still runs (the register holds what the switched-off
+          job last gathered: 9 November 2026, the nine sources the boxes
+          stopped gathering), or a declared gap (`checks/source_gaps.toml`). A declared gap that names a held
           host (`hosts`) says that hold in its own words: the gate's line for
           it is not repeated, red or orange (a person declared what cannot be
           read while the host is held; only a person clears the hold)
@@ -73,6 +76,8 @@ class Lane:
     read: tuple = ()        # its readers and backfills (pieced): outstanding pieces make it orange, a failed run red
     corpora: tuple = ()     # the ingest MCP's corpora the lane reads (qv4-mcp-pull's run record, per corpus)
     hosts: tuple = ()       # hosts its own capture asks (as the code names them; "www." is ignored)
+    asks: tuple = ()        # the jobs that ask those hosts, where not every update job does: a hold lights the lane only
+                            # while one of them is switched on (a load over what a stopped capture landed asks nothing)
     positions: tuple = ()   # legal positions whose `hosts:` lines it reads under (docs/legal/positions/)
     waiting: tuple = ()     # (pub view, SQL condition) counting its documents waiting on a reader
     coverage: str = ""      # a key of COVERAGE: the lane's own count against the source's
@@ -111,11 +116,12 @@ LANES = {
     "grants": Lane(update=("qv4-grants-capture", "qv4-grants-load"),
                    positions=("dia-gambling-and-lottery-grants", "class-4-society-grant-publications")),
     "commerce_commission": Lane(update=("qv4-commerce-commission-capture", "qv4-commerce-commission-load"),
-                                hosts=("comcom.govt.nz",), positions=("commerce-commission-case-register",)),
+                                hosts=("comcom.govt.nz",), positions=("commerce-commission-case-register",),
+                                asks=("qv4-commerce-commission-capture",)),
     "fma": Lane(update=("qv4-fma-capture", "qv4-fma-load"), hosts=("fma.govt.nz",),
                 positions=("fma-warnings-and-enforcement",)),
     "worksafe": Lane(update=("qv4-worksafe-capture", "qv4-worksafe-load"), hosts=("worksafe.govt.nz",),
-                     positions=("worksafe-prosecutions-and-undertakings",)),
+                     positions=("worksafe-prosecutions-and-undertakings",), asks=("qv4-worksafe-capture",)),
     "tenders": Lane(update=("qv4-tenders-refresh", "qv4-tenders-load"),
                     hosts=("mbie.govt.nz", "data.govt.nz", "catalogue.data.govt.nz"),
                     positions=("government-procurement-award-notices",)),
@@ -125,7 +131,8 @@ LANES = {
                                  positions=("limited-partnerships-register",)),
     "building_practitioners": Lane(update=("qv4-building-practitioners-capture",
                                            "qv4-building-practitioners-register-capture", "qv4-building-practitioners-load"),
-                                   hosts=("kete-lbp.mbie.govt.nz",), positions=("building-practitioners-register",)),
+                                   hosts=("kete-lbp.mbie.govt.nz",), positions=("building-practitioners-register",),
+                                   asks=("qv4-building-practitioners-capture", "qv4-building-practitioners-register-capture")),
     "linz": Lane(update=("qv4-linz-capture", "qv4-linz-load"), positions=("linz-data-service",)),
     "real_estate_authority": Lane(update=("qv4-real-estate-authority-capture", "qv4-real-estate-authority-load"),
                                   hosts=("publicregister.rea.govt.nz",), positions=("real-estate-authority-decisions",)),
@@ -133,18 +140,22 @@ LANES = {
                    read=("qv4-courts-read", "qv4-courts-pages"), corpora=("courts",),
                    hosts=("justice.govt.nz", "determinations.era.govt.nz"),
                    positions=("court-judgments", "specialist-court-and-authority-decisions"),
-                   waiting=(("court_documents", "outcome LIKE 'waiting%'"),)),
+                   waiting=(("court_documents", "outcome LIKE 'waiting%'"),),
+                   asks=("qv4-courts-jdo-capture", "qv4-courts-era-capture")),
     "iwi_directory": Lane(update=("qv4-iwi-directory-capture", "qv4-iwi-directory-load"),
                           positions=("iwi-and-hapu-directory",)),
     "contract_disclosures": Lane(update=("qv4-contract-disclosures-refresh", "qv4-contract-disclosures-load"),
                                  hosts=("catalogue.data.govt.nz", "acc.co.nz")),
     "council_minutes": Lane(update=("qv4-council-minutes-capture", "qv4-council-minutes-load"),
                             read=("qv4-council-minutes-read", "qv4-council-minutes-pages"),
-                            hosts=("*.infocouncil.biz",), positions=("council-meeting-platform-infocouncil",)),
+                            hosts=("*.infocouncil.biz",), positions=("council-meeting-platform-infocouncil",),
+                            asks=("qv4-council-minutes-capture",)),
     "councillor_interests": Lane(update=("qv4-councillor-interests-capture", "qv4-councillor-interests-load"),
-                                 read=("qv4-councillor-interests-read",), positions=("councillors-registers-of-interests",)),
+                                 read=("qv4-councillor-interests-read",), positions=("councillors-registers-of-interests",),
+                                 asks=("qv4-councillor-interests-capture",)),
     "local_elections": Lane(update=("qv4-local-elections-listings", "qv4-local-elections-files", "qv4-local-elections-load"),
-                            positions=("local-election-candidate-returns",), coverage="local_elections"),
+                            positions=("local-election-candidate-returns",), coverage="local_elections",
+                            asks=("qv4-local-elections-listings", "qv4-local-elections-files")),
     "links": Lane(update=("qv4-links-build", "qv4-sightings-forms", "qv4-sightings-beehive", "qv4-sightings-hansard",
                           "qv4-sightings-parliament", "qv4-sightings-courts")),
     "insolvency": Lane(update=("qv4-insolvency-removals", "qv4-insolvency-capture", "qv4-insolvency-load"),
@@ -361,7 +372,7 @@ def held_hosts(c: Ctx) -> tuple:
     register names (its reason says it). A hold stops the lane when the host is one the lane names as its own, or when
     every host the lane reads is held; a hold on one of the many hosts its positions name (a council's site among 78)
     leaves the rest asked: the corpus is not whole, the updates still work."""
-    if not c.update:
+    if not c.update or (c.lane.asks and not [j for j in c.lane.asks if j in c.update]):
         return [], []
     hosts = lane_hosts(c.lane, c.facts["positions"])
     own = {_bare(h) for h in c.lane.hosts}
@@ -423,6 +434,18 @@ def orange_short_count(c: Ctx) -> list:
             + (f" ({cov[2]:,} failed)" if len(cov) > 2 and cov[2] else "")]
 
 
+def orange_switched_off(c: Ctx) -> list:
+    """An update job of the lane switched off in the catalogue while another still runs: the running one (a load, a
+    pull) keeps the light from grey, but the register holds only what the switched-off job last gathered."""
+    registry = c.facts["registry"]
+    off = [j for j in c.lane.update if j in registry and not registry[j].enabled]
+    if not (off and c.update):
+        return []
+    last = max((c.facts["last_done"][j]["finished_at"] for j in off if j in c.facts["last_done"]), default=None)
+    return [f"{', '.join(off)} switched off in the catalogue, so the register holds what it last gathered"
+            + (f" ({when(last)})" if last else "")]
+
+
 def orange_gap(c: Ctx) -> list:
     return [f"{g['reason']} (declared {g['since']})" for g in c.facts["gaps"] if g["register"] == c.register]
 
@@ -433,7 +456,7 @@ def green_up_to_date(c: Ctx) -> list:
 
 
 RED_RULES = [red_held_host, red_failed_run, red_corpus, red_late]
-ORANGE_RULES = [orange_held_host, orange_pieces, orange_waiting, orange_short_count, orange_gap]
+ORANGE_RULES = [orange_held_host, orange_switched_off, orange_pieces, orange_waiting, orange_short_count, orange_gap]
 GREEN_RULES = [green_up_to_date]
 
 

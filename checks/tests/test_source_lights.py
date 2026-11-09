@@ -64,6 +64,25 @@ priority = 6
 command = ["true"]
 at_utc = "09:00"
 enabled = false
+
+[jobs.qv4-w-capture]
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 3600
+class = "due"
+priority = 7
+command = ["true"]
+at_utc = "09:00"
+enabled = false
+
+[jobs.qv4-w-load]
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 600
+class = "due"
+priority = 8
+command = ["true"]
+at_utc = "17:00"
 """
 
 LANES = {
@@ -303,6 +322,31 @@ def test_a_declared_gap_is_orange(registry):
     assert lights(f)["x"]["reason"] == "half the back catalogue (declared 2026-11-04)"
 
 
+def test_a_switched_off_capture_beside_a_running_load_is_orange(registry):
+    """9 November 2026 (3429166): the boxes stopped nine captures the ingest MCP gathers; each lane's load still ran
+    on its clock over what the stopped capture had landed, and the light said green, "up to date"."""
+    f = good_facts(registry)
+    sl.LANES = {**LANES, "w": sl.Lane(update=("qv4-w-capture", "qv4-w-load"))}
+    f["last_done"]["qv4-w-load"] = f["last_finished"]["qv4-w-load"] = done(2)
+    f["last_done"]["qv4-w-capture"] = f["last_finished"]["qv4-w-capture"] = done(14)
+    w = sl.compute(f, now=NOW, regs=[("w", "w", True)])["lights"][0]
+    assert w["light"] == "orange"
+    assert w["reason"] == "qv4-w-capture switched off in the catalogue, so the register holds what it last gathered (3 Nov 22:00)"
+    sl.LANES = {**LANES, "w": sl.Lane(update=("qv4-w-load",))}           # a lane with no capture named: the load is all
+    assert sl.compute(f, now=NOW, regs=[("w", "w", True)])["lights"][0]["light"] == "green"
+
+
+def test_a_hold_lights_a_lane_only_while_a_job_that_asks_the_host_is_on(registry):
+    f = good_facts(registry)
+    f["last_done"]["qv4-w-load"] = f["last_finished"]["qv4-w-load"] = done(2)
+    f["refusals"] = {"www.w.govt.nz": {"host": "www.w.govt.nz", "state": "held", "why": "HTTP 403", "at": None}}
+    sl.LANES = {**LANES, "w": sl.Lane(update=("qv4-w-capture", "qv4-w-load"), hosts=("w.govt.nz",), asks=("qv4-w-capture",))}
+    w = sl.compute(f, now=NOW, regs=[("w", "w", True)])["lights"][0]
+    assert w["light"] == "orange" and not any("fetch gate" in r for r in w["reasons"])   # the capture is off: nothing asks
+    sl.LANES = {**LANES, "w": sl.Lane(update=("qv4-w-capture", "qv4-w-load"), hosts=("w.govt.nz",), asks=("qv4-w-load",))}
+    assert sl.compute(f, now=NOW, regs=[("w", "w", True)])["lights"][0]["light"] == "red"   # the asking job is on
+
+
 def test_two_reasons_say_how_many_more(registry):
     f = good_facts(registry)
     f["waiting"] = {"x": 1}
@@ -318,7 +362,8 @@ SCENARIOS = [test_everything_working_is_green, test_a_failed_last_run_is_red, te
              test_a_job_new_to_its_clock_is_judged_from_its_slot, test_a_chained_job_that_did_not_follow_its_parent_is_red,
              test_the_mcp_pull_is_judged_per_corpus, test_a_held_host_is_red,
              test_a_held_host_among_many_a_position_names_is_orange_not_red, test_pieces_to_go_is_orange,
-             test_documents_waiting_is_orange, test_a_short_count_is_orange, test_a_declared_gap_is_orange]
+             test_documents_waiting_is_orange, test_a_short_count_is_orange, test_a_declared_gap_is_orange,
+             test_a_switched_off_capture_beside_a_running_load_is_orange]
 
 
 def caught(registry) -> bool:
@@ -433,3 +478,24 @@ def test_every_corpus_the_pull_takes_is_some_lane_s_light():
     pulled = {cmd[i + 1] for i, a in enumerate(cmd) if a == "--corpus" and cmd[i + 1].startswith("parliament-")}
     named = {c for lane in REAL_LANES.values() for c in lane.corpora}
     assert pulled - named == set()
+
+
+def test_the_nine_stopped_sources_on_the_real_lanes(monkeypatch):
+    """9 November 2026 (3429166, d1e125c): every lane whose capture the boxes stopped is orange on the real catalogue,
+    never green, with every job that still runs well; FMA's capture runs again from the MCP's copy, so it stays green;
+    and a council host the gate holds no longer lights the two council lanes, whose captures ask nothing now."""
+    monkeypatch.setattr(sl, "LANES", REAL_LANES)
+    real = reg.load()
+    f = sl.empty_facts(real)
+    f["positions"] = sl.position_hosts()
+    for lane in REAL_LANES.values():
+        for j in lane.update + lane.read:
+            f["last_done"][j] = f["last_finished"][j] = done(2)
+    f["refusals"] = {"www.fndc.govt.nz": {"host": "www.fndc.govt.nz", "state": "held", "why": "HTTP 403", "at": None}}
+    stopped = ("commerce_commission", "worksafe", "building_practitioners", "council_minutes", "councillor_interests",
+               "local_elections", "courts")
+    for r in stopped:
+        x = sl.light_of(r, True, f, NOW)
+        assert x["light"] == "orange" and "switched off in the catalogue" in x["reason"], (r, x)
+        assert not any("fndc" in w for w in x["reasons"]), (r, x)
+    assert sl.light_of("fma", True, f, NOW)["light"] == "green"
