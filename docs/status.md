@@ -42,7 +42,7 @@ old ntfy.
 
 ## Half-done
 
-- Step 9 (150-157), 9-10 Nov night: 1, 2, 6, 8 built; 5 under way
+- Step 9 (150-157), 9-10 Nov night: 1, 2, 6, 8 built; 5 going
   (insolvency, grants green; 7 lanes orange till read from the MCP).
   Hops and hub limits: Arthur (docs/research/step-9-stage1-depth.md).
 - 4.5: the comparison daily since 22 October; the switch is open now the
