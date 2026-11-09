@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-09 21:25 NZDT. **Process:** ruling 131 (31 Oct) ended
+**Date:** 2026-11-10 04:24 NZDT. **Process:** ruling 131 (31 Oct) ended
 the plan's gate process; work runs on Arthur's word. **Boxes:** two, both
 take every job (ruling 145); node1 primary on 10.0.0.10 since the drill,
 node2 its streaming standby; the voter on 192.168.68.57. **Alarms:** the
@@ -43,7 +43,7 @@ old ntfy.
 ## Half-done
 
 - Step 9 (150-157), 9-10 Nov night: 1, 2, 6, 8 built; 5 under way
-  (insolvency, grants green; 7 lanes orange until read from the MCP).
+  (insolvency, grants green; 7 lanes orange till read from the MCP).
   Hops and hub limits: Arthur (docs/research/step-9-stage1-depth.md).
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
