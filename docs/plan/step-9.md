@@ -30,6 +30,10 @@ of the news to connect those records to articles.
 
 ## News
 
+The estate gathers no news itself. It reads keyed APIs and handles the
+corpora; the scrapers, already built, run elsewhere, with the website-crawl
+provider (ruling 156).
+
 ### 9.1 The old scrapers, packaged for the website-crawl provider
 
 - Source: the reference copy of the old repository, `/home/user/qnz3-ref`.

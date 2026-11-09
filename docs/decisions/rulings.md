@@ -1390,3 +1390,9 @@ withdrawn; their numbers are kept so every other limit and ruling keeps
 its number. The two sources they named are to be looked at from scratch
 (ruling 154). Old ruling 321 (fyi.org.nz) is still in the list of old
 rulings this plan relies on.
+
+156. Arthur, 9 November: the fetch gate no longer holds the NZME hosts by
+name; fyi.org.nz stays held (old ruling 321). The step 7 line on paywalled
+outlets is removed: "you are just going to be reading APIs, not scraping.
+you are just going to be handling the corpora. You already built the
+scrapers for the corpora but they will run elsewhere".

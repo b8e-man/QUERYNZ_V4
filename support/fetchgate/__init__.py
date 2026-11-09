@@ -7,7 +7,7 @@ file is no longer a permission decision (hard limit 5, ruling 10). The gate
 reads robots.txt for ONE thing, a stated crawl delay, and honours it; the
 file is archived verbatim with its hash, as a record. What refuses:
 
-  1. a source out by name (hard limit 8): fyi.org.nz and every NZME masthead;
+  1. a source out by name: fyi.org.nz (old ruling 321), and the hosts the MCP is the source for;
      a held host is not even sent a request for its robots.txt
   2. no one-page legal position on file for the host's class of source
      (hard limit 9): `docs/legal/positions/<class>.md` names its hosts
@@ -85,16 +85,9 @@ CHALLENGE_HEADERS = ("x-spa-interstitial",)    # Imperva's interstitial (grants-
 CHALLENGE_PAGE_MAX = 64 * 1024
 REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
-#: hosts we do not capture from (hard limit 8). Matched with every parent domain.
+#: hosts we do not capture from. Matched with every parent domain. (Hard limit 8 and ruling 12, which held the NZME mastheads, are withdrawn: ruling 155.)
 HELD = {
-    "fyi.org.nz": "ruling 321: fyi.org.nz is not captured, indexed or read (hard limit 8)",
-    "nzherald.co.nz": "ruling 12: NZME is not captured, indexed or read (hard limit 8)",
-    "businessdesk.co.nz": "ruling 12: NZME (BusinessDesk is NZME-owned)",
-    "newstalkzb.co.nz": "ruling 12: NZME",
-    "gisborneherald.co.nz": "ruling 12: NZME",
-    "oneroof.co.nz": "ruling 12: NZME",
-    "driven.co.nz": "ruling 12: NZME",
-    "nzme.co.nz": "ruling 12: NZME",
+    "fyi.org.nz": "ruling 321: fyi.org.nz is not captured, indexed or read",
     "hansard.parliament.nz": "ruling 78: Hansard is not captured by the estate (a challenge since about 5 October 2026); its register comes from the old export and the MCP (ruling 96)",
     "parliament.nz": "ruling 78: not captured by the estate; the MCP is the source (rulings 94, 96)",
 }

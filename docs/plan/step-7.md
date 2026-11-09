@@ -66,7 +66,6 @@ The vectors stay out of the off-site copy, because they can be regenerated, and 
 
 - News capture keeps running.
 - Show the headline, masthead, date, a link, and a short extract around the matched words. Never the full text.
-- Paywalled outlets are not captured and are never forged.
 - No meaning index and no people or claims are built from current journalism while the press work is parked.
 
 **7.7 The history-search template and its checkpoint.** Copyright on Papers Past varies by title and date; add it to the before-selling legal list.

@@ -30,16 +30,16 @@ def robots(host="example.org", text="", unreadable=False, delay=None):
 # ── refusals ──────────────────────────────────────────────────────────────────
 
 def test_a_held_host_is_refused_whatever_else_is_true():
-    d = fg.decide("https://www.nzherald.co.nz/nz/x", robots("www.nzherald.co.nz"), position="news")
-    assert not d.allowed and "ruling 12" in d.reason
-    assert not fg.decide("https://fyi.org.nz/request/1", None, "oia").allowed
-    assert not fg.decide("https://cdn.oneroof.co.nz/a", None, "x").allowed       # a subdomain is not the way back in
+    d = fg.decide("https://fyi.org.nz/request/1", robots("fyi.org.nz"), position="oia")
+    assert not d.allowed and "ruling 321" in d.reason
+    assert not fg.decide("https://www.fyi.org.nz/a", None, "x").allowed          # a subdomain is not the way back in
+    assert "nzherald.co.nz" not in fg.HELD                                         # ruling 155: NZME no longer held by name
 
 
 def test_a_held_host_is_not_even_sent_a_robots_request(tmp_path):
     knocked = []
     with pytest.raises(fg.Refused):
-        fg.check("https://www.nzherald.co.nz/x", fetch=lambda u, t: knocked.append(u) or (200, b""),
+        fg.check("https://fyi.org.nz/x", fetch=lambda u, t: knocked.append(u) or (200, b""),
                  positions_dir=str(tmp_path), ledger_dir=str(tmp_path / "l"))
     assert knocked == []
 
