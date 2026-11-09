@@ -136,8 +136,13 @@ def dates(v: cat.View, r: dict) -> dict:
     bits = []
     if start:
         bits.append(f"from {fmt_date(start)}")
+    annulled = as_date(r.get("annulled_on"))   # an insolvency's annulment ends it as a discharge does (finding 11, 9 November 2026)
     if end:
         bits.append(f"to {fmt_date(end)}")
+    elif annulled:
+        bits.append(f"annulled {fmt_date(annulled)}")
+    elif start and v.end and str(r.get("status") or "").strip().lower() == "annulled":
+        bits.append("annulled; the date is in the estate's detail, not yet read")
     elif start and v.end:
         bits.append("no end filed" + (" (in the latest file)" if r.get("in_latest") else
                                      "" if "in_latest" not in r else " (not in the latest file: the file states no end)"))

@@ -378,11 +378,18 @@ def windows(since: dt.date, today: dt.date):
 
 
 def details_wanted(conn, schema: str = SCHEMA, today: dt.date = None) -> list:
-    """Estates a search page named whose detail is missing or older than DETAIL_EVERY_DAYS, never one removed since."""
+    """Estates a search page named whose detail is missing or older than DETAIL_EVERY_DAYS, never one removed since. An
+    estate the last reading holds as ended (annulled, discharged, completed) first: a search result gives no annulment
+    date, so 149 of 153 annulled bankruptcies stood undated while their details waited in estate order (9 November 2026)."""
     today = today or now_nz().date()
+    held = conn.execute("SELECT to_regclass(%s)", (f"{schema}.estates",)).fetchone()[0] is not None
+    ended = (f"SELECT DISTINCT estate_number FROM {schema}.estates WHERE coalesce(status, '') <> '' AND status !~* '^current'"
+             if held else "SELECT NULL::bigint AS estate_number WHERE false")
     return [r[0] for r in conn.execute(
-        f"SELECT s.estate FROM {schema}.search_seen s WHERE NOT EXISTS (SELECT 1 FROM {schema}.calls c WHERE c.estate = "
-        f"s.estate AND c.why IN ('detail', 'lookup') AND c.status IN (200, 404) AND c.day > %s) ORDER BY s.estate",
+        f"WITH ended AS ({ended}) SELECT s.estate FROM {schema}.search_seen s LEFT JOIN ended x ON x.estate_number = s.estate "
+        f"WHERE NOT EXISTS (SELECT 1 FROM {schema}.calls c WHERE c.estate = "
+        f"s.estate AND c.why IN ('detail', 'lookup') AND c.status IN (200, 404) AND c.day > %s) "
+        f"ORDER BY x.estate_number IS NULL, s.estate",
         (today - dt.timedelta(days=DETAIL_EVERY_DAYS),)).fetchall()]
 
 

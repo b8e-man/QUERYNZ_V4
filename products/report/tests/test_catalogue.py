@@ -84,3 +84,16 @@ def test_a_text_date_the_registers_print_is_read_and_anything_else_is_left_as_pr
     assert rows.as_date("31/02/2025") == "31/02/2025" and rows.as_date("about 2019") == "about 2019"
     v = cat.BY_NAME["councillor_interests"]
     assert rows.dates(v, {"as_at": "16 February 2026"})["on"] == dt.date(2026, 2, 16)
+
+
+def test_an_annulled_bankruptcy_says_it_was_annulled_and_never_no_end_filed():
+    """Finding 11 (9 November 2026): an annulment ends an estate as a discharge does; a search answer gives no date."""
+    import datetime as dt
+    from products.report import rows
+    v = cat.BY_NAME["insolvency_people"]
+    start = dt.date(2024, 5, 1)
+    said = lambda r: rows.dates(v, {"adjudicated_on": start, **r})["text"]
+    assert "annulled 3 June 2025" in said({"annulled_on": dt.date(2025, 6, 3), "status": "Annulled"})
+    assert "annulled; the date is in the estate's detail, not yet read" in said({"status": "Annulled"})
+    assert "no end filed" in said({"status": "Currently Bankrupt/NAP"})
+    assert "no end filed" not in said({"status": "Annulled"})
