@@ -42,9 +42,9 @@ old ntfy.
 
 ## Half-done
 
-- Step 9 (150-159), 10 Nov: 1, 2, 6 (3 hops), 8, connections pane
-  built; 7's code ahead of the corpus; 5: reds cleared, 6 lanes on the
-  MCP; its freshness lit, handover/mcp-stale.md for the provider.
+- Step 9 (150-162), 10 Nov: 1, 2, 6, 8, pane built; 7 waits on news;
+  5: 6 lanes on the MCP, stale list lit. Old estate copied in nightly
+  (oldcopy on); handover/mcp-gaps.md for the provider, daily.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
