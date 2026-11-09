@@ -167,15 +167,15 @@ def copy_documents(src, dst, shas, *, root: str = None, src_store: str = "docs",
 
 
 def documents_of(shas, conn) -> dict:
-    """{sha256: {'kind', 'source', 'withdrawn'}} for the documents the store's
+    """{sha256: {'kind', 'source', 'withdrawn', 'fetched_at'}} for the documents the store's
     table holds among `shas`, read only (one query): what a reader needs to
     decide whether to open a document, without querying `docs` itself (the
     one-way test). A sha the table lacks is absent from the answer."""
     want = sorted({s for s in shas if s})
     if not want:
         return {}
-    cur = conn.execute("SELECT sha256, kind, source, withdrawn FROM docs.documents WHERE sha256 = ANY(%s)", (want,))
-    return {r[0]: {"kind": r[1], "source": r[2], "withdrawn": r[3]} for r in cur}
+    cur = conn.execute("SELECT sha256, kind, source, withdrawn, fetched_at FROM docs.documents WHERE sha256 = ANY(%s)", (want,))
+    return {r[0]: {"kind": r[1], "source": r[2], "withdrawn": r[3], "fetched_at": r[4]} for r in cur}
 
 
 def withdraw(shas, reason: str, conn) -> int:

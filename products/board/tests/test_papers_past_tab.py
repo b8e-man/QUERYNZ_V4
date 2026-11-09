@@ -25,7 +25,7 @@ def test_every_page_s_bar_carries_the_papers_past_tab():
     for tab in ("search", "uses", papers_past.TAB):
         page = panes.page("", [], [], tab=tab)
         assert 'href="/papers-past">papers past</a>' in page
-        assert ('class="on" href="/papers-past"' in page) == (tab == papers_past.TAB)
+        assert ('class="on" data-tab="papers past" href="/papers-past"' in page) == (tab == papers_past.TAB)
 
 
 def test_the_tab_shows_the_count_the_time_and_each_hit_with_its_links():

@@ -33,7 +33,10 @@ STDLIB = set(sys.stdlib_module_names)
 #: keyword search (Arthur, 5 November 2026: "add a search interface tab in the querynz board"); the index and the text
 #: store are the lane's files, so the lane reads them and the board only renders what it returns (hard limit 17 holds it
 #: in tests/test_papers_past_search_only.py)
-CROSSINGS = {(os.path.join("products", "board", "papers_past.py"), "registers.papers_past.search")}
+#: and the board's subject report tab calls the report's own search, build and memo (Arthur, 9 November 2026: "a tab in the
+#: same interface design" that keeps its state), reading only the published tables as the report's server does
+CROSSINGS = {(os.path.join("products", "board", "papers_past.py"), "registers.papers_past.search"),
+             (os.path.join("products", "board", "subject_report.py"), "products.report")}
 
 
 def py_files():

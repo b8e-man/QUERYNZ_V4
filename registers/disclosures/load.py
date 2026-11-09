@@ -160,12 +160,15 @@ def load(conn, schema: str, log=print) -> int:
 
 def mcp_documents(conn, landed: list, aside: list) -> tuple:
     """build's three arguments from the ingest MCP's copies first, the old folder filling its gaps (from_mcp.py)."""
+    import datetime as dt
+    from support.docstore.landing import documents_of
     from registers.disclosures import from_mcp
 
-    def fetched_at(sha):
-        row = conn.execute("SELECT to_char(fetched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS') "
-                           "FROM docs.documents WHERE sha256 = %s", (sha,)).fetchone()
-        return row[0] if row else None
+    def fetched_at(sha):   # through the store's own reader: no lane queries docs.* (the one-way test)
+        when = (documents_of([sha], conn).get(sha) or {}).get("fetched_at")
+        if isinstance(when, dt.datetime):
+            return (when.astimezone(dt.timezone.utc) if when.tzinfo else when).strftime("%Y-%m-%dT%H:%M:%S")
+        return str(when) if when else None
     return from_mcp.documents(from_mcp.rows(conn), landed, aside, fetched_at)
 
 

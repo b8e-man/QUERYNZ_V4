@@ -70,6 +70,18 @@ button{font:inherit;font-size:12px;padding:.15rem .5rem}
 code{font-size:12px;word-break:break-all;color:#e8eaed}
 .pane.left{flex:0 0 19rem;max-width:19rem}
 .pane.wide{flex:0 0 46rem;max-width:46rem}
+.pane.memo{flex:0 0 60rem;max-width:60rem}
+.pane.memo form select{color:#e8eaed;background:#232833;border:1px solid #5a6270;border-radius:3px}
+.pane.memo .grade{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#aab1bc;margin-right:.3rem}
+.pane.memo .grade.near,.pane.memo .amber{color:#e0b84d}
+.pane.memo .red{color:#ffb26b}.pane.memo .info{color:#aab1bc}
+.pane.memo li .dates,.pane.memo li .reason{color:#aab1bc;font-size:12px}
+.pane.memo li .reason{display:block}
+.pane.memo li .flag{display:block;color:#ffb26b;font-size:12px}
+.pane.memo li .cite{color:#8cb8ff;font-size:12px}
+.pane.memo ol.cites{font-size:12px;color:#aab1bc}
+.pane.memo ul.found{list-style:none;padding-left:0}
+.pane.memo p.start{margin:.1rem 0 .3rem}
 .pane.graph{flex:0 0 64rem;max-width:64rem}
 .pane.graph .picture{overflow-x:auto}
 .pane input[type=search]{width:12rem;padding:.3rem .4rem}
@@ -1769,17 +1781,16 @@ def chat_pane() -> str:
             f'<script src="{esc(assets.url("chat.js"))}" defer></script></aside>')
 
 
-#: the subject report tab (Arthur, 9 November 2026): the board's own address, which sends the reader on to the report's server
-#: at the request's own host (ruling 89) with the diagnostic template chosen; it opens in a new browser tab, as a use case does
+#: the subject report tab (Arthur, 9 November 2026): the report drawn inside the board's page (subject_report.py)
 SUBJECT_REPORT_PATH = "/subject-report"
-SUBJECT_REPORT_TEMPLATE = "diagnostic"
 
 
 def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search", db=None) -> str:
     """The page: three tabs, search (`/`, as before, an href carrying the term
     and the registers checked, ruling 80), use cases (`/uses`, ruling 87) and
     papers past (`/papers-past`, Arthur 5 November 2026: the archive's keyword index, papers_past.py);
-    the subject report (`/subject-report`, Arthur 9 November 2026: the diagnostic report on its own server);
+    the subject report (`/subject-report`, Arthur 9 November 2026: the report inside the board, subject_report.py);
+    each tab comes back to the address it was last on (static/tabs.js: "that's what a tab is");
     the graph tab left the bar (ruling 111), its graph lives beside the
     results; the database connection counter at the bar's end (ruling 90;
     `db`, db.connections' answer, None reads "db ?")."""
@@ -1790,10 +1801,14 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
                 + hidden_boxes(boxes) +
                 f'<input name="name" placeholder="name this path" size="18"> <button>save path</button></form>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
-    tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
-            f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a> '
-            f'<a class="{"on" if tab == "papers past" else ""}" href="/papers-past">papers past</a> '
-            f'<a href="{SUBJECT_REPORT_PATH}" target="_blank" rel="noopener">subject report</a></nav>')
+    from products.board import assets
+
+    def tab_a(name: str, label: str, to: str) -> str:
+        return f'<a class="{"on" if tab == name else ""}" data-tab="{esc(name)}" href="{esc(to)}">{esc(label)}</a>'
+    tabs = ('<nav class="tabs">' + " ".join((tab_a("search", "search", href(q, [] if tab != "search" else path, boxes)),
+                                              tab_a("uses", "use cases", "/uses"), tab_a("papers past", "papers past", "/papers-past"),
+                                              tab_a("subject report", "subject report", SUBJECT_REPORT_PATH)))
+            + f'</nav><script src="{esc(assets.url("tabs.js"))}" defer></script>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body class=\"chat-on\"><header><h1>QueryNZ board</h1>{tabs}"
             f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}{db_counter(db)}</header>"

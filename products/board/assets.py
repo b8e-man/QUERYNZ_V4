@@ -24,6 +24,7 @@ FILES = {
     "graph.js": JS,                     # the board's: the canvas beside the results (rulings 100, 108, 111)
     "chat.js": JS,                      # the board's: the chat pane's thread and question box (ruling 122)
     "table.js": JS,                     # the board's: a register table's row height and column widths (ruling 117 (3))
+    "tabs.js": JS,                      # the board's: each tab comes back to the address it was last on (Arthur, 9 November 2026)
     "LICENSE.cytoscape": TEXT,
     "LICENSE.cytoscape-cola": TEXT,
     "LICENSE.webcola": TEXT,

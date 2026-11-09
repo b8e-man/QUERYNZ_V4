@@ -137,9 +137,9 @@ class ReadConn:
 
 def test_documents_of_answers_kind_source_and_withdrawn_in_one_query():
     a, b = "a" * 64, "b" * 64
-    conn = ReadConn([(a, "pdf", "house", None), (b, "web-page", "party_returns", "withdrawn: a test")])
+    conn = ReadConn([(a, "pdf", "house", None, "2026-11-01"), (b, "web-page", "party_returns", "withdrawn: a test", None)])
     got = landing.documents_of([a, b, "c" * 64, None, a], conn)
-    assert got == {a: {"kind": "pdf", "source": "house", "withdrawn": None},
-                   b: {"kind": "web-page", "source": "party_returns", "withdrawn": "withdrawn: a test"}}
+    assert got == {a: {"kind": "pdf", "source": "house", "withdrawn": None, "fetched_at": "2026-11-01"},
+                   b: {"kind": "web-page", "source": "party_returns", "withdrawn": "withdrawn: a test", "fetched_at": None}}
     assert len(conn.seen) == 1 and conn.seen[0][1] == ([a, b, "c" * 64],)
     assert landing.documents_of([], conn) == {} and len(conn.seen) == 1

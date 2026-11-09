@@ -33,8 +33,8 @@ Routes:
                     through the lane's read-only module, a page of hits by relevance with the count and the time taken;
                     searched, never mined (hard limit 17), nothing written (papers_past.py)
   GET  /papers-past/text?k=<article id>&q=   one article's text as the archive's store holds it
-  GET  /subject-report   the subject report tab (Arthur, 9 November 2026): sends the reader to the report's server at the
-                    request's own host (ruling 89, uses.bases), the diagnostic template chosen
+  GET  /subject-report?q=&ref=&template=&since=   the subject report tab (Arthur, 9 November 2026): the report's search,
+                    rows and memo drawn in the board's page (subject_report.py), its links kept in the tab
   GET  /health      'ok' and the port, for the launcher
   POST /chat        the chat pane (ruling 122, chat.py): JSON {"thread": [{role, content}…]}, the whole thread the
                     browser keeps, the newest a question; JSON back, the answer with its citations made row links.
@@ -59,16 +59,12 @@ from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
 from products.board import chat, collapse, db, document, dossier, graph, lights, lineage, links_view, near, panes, people, search, state, uses
-from products.board import papers_past
+from products.board import papers_past, subject_report
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
 REPORT_URL = os.environ.get("QV4_REPORT_URL") or ""    # the subject report's server; unset, no pane offers a report
 
-
-def subject_report_url(host: str, env=None) -> str:
-    """Where the subject report tab sends the reader: the report's start page, the diagnostic template chosen."""
-    return f"{uses.bases(host, env)['report']}/?template={panes.SUBJECT_REPORT_TEMPLATE}"
 MAX_PANES = 12
 RENDER_LOCK = threading.Lock()      # one page at a time: every session's bin/q shares the server's connections
 chat.LOCK = RENDER_LOCK             # the chat's tools take their turn with the pages; its model calls hold no lock
@@ -367,6 +363,12 @@ def render_papers_past(q: str, offset: int = 0, key: str = "", asked: dict = Non
         return papers_past.render(conn, q, offset, db=counter(), asked=asked)
 
 
+def render_subject_report(q: str, ref: str, template_name: str, since: str) -> str:
+    """The subject report tab. Not under RENDER_LOCK: a report on a busy row takes seconds; one reader connection."""
+    with db.read_connect() as conn:
+        return subject_report.render(conn, q, ref, template_name, since, db=counter())
+
+
 def render_list(which: str) -> str:
     with RENDER_LOCK, db.read_connect() as conn:
         if which == "pinned":
@@ -436,8 +438,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if url.path == "/uses":
                 self.send_html(render_uses(host=self.headers.get("Host") or ""))
                 return
-            if url.path == panes.SUBJECT_REPORT_PATH:   # the subject report tab (Arthur, 9 November 2026)
-                self.redirect(subject_report_url(self.headers.get("Host") or ""))
+            if url.path == subject_report.PATH:   # the subject report tab (Arthur, 9 November 2026)
+                one = lambda k, n=200: (qs.get(k) or [""])[0].strip()[:n]
+                self.send_html(render_subject_report(one("q"), one("ref", 600), one("template", 60), one("since", 10)))
                 return
             if url.path in (papers_past.PATH, papers_past.TEXT):
                 q = (qs.get("q") or [""])[0].strip()[:200]
