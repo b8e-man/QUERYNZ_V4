@@ -1769,10 +1769,17 @@ def chat_pane() -> str:
             f'<script src="{esc(assets.url("chat.js"))}" defer></script></aside>')
 
 
+#: the subject report tab (Arthur, 9 November 2026): the board's own address, which sends the reader on to the report's server
+#: at the request's own host (ruling 89) with the diagnostic template chosen; it opens in a new browser tab, as a use case does
+SUBJECT_REPORT_PATH = "/subject-report"
+SUBJECT_REPORT_TEMPLATE = "diagnostic"
+
+
 def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search", db=None) -> str:
     """The page: three tabs, search (`/`, as before, an href carrying the term
     and the registers checked, ruling 80), use cases (`/uses`, ruling 87) and
     papers past (`/papers-past`, Arthur 5 November 2026: the archive's keyword index, papers_past.py);
+    the subject report (`/subject-report`, Arthur 9 November 2026: the diagnostic report on its own server);
     the graph tab left the bar (ruling 111), its graph lives beside the
     results; the database connection counter at the bar's end (ruling 90;
     `db`, db.connections' answer, None reads "db ?")."""
@@ -1785,7 +1792,8 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
     tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
             f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a> '
-            f'<a class="{"on" if tab == "papers past" else ""}" href="/papers-past">papers past</a></nav>')
+            f'<a class="{"on" if tab == "papers past" else ""}" href="/papers-past">papers past</a> '
+            f'<a href="{SUBJECT_REPORT_PATH}" target="_blank" rel="noopener">subject report</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body class=\"chat-on\"><header><h1>QueryNZ board</h1>{tabs}"
             f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}{db_counter(db)}</header>"

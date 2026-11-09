@@ -33,6 +33,8 @@ Routes:
                     through the lane's read-only module, a page of hits by relevance with the count and the time taken;
                     searched, never mined (hard limit 17), nothing written (papers_past.py)
   GET  /papers-past/text?k=<article id>&q=   one article's text as the archive's store holds it
+  GET  /subject-report   the subject report tab (Arthur, 9 November 2026): sends the reader to the report's server at the
+                    request's own host (ruling 89, uses.bases), the diagnostic template chosen
   GET  /health      'ok' and the port, for the launcher
   POST /chat        the chat pane (ruling 122, chat.py): JSON {"thread": [{role, content}…]}, the whole thread the
                     browser keeps, the newest a question; JSON back, the answer with its citations made row links.
@@ -62,6 +64,11 @@ from products.board import papers_past
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
 REPORT_URL = os.environ.get("QV4_REPORT_URL") or ""    # the subject report's server; unset, no pane offers a report
+
+
+def subject_report_url(host: str, env=None) -> str:
+    """Where the subject report tab sends the reader: the report's start page, the diagnostic template chosen."""
+    return f"{uses.bases(host, env)['report']}/?template={panes.SUBJECT_REPORT_TEMPLATE}"
 MAX_PANES = 12
 RENDER_LOCK = threading.Lock()      # one page at a time: every session's bin/q shares the server's connections
 chat.LOCK = RENDER_LOCK             # the chat's tools take their turn with the pages; its model calls hold no lock
@@ -428,6 +435,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if url.path == "/uses":
                 self.send_html(render_uses(host=self.headers.get("Host") or ""))
+                return
+            if url.path == panes.SUBJECT_REPORT_PATH:   # the subject report tab (Arthur, 9 November 2026)
+                self.redirect(subject_report_url(self.headers.get("Host") or ""))
                 return
             if url.path in (papers_past.PATH, papers_past.TEXT):
                 q = (qs.get("q") or [""])[0].strip()[:200]
