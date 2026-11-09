@@ -1401,3 +1401,12 @@ scrapers for the corpora but they will run elsewhere".
 combined set of red, amber and clear checks; the horse farm pattern stays as
 the plan writes it; both news sources set aside by ruling 154 are needed,
 and are looked at from scratch with him before they are measured or copied.
+
+158. Arthur, 10 November, on the first report's depth: "B is the preferred
+choice": stage 1 follows confirmed links three hops (`products/report/stage1.py`
+HOPS = 3), hubs at 50 kept. A hub is said to be one on the result. The
+connections are to be configurable by connection type, in a pane beside the
+report with dropdown filters and a base configuration (a party's top 10
+donors by size over the past three years; a liquidator's liquidations not
+followed; a trustee company's directorships wait for a measure of their
+significance); the session's notes stay out of that pane.

@@ -30,7 +30,7 @@ from __future__ import annotations
 from products.report import catalogue as cat
 from products.report import db, rows, walk
 
-HOPS = 2             # the hops listed (the next is counted, never listed); Arthur's question
+HOPS = 3             # the hops listed (the next is counted, never listed); ruling 158, option B
 HUB_PEOPLE = 50      # an organisation with more current people than this is listed, flagged and not followed
 HUB_ENTITIES = 50    # a person on more organisations than this is listed, flagged and not followed
 LIST_ROWS = 400      # the most rows the first stage adds to a report; the rest are counted (`omitted`)

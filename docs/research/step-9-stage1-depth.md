@@ -4,14 +4,16 @@ Measured 9 November 2026, on `querynz_v4` through the session reader, by
 stream B of the step 9 integrator session. Subjects are named by row ref
 only. Nothing here is a ruling.
 
-## The question for Arthur
+## The question for Arthur (answered: ruling 158, option B)
 
 **How far should the first report follow confirmed links, and where should
 it stop at a hub?** Stage 1 is built with the safest measured option behind
 two named constants in `products/report/stage1.py`:
 
-- `HOPS = 2`: from a person, their companies and the people on those
-  companies; from a company, its people and their other companies. Every
+- `HOPS = 3` (ruling 158, Arthur, 10 November: option B): from a person,
+  their companies, the people on those companies, and those people's other
+  companies; from a company, its people, their other companies, and the
+  people on those. Every
   organisation and person at the next hop is counted and said, never listed.
 - `HUB_PEOPLE = HUB_ENTITIES = 50`: an organisation with more than 50
   people on it, or a person on more than 50 organisations, is listed and
