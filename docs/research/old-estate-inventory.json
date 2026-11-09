@@ -1,0 +1,8927 @@
+{
+ "made": "2026-11-10, stream I (ruling 160; ruling 161: NZME in, the node1 dump out)",
+ "classes": {
+  "NEW": "not held: copy",
+  "PARTLY": "copy only the named key ranges",
+  "HELD": "the new estate has it",
+  "DERIVED": "built from other tables or by a model: not content",
+  "OUT": "set aside by Arthur"
+ },
+ "tables": [
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "alembic_version",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "version_num"
+   ],
+   "rows": 1,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "article_embeddings",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id"
+   ],
+   "rows": 6670603,
+   "rows_basis": "reltuples",
+   "table_bytes": 37619040256,
+   "total_bytes": 38100664320,
+   "held_in": null,
+   "note": "bge-m3 vectors of the articles (38 GB); regenerable on the boxes",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "article_images",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "article_id"
+   ],
+   "rows": 772,
+   "rows_basis": "reltuples",
+   "table_bytes": 147456,
+   "total_bytes": 204800,
+   "held_in": null,
+   "note": "3 and 772 rows",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.article_images",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "article_ledger",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "upstream_id"
+   ],
+   "rows": 7469727,
+   "rows_basis": "reltuples",
+   "table_bytes": 1088774144,
+   "total_bytes": 2466398208,
+   "held_in": null,
+   "note": "7.47 M rows: the ingest ledger of the articles (status, failures)",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.article_ledger",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "articles",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 7509635,
+   "rows_basis": "reltuples",
+   "table_bytes": 17937833984,
+   "total_bytes": 22003924992,
+   "held_in": "papers_past.items (Papers Past), beehive.releases, gazette.notices",
+   "note": "7.51 M rows. NEW for every outlet but three: Papers Past 4,648,837 rows matched by upstream_id (papers_past.items.held_in_old, all 4,648,837; titles 5/5 equal, text lengths differ: the old text is another rendering); beehive.govt.nz 55,347 (15/15 urls in beehive.releases); gazette.govt.nz 208,914 (gazette.notices.article). These overlaps are not cut on the key (id is a uuid), so the table is copied whole; the overlap is about 4.9 M rows, 10 GB of text. NZME mastheads in (ruling 161): nzherald.co.nz 779,702, businessdesk.co.nz 2,885",
+   "date_range": "post_date 1848-04-25 to 2026-11-09; fetched to 2026-11-10",
+   "dest": "querynz_v4.old_incoming_news_private.articles",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "benchmark_questions",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 192,
+   "rows_basis": "reltuples",
+   "table_bytes": 122880,
+   "total_bytes": 270336,
+   "held_in": null,
+   "note": "small tables people or the old research agent wrote (questions, reports)",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.benchmark_questions",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "benchmark_sweeps",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 237568,
+   "total_bytes": 253952,
+   "held_in": null,
+   "note": "bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "comcom_cases",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "case_id"
+   ],
+   "rows": 89,
+   "rows_basis": "reltuples",
+   "table_bytes": 245760,
+   "total_bytes": 278528,
+   "held_in": "commerce_commission.cases, fma.actions",
+   "note": "89 vs 1,728; 15 vs 804",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "companies_office_notices",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "notice_id"
+   ],
+   "rows": 3,
+   "rows_basis": "reltuples",
+   "table_bytes": 352256,
+   "total_bytes": 368640,
+   "held_in": null,
+   "note": "3 and 772 rows",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.companies_office_notices",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "content_collisions",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "day",
+    "loser_source",
+    "owner_source"
+   ],
+   "rows": 612,
+   "rows_basis": "reltuples",
+   "table_bytes": 237568,
+   "total_bytes": 286720,
+   "held_in": null,
+   "note": "hash index over the articles",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "content_index",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "content_hash"
+   ],
+   "rows": 14168554,
+   "rows_basis": "reltuples",
+   "table_bytes": 2771279872,
+   "total_bytes": 4552704000,
+   "held_in": null,
+   "note": "hash index over the articles",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "documents",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 5136,
+   "rows_basis": "exact",
+   "table_bytes": 171261952,
+   "total_bytes": 172998656,
+   "held_in": null,
+   "note": "5,132 PDFs' rows with their text; only 1,064 of the PDFs are on disk or in the store; 4,072 PDFs are nowhere (gap for the MCP)",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.documents",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "feed_filter_hits",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "filter_name",
+    "article_id"
+   ],
+   "rows": 1731,
+   "rows_basis": "reltuples",
+   "table_bytes": 1466368,
+   "total_bytes": 3383296,
+   "held_in": null,
+   "note": "bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "feed_filter_runs",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2867,
+   "rows_basis": "reltuples",
+   "table_bytes": 393216,
+   "total_bytes": 483328,
+   "held_in": null,
+   "note": "bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "feed_filters",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "name"
+   ],
+   "rows": 4,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "small tables people or the old research agent wrote (questions, reports)",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.feed_filters",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "fma_warnings",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "case_id"
+   ],
+   "rows": 15,
+   "rows_basis": "reltuples",
+   "table_bytes": 122880,
+   "total_bytes": 155648,
+   "held_in": "commerce_commission.cases, fma.actions",
+   "note": "89 vs 1,728; 15 vs 804",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "gazette_residue",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "year"
+   ],
+   "rows": 14,
+   "rows_basis": "reltuples",
+   "table_bytes": 81920,
+   "total_bytes": 98304,
+   "held_in": null,
+   "note": "bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "hansard_members",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "member_id"
+   ],
+   "rows": 394,
+   "rows_basis": "reltuples",
+   "table_bytes": 278528,
+   "total_bytes": 344064,
+   "held_in": "hansard.sections, hansard.members",
+   "note": "3,923 = 3,923 (old_id); 394 = 394",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "hansard_sections",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 3923,
+   "rows_basis": "reltuples",
+   "table_bytes": 36290560,
+   "total_bytes": 36806656,
+   "held_in": "hansard.sections, hansard.members",
+   "note": "3,923 = 3,923 (old_id); 394 = 394",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "ingest_state",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "key"
+   ],
+   "rows": 5,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "oia_requests",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "oia_id"
+   ],
+   "rows": 302,
+   "rows_basis": "reltuples",
+   "table_bytes": 2301952,
+   "total_bytes": 2367488,
+   "held_in": null,
+   "note": "302 fyi.org.nz requests (fyi stays held at the fetch gate, old ruling 321; this is a copy, not a fetch)",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.oia_requests",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "research_gaps",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2480,
+   "rows_basis": "reltuples",
+   "table_bytes": 4775936,
+   "total_bytes": 5406720,
+   "held_in": null,
+   "note": "small tables people or the old research agent wrote (questions, reports)",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.research_gaps",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "incoming_news",
+   "schema": "public",
+   "table": "research_jobs",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 481,
+   "rows_basis": "reltuples",
+   "table_bytes": 3203072,
+   "total_bytes": 3235840,
+   "held_in": null,
+   "note": "small tables people or the old research agent wrote (questions, reports)",
+   "date_range": null,
+   "dest": "querynz_v4.old_incoming_news_private.research_jobs",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "bic_backfill",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 292,
+   "rows_basis": "reltuples",
+   "table_bytes": 73728,
+   "total_bytes": 155648,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "charitable_trust_boards_core_data",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 35599,
+   "rows_basis": "reltuples",
+   "table_bytes": 8765440,
+   "total_bytes": 8765440,
+   "held_in": "companies.entities (register column), companies.villages",
+   "note": "35,599/59,981/2,922/512 vs 35,779/60,267/2,926/514",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "charitable_trust_boards_core_data_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 599,
+   "rows_basis": "reltuples",
+   "table_bytes": 196608,
+   "total_bytes": 196608,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__charitable_trust_boards_core_data_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_abn",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 1008,
+   "rows_basis": "reltuples",
+   "table_bytes": 163840,
+   "total_bytes": 163840,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_abn",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_abn_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 12,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 49152,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_abn_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_address_for_service",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 759476,
+   "rows_basis": "reltuples",
+   "table_bytes": 149454848,
+   "total_bytes": 197394432,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_address_for_service",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_address_for_service_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 12688,
+   "rows_basis": "reltuples",
+   "table_bytes": 2539520,
+   "total_bytes": 2539520,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_address_for_service_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_business_industry_classification",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 632212,
+   "rows_basis": "reltuples",
+   "table_bytes": 97796096,
+   "total_bytes": 136380416,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_business_industry_classification",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_business_industry_classification_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 4467,
+   "rows_basis": "reltuples",
+   "table_bytes": 737280,
+   "total_bytes": 737280,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_business_industry_classification_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_gst",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 66554,
+   "rows_basis": "reltuples",
+   "table_bytes": 8380416,
+   "total_bytes": 12607488,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_gst",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_gst_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 703,
+   "rows_basis": "reltuples",
+   "table_bytes": 131072,
+   "total_bytes": 131072,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_gst_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_insolvency",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 108646,
+   "rows_basis": "reltuples",
+   "table_bytes": 24838144,
+   "total_bytes": 24838144,
+   "held_in": "companies.insolvencies",
+   "note": "108,646 vs 109,586",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_insolvency_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 45,
+   "rows_basis": "reltuples",
+   "table_bytes": 57344,
+   "total_bytes": 57344,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_insolvency_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_public_address",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 318465,
+   "rows_basis": "reltuples",
+   "table_bytes": 62947328,
+   "total_bytes": 76242944,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_public_address",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_public_address_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 5134,
+   "rows_basis": "reltuples",
+   "table_bytes": 1056768,
+   "total_bytes": 1056768,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_public_address_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_registered_office_address",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 759477,
+   "rows_basis": "reltuples",
+   "table_bytes": 149807104,
+   "total_bytes": 238411776,
+   "held_in": "companies.registered_offices",
+   "note": "759,477 vs 892,809",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_registered_office_address_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 12131,
+   "rows_basis": "reltuples",
+   "table_bytes": 2441216,
+   "total_bytes": 3219456,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_registered_office_address_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_trading_area",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 252269,
+   "rows_basis": "reltuples",
+   "table_bytes": 33505280,
+   "total_bytes": 33505280,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_trading_area",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_trading_area_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 1721,
+   "rows_basis": "reltuples",
+   "table_bytes": 270336,
+   "total_bytes": 270336,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_trading_area_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_trading_name",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 350668,
+   "rows_basis": "reltuples",
+   "table_bytes": 46735360,
+   "total_bytes": 82731008,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_trading_name",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_trading_name_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 2678,
+   "rows_basis": "reltuples",
+   "table_bytes": 401408,
+   "total_bytes": 401408,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_trading_name_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_website",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 336718,
+   "rows_basis": "reltuples",
+   "table_bytes": 43925504,
+   "total_bytes": 43925504,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_website",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "companies_website_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 2626,
+   "rows_basis": "reltuples",
+   "table_bytes": 385024,
+   "total_bytes": 385024,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__companies_website_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "director_addresses",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 12,
+   "rows_basis": "exact",
+   "table_bytes": 16384,
+   "total_bytes": 49152,
+   "held_in": null,
+   "note": "12 rows; home addresses (private by the destination schema's suffix)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__director_addresses",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "geonames",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "geonameid"
+   ],
+   "rows": 13446596,
+   "rows_basis": "reltuples",
+   "table_bytes": 1549180928,
+   "total_bytes": 2062417920,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__geonames",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "geonames_alternate",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "alternateid"
+   ],
+   "rows": 8172299,
+   "rows_basis": "reltuples",
+   "table_bytes": 669868032,
+   "total_bytes": 1226006528,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__geonames_alternate",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "gets_award_notices",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 29874,
+   "rows_basis": "reltuples",
+   "table_bytes": 31817728,
+   "total_bytes": 31817728,
+   "held_in": "tenders.*",
+   "note": "29,874 = tenders.notices 29,874; suppliers 31,265 vs 31,264; categories and regions are columns of tenders.notices",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "gets_product_categories",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 52306,
+   "rows_basis": "reltuples",
+   "table_bytes": 7168000,
+   "total_bytes": 7168000,
+   "held_in": "tenders.*",
+   "note": "29,874 = tenders.notices 29,874; suppliers 31,265 vs 31,264; categories and regions are columns of tenders.notices",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "gets_region_by_tender",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 46975,
+   "rows_basis": "reltuples",
+   "table_bytes": 4374528,
+   "total_bytes": 4374528,
+   "held_in": "tenders.*",
+   "note": "29,874 = tenders.notices 29,874; suppliers 31,265 vs 31,264; categories and regions are columns of tenders.notices",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "gets_register_meta",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "gets_supplier_data",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 31265,
+   "rows_basis": "reltuples",
+   "table_bytes": 5644288,
+   "total_bytes": 6176768,
+   "held_in": "tenders.*",
+   "note": "29,874 = tenders.notices 29,874; suppliers 31,265 vs 31,264; categories and regions are columns of tenders.notices",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "gleif",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "lei"
+   ],
+   "rows": 3461799,
+   "rows_basis": "reltuples",
+   "table_bytes": 417128448,
+   "total_bytes": 592920576,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__gleif",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "gleif_names",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 496269,
+   "rows_basis": "reltuples",
+   "table_bytes": 89128960,
+   "total_bytes": 123985920,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__gleif_names",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "import_log",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 37,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "linz_place_names",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "name_id"
+   ],
+   "rows": 54731,
+   "rows_basis": "reltuples",
+   "table_bytes": 6021120,
+   "total_bytes": 9838592,
+   "held_in": "linz.place_names",
+   "note": "54,731 vs 54,736",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "maori_business_identifier",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 3553,
+   "rows_basis": "reltuples",
+   "table_bytes": 573440,
+   "total_bytes": 573440,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__maori_business_identifier",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "maori_business_identifier_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 25,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 49152,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__maori_business_identifier_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "other_incorporated_entities_core_data",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 59981,
+   "rows_basis": "reltuples",
+   "table_bytes": 15704064,
+   "total_bytes": 25583616,
+   "held_in": "companies.entities (register column), companies.villages",
+   "note": "35,599/59,981/2,922/512 vs 35,779/60,267/2,926/514",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "other_incorporated_entities_core_data_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 380,
+   "rows_basis": "reltuples",
+   "table_bytes": 147456,
+   "total_bytes": 147456,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__other_incorporated_entities_core_data_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "public_sector_entities_core_data",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 2922,
+   "rows_basis": "reltuples",
+   "table_bytes": 458752,
+   "total_bytes": 458752,
+   "held_in": "companies.entities (register column), companies.villages",
+   "note": "35,599/59,981/2,922/512 vs 35,779/60,267/2,926/514",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "public_sector_entities_core_data_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 8192,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__public_sector_entities_core_data_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "retirement_villages_core_data",
+   "status": "HELD",
+   "relkind": "table",
+   "key": null,
+   "rows": 512,
+   "rows_basis": "reltuples",
+   "table_bytes": 262144,
+   "total_bytes": 262144,
+   "held_in": "companies.entities (register column), companies.villages",
+   "note": "35,599/59,981/2,922/512 vs 35,779/60,267/2,926/514",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "retirement_villages_core_data_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 8,
+   "rows_basis": "reltuples",
+   "table_bytes": 57344,
+   "total_bytes": 57344,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__retirement_villages_core_data_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "ror_names",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 333405,
+   "rows_basis": "reltuples",
+   "table_bytes": 41050112,
+   "total_bytes": 48553984,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__ror_names",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "unincorporated_entities_core_data",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 227984,
+   "rows_basis": "reltuples",
+   "table_bytes": 27942912,
+   "total_bytes": 27942912,
+   "held_in": null,
+   "note": "NZBN bulk extras with no counterpart (companies.lookups holds trading names for 14,637 looked-up companies only)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__unincorporated_entities_core_data",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "unincorporated_entities_core_data_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": null,
+   "rows": 670,
+   "rows_basis": "reltuples",
+   "table_bytes": 122880,
+   "total_bytes": 122880,
+   "held_in": null,
+   "note": "the old import's change history of the NZBN bulk sets",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__unincorporated_entities_core_data_history",
+   "where_to": "/home (the database's own disk)",
+   "no_usable_key": true
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "wikidata_attrs",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 7647862,
+   "rows_basis": "reltuples",
+   "table_bytes": 636305408,
+   "total_bytes": 938745856,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__wikidata_attrs",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "wikidata_labels",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "qid"
+   ],
+   "rows": 92232688,
+   "rows_basis": "reltuples",
+   "table_bytes": 8966127616,
+   "total_bytes": 11859165184,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__wikidata_labels",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "wikidata_names",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 4078658,
+   "rows_basis": "reltuples",
+   "table_bytes": 431243264,
+   "total_bytes": 619618304,
+   "held_in": null,
+   "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__wikidata_names",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "bulk",
+   "table": "worksafe_annual",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "dataset",
+    "year"
+   ],
+   "rows": 78,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "78 rows",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.bulk__worksafe_annual",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "charities",
+   "table": "charity_entities",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "charity_number"
+   ],
+   "rows": 19653,
+   "rows_basis": "reltuples",
+   "table_bytes": 8953856,
+   "total_bytes": 11788288,
+   "held_in": "charities.charities",
+   "note": "45,924 / 19,653 rows vs 46,174; same OData source",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "charities",
+   "table": "charity_officer_roles",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 283221,
+   "rows_basis": "reltuples",
+   "table_bytes": 102285312,
+   "total_bytes": 170778624,
+   "held_in": "charities.officers",
+   "note": "283,221 vs 590,183; 20/20 sampled officer_id held",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "charities",
+   "table": "import_runs",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "corpus",
+   "table": "observations",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 81920,
+   "held_in": null,
+   "note": "2 rows",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.corpus__observations",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "corpus",
+   "table": "promoted",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "courts",
+   "table": "case_parties",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 373,
+   "rows_basis": "reltuples",
+   "table_bytes": 81920,
+   "total_bytes": 180224,
+   "held_in": "courts.*",
+   "note": "116/118 judgment PDFs held by sha256; rows read from them",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "courts",
+   "table": "cases",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 118,
+   "rows_basis": "reltuples",
+   "table_bytes": 106496,
+   "total_bytes": 139264,
+   "held_in": "courts.*",
+   "note": "116/118 judgment PDFs held by sha256; rows read from them",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "elections",
+   "table": "candidates",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 8985,
+   "rows_basis": "reltuples",
+   "table_bytes": 2129920,
+   "total_bytes": 2891776,
+   "held_in": "house.candidates",
+   "note": "measured PARTLY: 1999 to 2017 (7,812 rows) not held; 2020/2023 partly in house.candidates (old 1,128/950 vs new 585/495). The overlap is not cut on the key (id), so the whole 3 MB table is copied",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.elections__candidates",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "bankruptcies",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 62917,
+   "rows_basis": "reltuples",
+   "table_bytes": 12312576,
+   "total_bytes": 26566656,
+   "held_in": "gazette.*",
+   "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "celebrants",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 88551,
+   "rows_basis": "reltuples",
+   "table_bytes": 19374080,
+   "total_bytes": 34193408,
+   "held_in": "gazette.*",
+   "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "company_aliases",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2198,
+   "rows_basis": "reltuples",
+   "table_bytes": 311296,
+   "total_bytes": 1073152,
+   "held_in": "gazette.*",
+   "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "derive_runs",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 28,
+   "rows_basis": "reltuples",
+   "table_bytes": 262144,
+   "total_bytes": 278528,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "director_prohibitions",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 530,
+   "rows_basis": "reltuples",
+   "table_bytes": 196608,
+   "total_bytes": 327680,
+   "held_in": "gazette.*",
+   "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "insolvency_appointments",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 400069,
+   "rows_basis": "reltuples",
+   "table_bytes": 50946048,
+   "total_bytes": 145940480,
+   "held_in": "gazette.*",
+   "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "notices",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "notice_id"
+   ],
+   "rows": 207133,
+   "rows_basis": "reltuples",
+   "table_bytes": 69222400,
+   "total_bytes": 87588864,
+   "held_in": "gazette.notices",
+   "note": "207,133 vs 207,871; 20/20 sampled notice ids held",
+   "date_range": "published 2000-01-13 to 2026-10-16",
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "party_events",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 168,
+   "rows_basis": "reltuples",
+   "table_bytes": 81920,
+   "total_bytes": 155648,
+   "held_in": "gazette.*",
+   "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "gazette",
+   "table": "public_appointments",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 10615,
+   "rows_basis": "reltuples",
+   "table_bytes": 4521984,
+   "total_bytes": 7069696,
+   "held_in": "gazette.*",
+   "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "legislation",
+   "table": "instruments",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 42657,
+   "rows_basis": "reltuples",
+   "table_bytes": 10297344,
+   "total_bytes": 19841024,
+   "held_in": null,
+   "note": "42,657 instrument titles (years 1267 to 2026), seen 25 to 30 July 2026; no legislation lane",
+   "date_range": "years 1267 to 2026",
+   "dest": "querynz_v4.old_nzbn_canonical_private.legislation__instruments",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "mp_interests",
+   "table": "interests",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 25147,
+   "rows_basis": "reltuples",
+   "table_bytes": 13303808,
+   "total_bytes": 18997248,
+   "held_in": "mp_interests.*",
+   "note": "21/21 register PDFs held by sha256; 25,147 vs 24,931 declarations re-read",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "mp_interests",
+   "table": "registers",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "register_id"
+   ],
+   "rows": 21,
+   "rows_basis": "reltuples",
+   "table_bytes": 57344,
+   "total_bytes": 73728,
+   "held_in": "mp_interests.*",
+   "note": "21/21 register PDFs held by sha256; 25,147 vs 24,931 declarations re-read",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "parks",
+   "table": "park",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 7,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "7 rows",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.parks__park",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "parties",
+   "table": "register",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "party_name"
+   ],
+   "rows": 17,
+   "rows_basis": "reltuples",
+   "table_bytes": 57344,
+   "total_bytes": 73728,
+   "held_in": "parties.registrations",
+   "note": "17 vs 77",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "alembic_version",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "version_num"
+   ],
+   "rows": 1,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "charity_annual_financials",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "annual_return_id"
+   ],
+   "rows": 421633,
+   "rows_basis": "reltuples",
+   "table_bytes": 48480256,
+   "total_bytes": 94175232,
+   "held_in": "charities.returns",
+   "note": "421,633 vs 431,908; 20/20 sampled annual_return_id held",
+   "date_range": "year ended 2007-03-01 to 2026-07-10",
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "charity_orgs",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "organisation_id"
+   ],
+   "rows": 45924,
+   "rows_basis": "reltuples",
+   "table_bytes": 4464640,
+   "total_bytes": 6537216,
+   "held_in": "charities.charities",
+   "note": "45,924 / 19,653 rows vs 46,174; same OData source",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "charity_register_meta",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "director_role_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1194878,
+   "rows_basis": "exact",
+   "table_bytes": 145383424,
+   "total_bytes": 317726720,
+   "held_in": null,
+   "note": "the old import runs' per-row snapshots (recorded 14 Jul to 16 Aug 2026); the new lane keeps first/last file only, companies.changes has 8 rows",
+   "date_range": "recorded 2026-07-14 to 2026-08-16",
+   "dest": "querynz_v4.old_nzbn_canonical_private.director_role_history",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "director_roles",
+   "status": "PARTLY",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1185822,
+   "rows_basis": "exact",
+   "table_bytes": 202506240,
+   "total_bytes": 649134080,
+   "held_in": "companies.directors",
+   "note": "1,185,822 rows; 1,185,805 held by old_id (20/20 sample); 17 ids not held, named as single-key ranges",
+   "date_range": "appointed 1935-08-13 to 2026-08-03",
+   "dest": "querynz_v4.old_nzbn_canonical_private.director_roles",
+   "where_to": "/home (the database's own disk)",
+   "missing": [
+    {
+     "after": [
+      "07dbd91d-d992-560d-8bad-3c80cf9d5f7e"
+     ],
+     "through": [
+      "07dbe138-23e7-442c-9a3a-52ee5d2b0561"
+     ]
+    },
+    {
+     "after": [
+      "16484e5b-a23b-5093-bb06-abfda756085c"
+     ],
+     "through": [
+      "16488f25-3dc5-4166-a001-24313ffbf736"
+     ]
+    },
+    {
+     "after": [
+      "258372b8-b6f6-5008-9abb-5148c0e3781e"
+     ],
+     "through": [
+      "2583892f-11c1-415a-925f-ea66dad63cfc"
+     ]
+    },
+    {
+     "after": [
+      "279e79e9-d573-5fd7-99c3-e6ae21f17560"
+     ],
+     "through": [
+      "279e7a48-3395-4e85-8c2c-da928664eda9"
+     ]
+    },
+    {
+     "after": [
+      "30ac4a0f-11cf-5b01-9d49-19ffa9e466de"
+     ],
+     "through": [
+      "30ac511e-c453-406f-88fc-8087dc28152d"
+     ]
+    },
+    {
+     "after": [
+      "510860ab-a67b-548f-b414-8b0979b04064"
+     ],
+     "through": [
+      "51086392-bbdd-5cbc-bad6-8e654b7bcc4d"
+     ]
+    },
+    {
+     "after": [
+      "637e3b60-b11a-5af3-b801-d22112382761"
+     ],
+     "through": [
+      "637e48ac-1ad0-4d13-93de-a9b7ab4e239c"
+     ]
+    },
+    {
+     "after": [
+      "63d6f6ba-b940-5329-a326-dba244788f6c"
+     ],
+     "through": [
+      "63d6f703-c7de-4326-bf5b-828a52dc3baa"
+     ]
+    },
+    {
+     "after": [
+      "65f383ac-aaca-557f-a2ed-d91eee952bc8"
+     ],
+     "through": [
+      "65f38988-2c07-49d7-b52c-7430274135d9"
+     ]
+    },
+    {
+     "after": [
+      "94fea7f2-035f-5dbb-8385-b0fb284cd4b9"
+     ],
+     "through": [
+      "94feb5ee-8785-41d8-b16c-53307c9eeaab"
+     ]
+    },
+    {
+     "after": [
+      "9adf59f0-27b0-53fa-9942-f7504ed902c1"
+     ],
+     "through": [
+      "9adf5dbb-4c43-4a3d-a25e-a1c3531ed9e9"
+     ]
+    },
+    {
+     "after": [
+      "9f839f53-7ce9-50c5-8192-7a671c416790"
+     ],
+     "through": [
+      "9f83bb61-aca5-54de-b0d1-4a6d1a20a1e0"
+     ]
+    },
+    {
+     "after": [
+      "a519625c-0ec5-5c02-ba50-8f50e698953a"
+     ],
+     "through": [
+      "a5197715-8ad9-4ab3-b05e-b3cb9f3bb9b3"
+     ]
+    },
+    {
+     "after": [
+      "b11d3ce2-a6a5-5305-93c8-14fbafa1f785"
+     ],
+     "through": [
+      "b11d4360-6d1e-4710-a4bd-78ff049c4000"
+     ]
+    },
+    {
+     "after": [
+      "c56720e3-d16b-5dcc-afe2-c0aea25a48ae"
+     ],
+     "through": [
+      "c5673ab6-00f6-43f1-a69d-2aa1ca471c68"
+     ]
+    },
+    {
+     "after": [
+      "caee390e-a1c1-54d0-9814-b2ca071e1291"
+     ],
+     "through": [
+      "caee3c75-a364-4ee0-afac-0282d0df87e3"
+     ]
+    },
+    {
+     "after": [
+      "d58057d0-8cf4-5d72-a665-1165b6a94089"
+     ],
+     "through": [
+      "d5807cc0-19db-4d94-a44d-d1a6862e909d"
+     ]
+    }
+   ],
+   "missing_rows": 17
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "entities",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1821454,
+   "rows_basis": "exact",
+   "table_bytes": 285040640,
+   "total_bytes": 1264443392,
+   "held_in": "companies.entities",
+   "note": "1,821,454 rows; companies.entities.old_id holds all 1,821,454; 20/20 sampled nzbn match on name md5 and status",
+   "date_range": "registered 1862-07-28 to 2026-08-03",
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "entity_filings",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 16,
+   "rows_basis": "reltuples",
+   "table_bytes": 106496,
+   "total_bytes": 172032,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "entity_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1826096,
+   "rows_basis": "exact",
+   "table_bytes": 252477440,
+   "total_bytes": 515817472,
+   "held_in": null,
+   "note": "the old import runs' per-row snapshots (recorded 14 Jul to 16 Aug 2026); the new lane keeps first/last file only, companies.changes has 8 rows",
+   "date_range": "recorded 2026-07-14 to 2026-08-16",
+   "dest": "querynz_v4.old_nzbn_canonical_private.entity_history",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "govt_org_events",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "event_id"
+   ],
+   "rows": 569,
+   "rows_basis": "reltuples",
+   "table_bytes": 131072,
+   "total_bytes": 172032,
+   "held_in": null,
+   "note": "no government-organisations register in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.govt_org_events",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "govt_org_groupings",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "ps_id"
+   ],
+   "rows": 29,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "no government-organisations register in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.govt_org_groupings",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "govt_orgs",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "org_id"
+   ],
+   "rows": 317,
+   "rows_basis": "reltuples",
+   "table_bytes": 90112,
+   "total_bytes": 131072,
+   "held_in": null,
+   "note": "no government-organisations register in the new estate",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.govt_orgs",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "govt_register_meta",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "import_runs",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "persons",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "shareholder_role_history",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1599191,
+   "rows_basis": "exact",
+   "table_bytes": 207896576,
+   "total_bytes": 438534144,
+   "held_in": null,
+   "note": "the old import runs' per-row snapshots (recorded 14 Jul to 16 Aug 2026); the new lane keeps first/last file only, companies.changes has 8 rows",
+   "date_range": "recorded 2026-07-14 to 2026-08-16",
+   "dest": "querynz_v4.old_nzbn_canonical_private.shareholder_role_history",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "shareholder_roles",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1581955,
+   "rows_basis": "exact",
+   "table_bytes": 253091840,
+   "total_bytes": 567377920,
+   "held_in": "companies.shareholders",
+   "note": "1,581,955 rows = 1,581,955 old_id; 20/20 sampled ids held",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "society_officers",
+   "status": "PARTLY",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 133968,
+   "rows_basis": "exact",
+   "table_bytes": 32653312,
+   "total_bytes": 50733056,
+   "held_in": "societies.officers",
+   "note": "133,968 rows (reloaded by the old job since, ids renumbered); 894 rows' natural key (nzbn, name, role, start) not in societies.officers, named as 458 id ranges",
+   "date_range": "imported 2026-10-13 to 2026-11-10 (the old job still writes)",
+   "dest": "querynz_v4.old_nzbn_canonical_private.society_officers",
+   "where_to": "/home (the database's own disk)",
+   "missing": [
+    {
+     "after": [
+      "656466"
+     ],
+     "through": [
+      "656470"
+     ]
+    },
+    {
+     "after": [
+      "656830"
+     ],
+     "through": [
+      "656831"
+     ]
+    },
+    {
+     "after": [
+      "657063"
+     ],
+     "through": [
+      "657065"
+     ]
+    },
+    {
+     "after": [
+      "658184"
+     ],
+     "through": [
+      "658186"
+     ]
+    },
+    {
+     "after": [
+      "658246"
+     ],
+     "through": [
+      "658247"
+     ]
+    },
+    {
+     "after": [
+      "658281"
+     ],
+     "through": [
+      "658283"
+     ]
+    },
+    {
+     "after": [
+      "658356"
+     ],
+     "through": [
+      "658357"
+     ]
+    },
+    {
+     "after": [
+      "658648"
+     ],
+     "through": [
+      "658651"
+     ]
+    },
+    {
+     "after": [
+      "659139"
+     ],
+     "through": [
+      "659142"
+     ]
+    },
+    {
+     "after": [
+      "659263"
+     ],
+     "through": [
+      "659264"
+     ]
+    },
+    {
+     "after": [
+      "659371"
+     ],
+     "through": [
+      "659373"
+     ]
+    },
+    {
+     "after": [
+      "659377"
+     ],
+     "through": [
+      "659380"
+     ]
+    },
+    {
+     "after": [
+      "659579"
+     ],
+     "through": [
+      "659581"
+     ]
+    },
+    {
+     "after": [
+      "659931"
+     ],
+     "through": [
+      "659935"
+     ]
+    },
+    {
+     "after": [
+      "660032"
+     ],
+     "through": [
+      "660034"
+     ]
+    },
+    {
+     "after": [
+      "660561"
+     ],
+     "through": [
+      "660562"
+     ]
+    },
+    {
+     "after": [
+      "661073"
+     ],
+     "through": [
+      "661075"
+     ]
+    },
+    {
+     "after": [
+      "661120"
+     ],
+     "through": [
+      "661121"
+     ]
+    },
+    {
+     "after": [
+      "661283"
+     ],
+     "through": [
+      "661285"
+     ]
+    },
+    {
+     "after": [
+      "661856"
+     ],
+     "through": [
+      "661857"
+     ]
+    },
+    {
+     "after": [
+      "662039"
+     ],
+     "through": [
+      "662043"
+     ]
+    },
+    {
+     "after": [
+      "662317"
+     ],
+     "through": [
+      "662319"
+     ]
+    },
+    {
+     "after": [
+      "662579"
+     ],
+     "through": [
+      "662580"
+     ]
+    },
+    {
+     "after": [
+      "663425"
+     ],
+     "through": [
+      "663426"
+     ]
+    },
+    {
+     "after": [
+      "663504"
+     ],
+     "through": [
+      "663505"
+     ]
+    },
+    {
+     "after": [
+      "664080"
+     ],
+     "through": [
+      "664081"
+     ]
+    },
+    {
+     "after": [
+      "664916"
+     ],
+     "through": [
+      "664918"
+     ]
+    },
+    {
+     "after": [
+      "665101"
+     ],
+     "through": [
+      "665102"
+     ]
+    },
+    {
+     "after": [
+      "665141"
+     ],
+     "through": [
+      "665149"
+     ]
+    },
+    {
+     "after": [
+      "665335"
+     ],
+     "through": [
+      "665336"
+     ]
+    },
+    {
+     "after": [
+      "665434"
+     ],
+     "through": [
+      "665437"
+     ]
+    },
+    {
+     "after": [
+      "665473"
+     ],
+     "through": [
+      "665474"
+     ]
+    },
+    {
+     "after": [
+      "665690"
+     ],
+     "through": [
+      "665692"
+     ]
+    },
+    {
+     "after": [
+      "665695"
+     ],
+     "through": [
+      "665696"
+     ]
+    },
+    {
+     "after": [
+      "665777"
+     ],
+     "through": [
+      "665779"
+     ]
+    },
+    {
+     "after": [
+      "666513"
+     ],
+     "through": [
+      "666514"
+     ]
+    },
+    {
+     "after": [
+      "666714"
+     ],
+     "through": [
+      "666715"
+     ]
+    },
+    {
+     "after": [
+      "666919"
+     ],
+     "through": [
+      "666920"
+     ]
+    },
+    {
+     "after": [
+      "667173"
+     ],
+     "through": [
+      "667175"
+     ]
+    },
+    {
+     "after": [
+      "667186"
+     ],
+     "through": [
+      "667189"
+     ]
+    },
+    {
+     "after": [
+      "667260"
+     ],
+     "through": [
+      "667266"
+     ]
+    },
+    {
+     "after": [
+      "667295"
+     ],
+     "through": [
+      "667296"
+     ]
+    },
+    {
+     "after": [
+      "667697"
+     ],
+     "through": [
+      "667698"
+     ]
+    },
+    {
+     "after": [
+      "668041"
+     ],
+     "through": [
+      "668043"
+     ]
+    },
+    {
+     "after": [
+      "668872"
+     ],
+     "through": [
+      "668873"
+     ]
+    },
+    {
+     "after": [
+      "669409"
+     ],
+     "through": [
+      "669412"
+     ]
+    },
+    {
+     "after": [
+      "669831"
+     ],
+     "through": [
+      "669832"
+     ]
+    },
+    {
+     "after": [
+      "670119"
+     ],
+     "through": [
+      "670120"
+     ]
+    },
+    {
+     "after": [
+      "670225"
+     ],
+     "through": [
+      "670233"
+     ]
+    },
+    {
+     "after": [
+      "670385"
+     ],
+     "through": [
+      "670391"
+     ]
+    },
+    {
+     "after": [
+      "670520"
+     ],
+     "through": [
+      "670521"
+     ]
+    },
+    {
+     "after": [
+      "670602"
+     ],
+     "through": [
+      "670603"
+     ]
+    },
+    {
+     "after": [
+      "671168"
+     ],
+     "through": [
+      "671169"
+     ]
+    },
+    {
+     "after": [
+      "671198"
+     ],
+     "through": [
+      "671199"
+     ]
+    },
+    {
+     "after": [
+      "671410"
+     ],
+     "through": [
+      "671412"
+     ]
+    },
+    {
+     "after": [
+      "671534"
+     ],
+     "through": [
+      "671540"
+     ]
+    },
+    {
+     "after": [
+      "671553"
+     ],
+     "through": [
+      "671555"
+     ]
+    },
+    {
+     "after": [
+      "671692"
+     ],
+     "through": [
+      "671693"
+     ]
+    },
+    {
+     "after": [
+      "671729"
+     ],
+     "through": [
+      "671735"
+     ]
+    },
+    {
+     "after": [
+      "672686"
+     ],
+     "through": [
+      "672689"
+     ]
+    },
+    {
+     "after": [
+      "673031"
+     ],
+     "through": [
+      "673036"
+     ]
+    },
+    {
+     "after": [
+      "673460"
+     ],
+     "through": [
+      "673462"
+     ]
+    },
+    {
+     "after": [
+      "673619"
+     ],
+     "through": [
+      "673626"
+     ]
+    },
+    {
+     "after": [
+      "673999"
+     ],
+     "through": [
+      "674001"
+     ]
+    },
+    {
+     "after": [
+      "674275"
+     ],
+     "through": [
+      "674276"
+     ]
+    },
+    {
+     "after": [
+      "674710"
+     ],
+     "through": [
+      "674713"
+     ]
+    },
+    {
+     "after": [
+      "675143"
+     ],
+     "through": [
+      "675144"
+     ]
+    },
+    {
+     "after": [
+      "675148"
+     ],
+     "through": [
+      "675154"
+     ]
+    },
+    {
+     "after": [
+      "675179"
+     ],
+     "through": [
+      "675181"
+     ]
+    },
+    {
+     "after": [
+      "675224"
+     ],
+     "through": [
+      "675225"
+     ]
+    },
+    {
+     "after": [
+      "675595"
+     ],
+     "through": [
+      "675597"
+     ]
+    },
+    {
+     "after": [
+      "675755"
+     ],
+     "through": [
+      "675758"
+     ]
+    },
+    {
+     "after": [
+      "677143"
+     ],
+     "through": [
+      "677144"
+     ]
+    },
+    {
+     "after": [
+      "677248"
+     ],
+     "through": [
+      "677252"
+     ]
+    },
+    {
+     "after": [
+      "677405"
+     ],
+     "through": [
+      "677408"
+     ]
+    },
+    {
+     "after": [
+      "678222"
+     ],
+     "through": [
+      "678226"
+     ]
+    },
+    {
+     "after": [
+      "678785"
+     ],
+     "through": [
+      "678787"
+     ]
+    },
+    {
+     "after": [
+      "679263"
+     ],
+     "through": [
+      "679265"
+     ]
+    },
+    {
+     "after": [
+      "679800"
+     ],
+     "through": [
+      "679801"
+     ]
+    },
+    {
+     "after": [
+      "679803"
+     ],
+     "through": [
+      "679804"
+     ]
+    },
+    {
+     "after": [
+      "679908"
+     ],
+     "through": [
+      "679911"
+     ]
+    },
+    {
+     "after": [
+      "679938"
+     ],
+     "through": [
+      "679941"
+     ]
+    },
+    {
+     "after": [
+      "680518"
+     ],
+     "through": [
+      "680522"
+     ]
+    },
+    {
+     "after": [
+      "681292"
+     ],
+     "through": [
+      "681293"
+     ]
+    },
+    {
+     "after": [
+      "681504"
+     ],
+     "through": [
+      "681506"
+     ]
+    },
+    {
+     "after": [
+      "681654"
+     ],
+     "through": [
+      "681656"
+     ]
+    },
+    {
+     "after": [
+      "681761"
+     ],
+     "through": [
+      "681762"
+     ]
+    },
+    {
+     "after": [
+      "683082"
+     ],
+     "through": [
+      "683083"
+     ]
+    },
+    {
+     "after": [
+      "683196"
+     ],
+     "through": [
+      "683198"
+     ]
+    },
+    {
+     "after": [
+      "683379"
+     ],
+     "through": [
+      "683381"
+     ]
+    },
+    {
+     "after": [
+      "683567"
+     ],
+     "through": [
+      "683568"
+     ]
+    },
+    {
+     "after": [
+      "683886"
+     ],
+     "through": [
+      "683887"
+     ]
+    },
+    {
+     "after": [
+      "683944"
+     ],
+     "through": [
+      "683947"
+     ]
+    },
+    {
+     "after": [
+      "684231"
+     ],
+     "through": [
+      "684236"
+     ]
+    },
+    {
+     "after": [
+      "684673"
+     ],
+     "through": [
+      "684674"
+     ]
+    },
+    {
+     "after": [
+      "684682"
+     ],
+     "through": [
+      "684683"
+     ]
+    },
+    {
+     "after": [
+      "684719"
+     ],
+     "through": [
+      "684721"
+     ]
+    },
+    {
+     "after": [
+      "684800"
+     ],
+     "through": [
+      "684801"
+     ]
+    },
+    {
+     "after": [
+      "684848"
+     ],
+     "through": [
+      "684850"
+     ]
+    },
+    {
+     "after": [
+      "685112"
+     ],
+     "through": [
+      "685113"
+     ]
+    },
+    {
+     "after": [
+      "685390"
+     ],
+     "through": [
+      "685391"
+     ]
+    },
+    {
+     "after": [
+      "685419"
+     ],
+     "through": [
+      "685420"
+     ]
+    },
+    {
+     "after": [
+      "685588"
+     ],
+     "through": [
+      "685593"
+     ]
+    },
+    {
+     "after": [
+      "685784"
+     ],
+     "through": [
+      "685786"
+     ]
+    },
+    {
+     "after": [
+      "686032"
+     ],
+     "through": [
+      "686034"
+     ]
+    },
+    {
+     "after": [
+      "686056"
+     ],
+     "through": [
+      "686057"
+     ]
+    },
+    {
+     "after": [
+      "686235"
+     ],
+     "through": [
+      "686236"
+     ]
+    },
+    {
+     "after": [
+      "686274"
+     ],
+     "through": [
+      "686277"
+     ]
+    },
+    {
+     "after": [
+      "686331"
+     ],
+     "through": [
+      "686333"
+     ]
+    },
+    {
+     "after": [
+      "686496"
+     ],
+     "through": [
+      "686499"
+     ]
+    },
+    {
+     "after": [
+      "686813"
+     ],
+     "through": [
+      "686814"
+     ]
+    },
+    {
+     "after": [
+      "686988"
+     ],
+     "through": [
+      "686990"
+     ]
+    },
+    {
+     "after": [
+      "687177"
+     ],
+     "through": [
+      "687178"
+     ]
+    },
+    {
+     "after": [
+      "687610"
+     ],
+     "through": [
+      "687611"
+     ]
+    },
+    {
+     "after": [
+      "688457"
+     ],
+     "through": [
+      "688458"
+     ]
+    },
+    {
+     "after": [
+      "688749"
+     ],
+     "through": [
+      "688750"
+     ]
+    },
+    {
+     "after": [
+      "688905"
+     ],
+     "through": [
+      "688907"
+     ]
+    },
+    {
+     "after": [
+      "689144"
+     ],
+     "through": [
+      "689148"
+     ]
+    },
+    {
+     "after": [
+      "689155"
+     ],
+     "through": [
+      "689156"
+     ]
+    },
+    {
+     "after": [
+      "689158"
+     ],
+     "through": [
+      "689163"
+     ]
+    },
+    {
+     "after": [
+      "689288"
+     ],
+     "through": [
+      "689289"
+     ]
+    },
+    {
+     "after": [
+      "689459"
+     ],
+     "through": [
+      "689461"
+     ]
+    },
+    {
+     "after": [
+      "691238"
+     ],
+     "through": [
+      "691239"
+     ]
+    },
+    {
+     "after": [
+      "692067"
+     ],
+     "through": [
+      "692070"
+     ]
+    },
+    {
+     "after": [
+      "692261"
+     ],
+     "through": [
+      "692262"
+     ]
+    },
+    {
+     "after": [
+      "692353"
+     ],
+     "through": [
+      "692354"
+     ]
+    },
+    {
+     "after": [
+      "692377"
+     ],
+     "through": [
+      "692378"
+     ]
+    },
+    {
+     "after": [
+      "692620"
+     ],
+     "through": [
+      "692622"
+     ]
+    },
+    {
+     "after": [
+      "692766"
+     ],
+     "through": [
+      "692767"
+     ]
+    },
+    {
+     "after": [
+      "692931"
+     ],
+     "through": [
+      "692933"
+     ]
+    },
+    {
+     "after": [
+      "693803"
+     ],
+     "through": [
+      "693804"
+     ]
+    },
+    {
+     "after": [
+      "695037"
+     ],
+     "through": [
+      "695038"
+     ]
+    },
+    {
+     "after": [
+      "695425"
+     ],
+     "through": [
+      "695427"
+     ]
+    },
+    {
+     "after": [
+      "695740"
+     ],
+     "through": [
+      "695741"
+     ]
+    },
+    {
+     "after": [
+      "696027"
+     ],
+     "through": [
+      "696028"
+     ]
+    },
+    {
+     "after": [
+      "696299"
+     ],
+     "through": [
+      "696301"
+     ]
+    },
+    {
+     "after": [
+      "696342"
+     ],
+     "through": [
+      "696343"
+     ]
+    },
+    {
+     "after": [
+      "696682"
+     ],
+     "through": [
+      "696683"
+     ]
+    },
+    {
+     "after": [
+      "696955"
+     ],
+     "through": [
+      "696956"
+     ]
+    },
+    {
+     "after": [
+      "697855"
+     ],
+     "through": [
+      "697856"
+     ]
+    },
+    {
+     "after": [
+      "698126"
+     ],
+     "through": [
+      "698129"
+     ]
+    },
+    {
+     "after": [
+      "698506"
+     ],
+     "through": [
+      "698508"
+     ]
+    },
+    {
+     "after": [
+      "699498"
+     ],
+     "through": [
+      "699499"
+     ]
+    },
+    {
+     "after": [
+      "699709"
+     ],
+     "through": [
+      "699711"
+     ]
+    },
+    {
+     "after": [
+      "700836"
+     ],
+     "through": [
+      "700839"
+     ]
+    },
+    {
+     "after": [
+      "700950"
+     ],
+     "through": [
+      "700952"
+     ]
+    },
+    {
+     "after": [
+      "701105"
+     ],
+     "through": [
+      "701107"
+     ]
+    },
+    {
+     "after": [
+      "701179"
+     ],
+     "through": [
+      "701180"
+     ]
+    },
+    {
+     "after": [
+      "701184"
+     ],
+     "through": [
+      "701185"
+     ]
+    },
+    {
+     "after": [
+      "701792"
+     ],
+     "through": [
+      "701793"
+     ]
+    },
+    {
+     "after": [
+      "701984"
+     ],
+     "through": [
+      "701986"
+     ]
+    },
+    {
+     "after": [
+      "702399"
+     ],
+     "through": [
+      "702400"
+     ]
+    },
+    {
+     "after": [
+      "702691"
+     ],
+     "through": [
+      "702692"
+     ]
+    },
+    {
+     "after": [
+      "703096"
+     ],
+     "through": [
+      "703099"
+     ]
+    },
+    {
+     "after": [
+      "704239"
+     ],
+     "through": [
+      "704241"
+     ]
+    },
+    {
+     "after": [
+      "704255"
+     ],
+     "through": [
+      "704256"
+     ]
+    },
+    {
+     "after": [
+      "704480"
+     ],
+     "through": [
+      "704481"
+     ]
+    },
+    {
+     "after": [
+      "704529"
+     ],
+     "through": [
+      "704537"
+     ]
+    },
+    {
+     "after": [
+      "704869"
+     ],
+     "through": [
+      "704871"
+     ]
+    },
+    {
+     "after": [
+      "705840"
+     ],
+     "through": [
+      "705841"
+     ]
+    },
+    {
+     "after": [
+      "705908"
+     ],
+     "through": [
+      "705910"
+     ]
+    },
+    {
+     "after": [
+      "706394"
+     ],
+     "through": [
+      "706395"
+     ]
+    },
+    {
+     "after": [
+      "706446"
+     ],
+     "through": [
+      "706447"
+     ]
+    },
+    {
+     "after": [
+      "706697"
+     ],
+     "through": [
+      "706699"
+     ]
+    },
+    {
+     "after": [
+      "706941"
+     ],
+     "through": [
+      "706944"
+     ]
+    },
+    {
+     "after": [
+      "707233"
+     ],
+     "through": [
+      "707236"
+     ]
+    },
+    {
+     "after": [
+      "707398"
+     ],
+     "through": [
+      "707404"
+     ]
+    },
+    {
+     "after": [
+      "707990"
+     ],
+     "through": [
+      "707991"
+     ]
+    },
+    {
+     "after": [
+      "708010"
+     ],
+     "through": [
+      "708011"
+     ]
+    },
+    {
+     "after": [
+      "708950"
+     ],
+     "through": [
+      "708952"
+     ]
+    },
+    {
+     "after": [
+      "709204"
+     ],
+     "through": [
+      "709205"
+     ]
+    },
+    {
+     "after": [
+      "709249"
+     ],
+     "through": [
+      "709250"
+     ]
+    },
+    {
+     "after": [
+      "709417"
+     ],
+     "through": [
+      "709418"
+     ]
+    },
+    {
+     "after": [
+      "709507"
+     ],
+     "through": [
+      "709508"
+     ]
+    },
+    {
+     "after": [
+      "709819"
+     ],
+     "through": [
+      "709822"
+     ]
+    },
+    {
+     "after": [
+      "709935"
+     ],
+     "through": [
+      "709937"
+     ]
+    },
+    {
+     "after": [
+      "710394"
+     ],
+     "through": [
+      "710396"
+     ]
+    },
+    {
+     "after": [
+      "710435"
+     ],
+     "through": [
+      "710437"
+     ]
+    },
+    {
+     "after": [
+      "710589"
+     ],
+     "through": [
+      "710591"
+     ]
+    },
+    {
+     "after": [
+      "710710"
+     ],
+     "through": [
+      "710712"
+     ]
+    },
+    {
+     "after": [
+      "711019"
+     ],
+     "through": [
+      "711020"
+     ]
+    },
+    {
+     "after": [
+      "711160"
+     ],
+     "through": [
+      "711162"
+     ]
+    },
+    {
+     "after": [
+      "711996"
+     ],
+     "through": [
+      "711998"
+     ]
+    },
+    {
+     "after": [
+      "712023"
+     ],
+     "through": [
+      "712024"
+     ]
+    },
+    {
+     "after": [
+      "712104"
+     ],
+     "through": [
+      "712107"
+     ]
+    },
+    {
+     "after": [
+      "712337"
+     ],
+     "through": [
+      "712338"
+     ]
+    },
+    {
+     "after": [
+      "712343"
+     ],
+     "through": [
+      "712346"
+     ]
+    },
+    {
+     "after": [
+      "712568"
+     ],
+     "through": [
+      "712569"
+     ]
+    },
+    {
+     "after": [
+      "713436"
+     ],
+     "through": [
+      "713438"
+     ]
+    },
+    {
+     "after": [
+      "713723"
+     ],
+     "through": [
+      "713725"
+     ]
+    },
+    {
+     "after": [
+      "713829"
+     ],
+     "through": [
+      "713830"
+     ]
+    },
+    {
+     "after": [
+      "713979"
+     ],
+     "through": [
+      "713981"
+     ]
+    },
+    {
+     "after": [
+      "714105"
+     ],
+     "through": [
+      "714107"
+     ]
+    },
+    {
+     "after": [
+      "714155"
+     ],
+     "through": [
+      "714156"
+     ]
+    },
+    {
+     "after": [
+      "714291"
+     ],
+     "through": [
+      "714292"
+     ]
+    },
+    {
+     "after": [
+      "714526"
+     ],
+     "through": [
+      "714527"
+     ]
+    },
+    {
+     "after": [
+      "714543"
+     ],
+     "through": [
+      "714544"
+     ]
+    },
+    {
+     "after": [
+      "714683"
+     ],
+     "through": [
+      "714684"
+     ]
+    },
+    {
+     "after": [
+      "714685"
+     ],
+     "through": [
+      "714686"
+     ]
+    },
+    {
+     "after": [
+      "715053"
+     ],
+     "through": [
+      "715057"
+     ]
+    },
+    {
+     "after": [
+      "715324"
+     ],
+     "through": [
+      "715325"
+     ]
+    },
+    {
+     "after": [
+      "715605"
+     ],
+     "through": [
+      "715606"
+     ]
+    },
+    {
+     "after": [
+      "715911"
+     ],
+     "through": [
+      "715915"
+     ]
+    },
+    {
+     "after": [
+      "715980"
+     ],
+     "through": [
+      "715981"
+     ]
+    },
+    {
+     "after": [
+      "716016"
+     ],
+     "through": [
+      "716019"
+     ]
+    },
+    {
+     "after": [
+      "716052"
+     ],
+     "through": [
+      "716053"
+     ]
+    },
+    {
+     "after": [
+      "716084"
+     ],
+     "through": [
+      "716085"
+     ]
+    },
+    {
+     "after": [
+      "716086"
+     ],
+     "through": [
+      "716087"
+     ]
+    },
+    {
+     "after": [
+      "717197"
+     ],
+     "through": [
+      "717199"
+     ]
+    },
+    {
+     "after": [
+      "717250"
+     ],
+     "through": [
+      "717251"
+     ]
+    },
+    {
+     "after": [
+      "717452"
+     ],
+     "through": [
+      "717454"
+     ]
+    },
+    {
+     "after": [
+      "717503"
+     ],
+     "through": [
+      "717505"
+     ]
+    },
+    {
+     "after": [
+      "718263"
+     ],
+     "through": [
+      "718264"
+     ]
+    },
+    {
+     "after": [
+      "718280"
+     ],
+     "through": [
+      "718285"
+     ]
+    },
+    {
+     "after": [
+      "718291"
+     ],
+     "through": [
+      "718294"
+     ]
+    },
+    {
+     "after": [
+      "718859"
+     ],
+     "through": [
+      "718864"
+     ]
+    },
+    {
+     "after": [
+      "719020"
+     ],
+     "through": [
+      "719021"
+     ]
+    },
+    {
+     "after": [
+      "719270"
+     ],
+     "through": [
+      "719271"
+     ]
+    },
+    {
+     "after": [
+      "719298"
+     ],
+     "through": [
+      "719299"
+     ]
+    },
+    {
+     "after": [
+      "719443"
+     ],
+     "through": [
+      "719445"
+     ]
+    },
+    {
+     "after": [
+      "719467"
+     ],
+     "through": [
+      "719469"
+     ]
+    },
+    {
+     "after": [
+      "719573"
+     ],
+     "through": [
+      "719575"
+     ]
+    },
+    {
+     "after": [
+      "719709"
+     ],
+     "through": [
+      "719713"
+     ]
+    },
+    {
+     "after": [
+      "719773"
+     ],
+     "through": [
+      "719774"
+     ]
+    },
+    {
+     "after": [
+      "719803"
+     ],
+     "through": [
+      "719804"
+     ]
+    },
+    {
+     "after": [
+      "720243"
+     ],
+     "through": [
+      "720244"
+     ]
+    },
+    {
+     "after": [
+      "721636"
+     ],
+     "through": [
+      "721638"
+     ]
+    },
+    {
+     "after": [
+      "722032"
+     ],
+     "through": [
+      "722033"
+     ]
+    },
+    {
+     "after": [
+      "722167"
+     ],
+     "through": [
+      "722168"
+     ]
+    },
+    {
+     "after": [
+      "722189"
+     ],
+     "through": [
+      "722190"
+     ]
+    },
+    {
+     "after": [
+      "722296"
+     ],
+     "through": [
+      "722297"
+     ]
+    },
+    {
+     "after": [
+      "722582"
+     ],
+     "through": [
+      "722585"
+     ]
+    },
+    {
+     "after": [
+      "723415"
+     ],
+     "through": [
+      "723417"
+     ]
+    },
+    {
+     "after": [
+      "723928"
+     ],
+     "through": [
+      "723929"
+     ]
+    },
+    {
+     "after": [
+      "723934"
+     ],
+     "through": [
+      "723937"
+     ]
+    },
+    {
+     "after": [
+      "725023"
+     ],
+     "through": [
+      "725026"
+     ]
+    },
+    {
+     "after": [
+      "725722"
+     ],
+     "through": [
+      "725723"
+     ]
+    },
+    {
+     "after": [
+      "725998"
+     ],
+     "through": [
+      "725999"
+     ]
+    },
+    {
+     "after": [
+      "726813"
+     ],
+     "through": [
+      "726817"
+     ]
+    },
+    {
+     "after": [
+      "727270"
+     ],
+     "through": [
+      "727271"
+     ]
+    },
+    {
+     "after": [
+      "727540"
+     ],
+     "through": [
+      "727541"
+     ]
+    },
+    {
+     "after": [
+      "727938"
+     ],
+     "through": [
+      "727940"
+     ]
+    },
+    {
+     "after": [
+      "728066"
+     ],
+     "through": [
+      "728068"
+     ]
+    },
+    {
+     "after": [
+      "728736"
+     ],
+     "through": [
+      "728737"
+     ]
+    },
+    {
+     "after": [
+      "728858"
+     ],
+     "through": [
+      "728859"
+     ]
+    },
+    {
+     "after": [
+      "729470"
+     ],
+     "through": [
+      "729471"
+     ]
+    },
+    {
+     "after": [
+      "729755"
+     ],
+     "through": [
+      "729763"
+     ]
+    },
+    {
+     "after": [
+      "729988"
+     ],
+     "through": [
+      "729991"
+     ]
+    },
+    {
+     "after": [
+      "730296"
+     ],
+     "through": [
+      "730299"
+     ]
+    },
+    {
+     "after": [
+      "730301"
+     ],
+     "through": [
+      "730302"
+     ]
+    },
+    {
+     "after": [
+      "730306"
+     ],
+     "through": [
+      "730307"
+     ]
+    },
+    {
+     "after": [
+      "730312"
+     ],
+     "through": [
+      "730313"
+     ]
+    },
+    {
+     "after": [
+      "730349"
+     ],
+     "through": [
+      "730350"
+     ]
+    },
+    {
+     "after": [
+      "730351"
+     ],
+     "through": [
+      "730352"
+     ]
+    },
+    {
+     "after": [
+      "730353"
+     ],
+     "through": [
+      "730354"
+     ]
+    },
+    {
+     "after": [
+      "730763"
+     ],
+     "through": [
+      "730764"
+     ]
+    },
+    {
+     "after": [
+      "730838"
+     ],
+     "through": [
+      "730839"
+     ]
+    },
+    {
+     "after": [
+      "731528"
+     ],
+     "through": [
+      "731529"
+     ]
+    },
+    {
+     "after": [
+      "731531"
+     ],
+     "through": [
+      "731532"
+     ]
+    },
+    {
+     "after": [
+      "731717"
+     ],
+     "through": [
+      "731719"
+     ]
+    },
+    {
+     "after": [
+      "731724"
+     ],
+     "through": [
+      "731726"
+     ]
+    },
+    {
+     "after": [
+      "732654"
+     ],
+     "through": [
+      "732655"
+     ]
+    },
+    {
+     "after": [
+      "732907"
+     ],
+     "through": [
+      "732909"
+     ]
+    },
+    {
+     "after": [
+      "733007"
+     ],
+     "through": [
+      "733008"
+     ]
+    },
+    {
+     "after": [
+      "733014"
+     ],
+     "through": [
+      "733016"
+     ]
+    },
+    {
+     "after": [
+      "733098"
+     ],
+     "through": [
+      "733101"
+     ]
+    },
+    {
+     "after": [
+      "733317"
+     ],
+     "through": [
+      "733323"
+     ]
+    },
+    {
+     "after": [
+      "733834"
+     ],
+     "through": [
+      "733836"
+     ]
+    },
+    {
+     "after": [
+      "734480"
+     ],
+     "through": [
+      "734481"
+     ]
+    },
+    {
+     "after": [
+      "734495"
+     ],
+     "through": [
+      "734497"
+     ]
+    },
+    {
+     "after": [
+      "734572"
+     ],
+     "through": [
+      "734574"
+     ]
+    },
+    {
+     "after": [
+      "734816"
+     ],
+     "through": [
+      "734817"
+     ]
+    },
+    {
+     "after": [
+      "735033"
+     ],
+     "through": [
+      "735034"
+     ]
+    },
+    {
+     "after": [
+      "735139"
+     ],
+     "through": [
+      "735141"
+     ]
+    },
+    {
+     "after": [
+      "735171"
+     ],
+     "through": [
+      "735172"
+     ]
+    },
+    {
+     "after": [
+      "735198"
+     ],
+     "through": [
+      "735202"
+     ]
+    },
+    {
+     "after": [
+      "735443"
+     ],
+     "through": [
+      "735444"
+     ]
+    },
+    {
+     "after": [
+      "735556"
+     ],
+     "through": [
+      "735557"
+     ]
+    },
+    {
+     "after": [
+      "735809"
+     ],
+     "through": [
+      "735813"
+     ]
+    },
+    {
+     "after": [
+      "735960"
+     ],
+     "through": [
+      "735961"
+     ]
+    },
+    {
+     "after": [
+      "736066"
+     ],
+     "through": [
+      "736067"
+     ]
+    },
+    {
+     "after": [
+      "737481"
+     ],
+     "through": [
+      "737483"
+     ]
+    },
+    {
+     "after": [
+      "737843"
+     ],
+     "through": [
+      "737847"
+     ]
+    },
+    {
+     "after": [
+      "738204"
+     ],
+     "through": [
+      "738208"
+     ]
+    },
+    {
+     "after": [
+      "738446"
+     ],
+     "through": [
+      "738447"
+     ]
+    },
+    {
+     "after": [
+      "740392"
+     ],
+     "through": [
+      "740393"
+     ]
+    },
+    {
+     "after": [
+      "741476"
+     ],
+     "through": [
+      "741477"
+     ]
+    },
+    {
+     "after": [
+      "741576"
+     ],
+     "through": [
+      "741577"
+     ]
+    },
+    {
+     "after": [
+      "741789"
+     ],
+     "through": [
+      "741790"
+     ]
+    },
+    {
+     "after": [
+      "742066"
+     ],
+     "through": [
+      "742068"
+     ]
+    },
+    {
+     "after": [
+      "742539"
+     ],
+     "through": [
+      "742540"
+     ]
+    },
+    {
+     "after": [
+      "742633"
+     ],
+     "through": [
+      "742634"
+     ]
+    },
+    {
+     "after": [
+      "742927"
+     ],
+     "through": [
+      "742931"
+     ]
+    },
+    {
+     "after": [
+      "743373"
+     ],
+     "through": [
+      "743376"
+     ]
+    },
+    {
+     "after": [
+      "743603"
+     ],
+     "through": [
+      "743604"
+     ]
+    },
+    {
+     "after": [
+      "743844"
+     ],
+     "through": [
+      "743845"
+     ]
+    },
+    {
+     "after": [
+      "743847"
+     ],
+     "through": [
+      "743853"
+     ]
+    },
+    {
+     "after": [
+      "744027"
+     ],
+     "through": [
+      "744030"
+     ]
+    },
+    {
+     "after": [
+      "744486"
+     ],
+     "through": [
+      "744487"
+     ]
+    },
+    {
+     "after": [
+      "744630"
+     ],
+     "through": [
+      "744631"
+     ]
+    },
+    {
+     "after": [
+      "744924"
+     ],
+     "through": [
+      "744929"
+     ]
+    },
+    {
+     "after": [
+      "744971"
+     ],
+     "through": [
+      "744972"
+     ]
+    },
+    {
+     "after": [
+      "744975"
+     ],
+     "through": [
+      "744977"
+     ]
+    },
+    {
+     "after": [
+      "745728"
+     ],
+     "through": [
+      "745729"
+     ]
+    },
+    {
+     "after": [
+      "745744"
+     ],
+     "through": [
+      "745745"
+     ]
+    },
+    {
+     "after": [
+      "745917"
+     ],
+     "through": [
+      "745919"
+     ]
+    },
+    {
+     "after": [
+      "746150"
+     ],
+     "through": [
+      "746152"
+     ]
+    },
+    {
+     "after": [
+      "746153"
+     ],
+     "through": [
+      "746154"
+     ]
+    },
+    {
+     "after": [
+      "746155"
+     ],
+     "through": [
+      "746156"
+     ]
+    },
+    {
+     "after": [
+      "746351"
+     ],
+     "through": [
+      "746352"
+     ]
+    },
+    {
+     "after": [
+      "746592"
+     ],
+     "through": [
+      "746595"
+     ]
+    },
+    {
+     "after": [
+      "747181"
+     ],
+     "through": [
+      "747182"
+     ]
+    },
+    {
+     "after": [
+      "747298"
+     ],
+     "through": [
+      "747299"
+     ]
+    },
+    {
+     "after": [
+      "747488"
+     ],
+     "through": [
+      "747489"
+     ]
+    },
+    {
+     "after": [
+      "747856"
+     ],
+     "through": [
+      "747857"
+     ]
+    },
+    {
+     "after": [
+      "747872"
+     ],
+     "through": [
+      "747873"
+     ]
+    },
+    {
+     "after": [
+      "747890"
+     ],
+     "through": [
+      "747891"
+     ]
+    },
+    {
+     "after": [
+      "748363"
+     ],
+     "through": [
+      "748364"
+     ]
+    },
+    {
+     "after": [
+      "748812"
+     ],
+     "through": [
+      "748814"
+     ]
+    },
+    {
+     "after": [
+      "748847"
+     ],
+     "through": [
+      "748849"
+     ]
+    },
+    {
+     "after": [
+      "748907"
+     ],
+     "through": [
+      "748910"
+     ]
+    },
+    {
+     "after": [
+      "748947"
+     ],
+     "through": [
+      "748948"
+     ]
+    },
+    {
+     "after": [
+      "749351"
+     ],
+     "through": [
+      "749353"
+     ]
+    },
+    {
+     "after": [
+      "749476"
+     ],
+     "through": [
+      "749479"
+     ]
+    },
+    {
+     "after": [
+      "749494"
+     ],
+     "through": [
+      "749495"
+     ]
+    },
+    {
+     "after": [
+      "749739"
+     ],
+     "through": [
+      "749740"
+     ]
+    },
+    {
+     "after": [
+      "750001"
+     ],
+     "through": [
+      "750002"
+     ]
+    },
+    {
+     "after": [
+      "750074"
+     ],
+     "through": [
+      "750075"
+     ]
+    },
+    {
+     "after": [
+      "750321"
+     ],
+     "through": [
+      "750323"
+     ]
+    },
+    {
+     "after": [
+      "750637"
+     ],
+     "through": [
+      "750639"
+     ]
+    },
+    {
+     "after": [
+      "750903"
+     ],
+     "through": [
+      "750904"
+     ]
+    },
+    {
+     "after": [
+      "751323"
+     ],
+     "through": [
+      "751324"
+     ]
+    },
+    {
+     "after": [
+      "751489"
+     ],
+     "through": [
+      "751491"
+     ]
+    },
+    {
+     "after": [
+      "751533"
+     ],
+     "through": [
+      "751534"
+     ]
+    },
+    {
+     "after": [
+      "751970"
+     ],
+     "through": [
+      "751971"
+     ]
+    },
+    {
+     "after": [
+      "752000"
+     ],
+     "through": [
+      "752001"
+     ]
+    },
+    {
+     "after": [
+      "752019"
+     ],
+     "through": [
+      "752021"
+     ]
+    },
+    {
+     "after": [
+      "752179"
+     ],
+     "through": [
+      "752180"
+     ]
+    },
+    {
+     "after": [
+      "752228"
+     ],
+     "through": [
+      "752230"
+     ]
+    },
+    {
+     "after": [
+      "752605"
+     ],
+     "through": [
+      "752608"
+     ]
+    },
+    {
+     "after": [
+      "753219"
+     ],
+     "through": [
+      "753221"
+     ]
+    },
+    {
+     "after": [
+      "753468"
+     ],
+     "through": [
+      "753469"
+     ]
+    },
+    {
+     "after": [
+      "753639"
+     ],
+     "through": [
+      "753640"
+     ]
+    },
+    {
+     "after": [
+      "753832"
+     ],
+     "through": [
+      "753833"
+     ]
+    },
+    {
+     "after": [
+      "754252"
+     ],
+     "through": [
+      "754254"
+     ]
+    },
+    {
+     "after": [
+      "754451"
+     ],
+     "through": [
+      "754452"
+     ]
+    },
+    {
+     "after": [
+      "755150"
+     ],
+     "through": [
+      "755151"
+     ]
+    },
+    {
+     "after": [
+      "755436"
+     ],
+     "through": [
+      "755437"
+     ]
+    },
+    {
+     "after": [
+      "756073"
+     ],
+     "through": [
+      "756074"
+     ]
+    },
+    {
+     "after": [
+      "756296"
+     ],
+     "through": [
+      "756300"
+     ]
+    },
+    {
+     "after": [
+      "757917"
+     ],
+     "through": [
+      "757919"
+     ]
+    },
+    {
+     "after": [
+      "758508"
+     ],
+     "through": [
+      "758509"
+     ]
+    },
+    {
+     "after": [
+      "758755"
+     ],
+     "through": [
+      "758756"
+     ]
+    },
+    {
+     "after": [
+      "758816"
+     ],
+     "through": [
+      "758818"
+     ]
+    },
+    {
+     "after": [
+      "759375"
+     ],
+     "through": [
+      "759377"
+     ]
+    },
+    {
+     "after": [
+      "759409"
+     ],
+     "through": [
+      "759410"
+     ]
+    },
+    {
+     "after": [
+      "759706"
+     ],
+     "through": [
+      "759707"
+     ]
+    },
+    {
+     "after": [
+      "760150"
+     ],
+     "through": [
+      "760153"
+     ]
+    },
+    {
+     "after": [
+      "760738"
+     ],
+     "through": [
+      "760739"
+     ]
+    },
+    {
+     "after": [
+      "760768"
+     ],
+     "through": [
+      "760769"
+     ]
+    },
+    {
+     "after": [
+      "760847"
+     ],
+     "through": [
+      "760849"
+     ]
+    },
+    {
+     "after": [
+      "760882"
+     ],
+     "through": [
+      "760890"
+     ]
+    },
+    {
+     "after": [
+      "761062"
+     ],
+     "through": [
+      "761064"
+     ]
+    },
+    {
+     "after": [
+      "761422"
+     ],
+     "through": [
+      "761424"
+     ]
+    },
+    {
+     "after": [
+      "761662"
+     ],
+     "through": [
+      "761663"
+     ]
+    },
+    {
+     "after": [
+      "761665"
+     ],
+     "through": [
+      "761667"
+     ]
+    },
+    {
+     "after": [
+      "761693"
+     ],
+     "through": [
+      "761696"
+     ]
+    },
+    {
+     "after": [
+      "761786"
+     ],
+     "through": [
+      "761788"
+     ]
+    },
+    {
+     "after": [
+      "761814"
+     ],
+     "through": [
+      "761815"
+     ]
+    },
+    {
+     "after": [
+      "763000"
+     ],
+     "through": [
+      "763003"
+     ]
+    },
+    {
+     "after": [
+      "763245"
+     ],
+     "through": [
+      "763247"
+     ]
+    },
+    {
+     "after": [
+      "763353"
+     ],
+     "through": [
+      "763354"
+     ]
+    },
+    {
+     "after": [
+      "763361"
+     ],
+     "through": [
+      "763363"
+     ]
+    },
+    {
+     "after": [
+      "763475"
+     ],
+     "through": [
+      "763476"
+     ]
+    },
+    {
+     "after": [
+      "763774"
+     ],
+     "through": [
+      "763778"
+     ]
+    },
+    {
+     "after": [
+      "763883"
+     ],
+     "through": [
+      "763887"
+     ]
+    },
+    {
+     "after": [
+      "764219"
+     ],
+     "through": [
+      "764220"
+     ]
+    },
+    {
+     "after": [
+      "765125"
+     ],
+     "through": [
+      "765126"
+     ]
+    },
+    {
+     "after": [
+      "765190"
+     ],
+     "through": [
+      "765194"
+     ]
+    },
+    {
+     "after": [
+      "766303"
+     ],
+     "through": [
+      "766307"
+     ]
+    },
+    {
+     "after": [
+      "766471"
+     ],
+     "through": [
+      "766473"
+     ]
+    },
+    {
+     "after": [
+      "766482"
+     ],
+     "through": [
+      "766484"
+     ]
+    },
+    {
+     "after": [
+      "767135"
+     ],
+     "through": [
+      "767136"
+     ]
+    },
+    {
+     "after": [
+      "767857"
+     ],
+     "through": [
+      "767858"
+     ]
+    },
+    {
+     "after": [
+      "768140"
+     ],
+     "through": [
+      "768142"
+     ]
+    },
+    {
+     "after": [
+      "768218"
+     ],
+     "through": [
+      "768219"
+     ]
+    },
+    {
+     "after": [
+      "768278"
+     ],
+     "through": [
+      "768287"
+     ]
+    },
+    {
+     "after": [
+      "768862"
+     ],
+     "through": [
+      "768863"
+     ]
+    },
+    {
+     "after": [
+      "769305"
+     ],
+     "through": [
+      "769306"
+     ]
+    },
+    {
+     "after": [
+      "769420"
+     ],
+     "through": [
+      "769422"
+     ]
+    },
+    {
+     "after": [
+      "769473"
+     ],
+     "through": [
+      "769478"
+     ]
+    },
+    {
+     "after": [
+      "769924"
+     ],
+     "through": [
+      "769925"
+     ]
+    },
+    {
+     "after": [
+      "770188"
+     ],
+     "through": [
+      "770192"
+     ]
+    },
+    {
+     "after": [
+      "770325"
+     ],
+     "through": [
+      "770326"
+     ]
+    },
+    {
+     "after": [
+      "771929"
+     ],
+     "through": [
+      "771931"
+     ]
+    },
+    {
+     "after": [
+      "772446"
+     ],
+     "through": [
+      "772447"
+     ]
+    },
+    {
+     "after": [
+      "773088"
+     ],
+     "through": [
+      "773089"
+     ]
+    },
+    {
+     "after": [
+      "773114"
+     ],
+     "through": [
+      "773115"
+     ]
+    },
+    {
+     "after": [
+      "773182"
+     ],
+     "through": [
+      "773184"
+     ]
+    },
+    {
+     "after": [
+      "773741"
+     ],
+     "through": [
+      "773743"
+     ]
+    },
+    {
+     "after": [
+      "774382"
+     ],
+     "through": [
+      "774383"
+     ]
+    },
+    {
+     "after": [
+      "775098"
+     ],
+     "through": [
+      "775099"
+     ]
+    },
+    {
+     "after": [
+      "775294"
+     ],
+     "through": [
+      "775296"
+     ]
+    },
+    {
+     "after": [
+      "775804"
+     ],
+     "through": [
+      "775806"
+     ]
+    },
+    {
+     "after": [
+      "776000"
+     ],
+     "through": [
+      "776001"
+     ]
+    },
+    {
+     "after": [
+      "776002"
+     ],
+     "through": [
+      "776005"
+     ]
+    },
+    {
+     "after": [
+      "776212"
+     ],
+     "through": [
+      "776213"
+     ]
+    },
+    {
+     "after": [
+      "776572"
+     ],
+     "through": [
+      "776573"
+     ]
+    },
+    {
+     "after": [
+      "776621"
+     ],
+     "through": [
+      "776622"
+     ]
+    },
+    {
+     "after": [
+      "776692"
+     ],
+     "through": [
+      "776694"
+     ]
+    },
+    {
+     "after": [
+      "776837"
+     ],
+     "through": [
+      "776841"
+     ]
+    },
+    {
+     "after": [
+      "777064"
+     ],
+     "through": [
+      "777065"
+     ]
+    },
+    {
+     "after": [
+      "777195"
+     ],
+     "through": [
+      "777197"
+     ]
+    },
+    {
+     "after": [
+      "777486"
+     ],
+     "through": [
+      "777489"
+     ]
+    },
+    {
+     "after": [
+      "777735"
+     ],
+     "through": [
+      "777740"
+     ]
+    },
+    {
+     "after": [
+      "777777"
+     ],
+     "through": [
+      "777778"
+     ]
+    },
+    {
+     "after": [
+      "778086"
+     ],
+     "through": [
+      "778087"
+     ]
+    },
+    {
+     "after": [
+      "778110"
+     ],
+     "through": [
+      "778112"
+     ]
+    },
+    {
+     "after": [
+      "778313"
+     ],
+     "through": [
+      "778314"
+     ]
+    },
+    {
+     "after": [
+      "778551"
+     ],
+     "through": [
+      "778552"
+     ]
+    },
+    {
+     "after": [
+      "778614"
+     ],
+     "through": [
+      "778618"
+     ]
+    },
+    {
+     "after": [
+      "778858"
+     ],
+     "through": [
+      "778859"
+     ]
+    },
+    {
+     "after": [
+      "778968"
+     ],
+     "through": [
+      "778969"
+     ]
+    },
+    {
+     "after": [
+      "779371"
+     ],
+     "through": [
+      "779372"
+     ]
+    },
+    {
+     "after": [
+      "779889"
+     ],
+     "through": [
+      "779890"
+     ]
+    },
+    {
+     "after": [
+      "780057"
+     ],
+     "through": [
+      "780059"
+     ]
+    },
+    {
+     "after": [
+      "780271"
+     ],
+     "through": [
+      "780272"
+     ]
+    },
+    {
+     "after": [
+      "780395"
+     ],
+     "through": [
+      "780396"
+     ]
+    },
+    {
+     "after": [
+      "781324"
+     ],
+     "through": [
+      "781328"
+     ]
+    },
+    {
+     "after": [
+      "781369"
+     ],
+     "through": [
+      "781371"
+     ]
+    },
+    {
+     "after": [
+      "781399"
+     ],
+     "through": [
+      "781400"
+     ]
+    },
+    {
+     "after": [
+      "781867"
+     ],
+     "through": [
+      "781868"
+     ]
+    },
+    {
+     "after": [
+      "782021"
+     ],
+     "through": [
+      "782022"
+     ]
+    },
+    {
+     "after": [
+      "782812"
+     ],
+     "through": [
+      "782816"
+     ]
+    },
+    {
+     "after": [
+      "783323"
+     ],
+     "through": [
+      "783325"
+     ]
+    },
+    {
+     "after": [
+      "783375"
+     ],
+     "through": [
+      "783376"
+     ]
+    },
+    {
+     "after": [
+      "783638"
+     ],
+     "through": [
+      "783639"
+     ]
+    },
+    {
+     "after": [
+      "783991"
+     ],
+     "through": [
+      "783993"
+     ]
+    },
+    {
+     "after": [
+      "784431"
+     ],
+     "through": [
+      "784435"
+     ]
+    },
+    {
+     "after": [
+      "784497"
+     ],
+     "through": [
+      "784500"
+     ]
+    },
+    {
+     "after": [
+      "784532"
+     ],
+     "through": [
+      "784534"
+     ]
+    },
+    {
+     "after": [
+      "784545"
+     ],
+     "through": [
+      "784553"
+     ]
+    },
+    {
+     "after": [
+      "784891"
+     ],
+     "through": [
+      "784892"
+     ]
+    },
+    {
+     "after": [
+      "784963"
+     ],
+     "through": [
+      "784964"
+     ]
+    },
+    {
+     "after": [
+      "785121"
+     ],
+     "through": [
+      "785122"
+     ]
+    },
+    {
+     "after": [
+      "785231"
+     ],
+     "through": [
+      "785234"
+     ]
+    },
+    {
+     "after": [
+      "785768"
+     ],
+     "through": [
+      "785770"
+     ]
+    },
+    {
+     "after": [
+      "786004"
+     ],
+     "through": [
+      "786006"
+     ]
+    },
+    {
+     "after": [
+      "786141"
+     ],
+     "through": [
+      "786142"
+     ]
+    },
+    {
+     "after": [
+      "786238"
+     ],
+     "through": [
+      "786239"
+     ]
+    },
+    {
+     "after": [
+      "786640"
+     ],
+     "through": [
+      "786644"
+     ]
+    },
+    {
+     "after": [
+      "786651"
+     ],
+     "through": [
+      "786654"
+     ]
+    },
+    {
+     "after": [
+      "787320"
+     ],
+     "through": [
+      "787321"
+     ]
+    },
+    {
+     "after": [
+      "787458"
+     ],
+     "through": [
+      "787460"
+     ]
+    },
+    {
+     "after": [
+      "787848"
+     ],
+     "through": [
+      "787850"
+     ]
+    },
+    {
+     "after": [
+      "788115"
+     ],
+     "through": [
+      "788116"
+     ]
+    },
+    {
+     "after": [
+      "788362"
+     ],
+     "through": [
+      "788368"
+     ]
+    },
+    {
+     "after": [
+      "788830"
+     ],
+     "through": [
+      "788831"
+     ]
+    }
+   ],
+   "missing_rows": 894
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "public",
+   "table": "society_sweep_log",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "nzbn"
+   ],
+   "rows": 22787,
+   "rows_basis": "reltuples",
+   "table_bytes": 1572864,
+   "total_bytes": 3399680,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "body_aliases",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 39,
+   "rows_basis": "exact",
+   "table_bytes": 57344,
+   "total_bytes": 90112,
+   "held_in": null,
+   "note": "small hand-made or catch tables with no counterpart",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__body_aliases",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "candidate_donation_totals",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2477,
+   "rows_basis": "reltuples",
+   "table_bytes": 1810432,
+   "total_bytes": 2080768,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "candidate_donations",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 3455,
+   "rows_basis": "reltuples",
+   "table_bytes": 1064960,
+   "total_bytes": 1286144,
+   "held_in": "party_returns.*, disclosures.*, candidate_returns.*",
+   "note": "measured PARTLY: the new EC lanes hold 1,315 party donors vs 2,359 and 482 candidate donors vs 3,455; 1,420 of the old EC PDFs (by bytes) are not in the store. Small, copied whole",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__candidate_donations",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "candidates_announced",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1129,
+   "rows_basis": "reltuples",
+   "table_bytes": 598016,
+   "total_bytes": 835584,
+   "held_in": null,
+   "note": "small hand-made or catch tables with no counterpart",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__candidates_announced",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "charity_officers",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "colocations",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "directorship_discrepancies",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 9162,
+   "rows_basis": "reltuples",
+   "table_bytes": 2007040,
+   "total_bytes": 2572288,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "directorships",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "disclosure_documents",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "ref"
+   ],
+   "rows": 869,
+   "rows_basis": "reltuples",
+   "table_bytes": 565248,
+   "total_bytes": 655360,
+   "held_in": "party_returns.*, disclosures.*, candidate_returns.*",
+   "note": "measured PARTLY: the new EC lanes hold 1,315 party donors vs 2,359 and 482 candidate donors vs 3,455; 1,420 of the old EC PDFs (by bytes) are not in the store. Small, copied whole",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__disclosure_documents",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "disclosure_statements",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 904,
+   "rows_basis": "reltuples",
+   "table_bytes": 876544,
+   "total_bytes": 1171456,
+   "held_in": "party_returns.*, disclosures.*, candidate_returns.*",
+   "note": "measured PARTLY: the new EC lanes hold 1,315 party donors vs 2,359 and 482 candidate donors vs 3,455; 1,420 of the old EC PDFs (by bytes) are not in the store. Small, copied whole",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__disclosure_statements",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "donation_disclosures",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 304,
+   "rows_basis": "reltuples",
+   "table_bytes": 172032,
+   "total_bytes": 221184,
+   "held_in": "party_returns.*, disclosures.*, candidate_returns.*",
+   "note": "measured PARTLY: the new EC lanes hold 1,315 party donors vs 2,359 and 482 candidate donors vs 3,455; 1,420 of the old EC PDFs (by bytes) are not in the store. Small, copied whole",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__donation_disclosures",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "donation_lines_dropped",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 112,
+   "rows_basis": "reltuples",
+   "table_bytes": 73728,
+   "total_bytes": 90112,
+   "held_in": null,
+   "note": "small hand-made or catch tables with no counterpart",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__donation_lines_dropped",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "donor_anchors",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 71391,
+   "rows_basis": "reltuples",
+   "table_bytes": 53583872,
+   "total_bytes": 95862784,
+   "held_in": "links.old_decisions",
+   "note": "71,391/5,479/381 vs 71,383/5,479/381 copied",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "donor_exposure",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "donor_key",
+    "weights_version"
+   ],
+   "rows": 1281,
+   "rows_basis": "reltuples",
+   "table_bytes": 2719744,
+   "total_bytes": 2842624,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "donor_vehicles",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "company_nzbn",
+    "weights_version"
+   ],
+   "rows": 8,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "hansard_sittings",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "sitting_date"
+   ],
+   "rows": 137,
+   "rows_basis": "reltuples",
+   "table_bytes": 73728,
+   "total_bytes": 90112,
+   "held_in": "hansard.old_speeches, hansard.sittings",
+   "note": "11,627 = 11,627; 137 = 137",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "hansard_speeches",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 11627,
+   "rows_basis": "reltuples",
+   "table_bytes": 7135232,
+   "total_bytes": 9863168,
+   "held_in": "hansard.old_speeches, hansard.sittings",
+   "note": "11,627 = 11,627; 137 = 137",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "linz_company_matches",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "pull_id",
+    "corporate_name"
+   ],
+   "rows": 737156,
+   "rows_basis": "reltuples",
+   "table_bytes": 121487360,
+   "total_bytes": 232472576,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "linz_pulls",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "pull_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "linz_title_owners",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 5743459,
+   "rows_basis": "exact",
+   "table_bytes": 1937440768,
+   "total_bytes": 3821117440,
+   "held_in": "linz.owners",
+   "note": "5,743,459 vs 5,745,328; 20/20 sampled lds_id held as linz.owners.id",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "metrics",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1030,
+   "rows_basis": "reltuples",
+   "table_bytes": 393216,
+   "total_bytes": 516096,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "minister_expense_documents",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "sha256"
+   ],
+   "rows": 70,
+   "rows_basis": "reltuples",
+   "table_bytes": 98304,
+   "total_bytes": 114688,
+   "held_in": "expenses.*",
+   "note": "every source spreadsheet held by sha256 (31/31, 69/69); rows re-read",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "minister_expenses",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1581,
+   "rows_basis": "reltuples",
+   "table_bytes": 802816,
+   "total_bytes": 1212416,
+   "held_in": "expenses.*",
+   "note": "every source spreadsheet held by sha256 (31/31, 69/69); rows re-read",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "mp_aliases",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 992,
+   "rows_basis": "reltuples",
+   "table_bytes": 360448,
+   "total_bytes": 638976,
+   "held_in": null,
+   "note": "small hand-made or catch tables with no counterpart",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__mp_aliases",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "mp_expense_documents",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "sha256"
+   ],
+   "rows": 31,
+   "rows_basis": "reltuples",
+   "table_bytes": 73728,
+   "total_bytes": 90112,
+   "held_in": "expenses.*",
+   "note": "every source spreadsheet held by sha256 (31/31, 69/69); rows re-read",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "mp_expenses",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 3745,
+   "rows_basis": "reltuples",
+   "table_bytes": 2031616,
+   "total_bytes": 2932736,
+   "held_in": "expenses.*",
+   "note": "every source spreadsheet held by sha256 (31/31, 69/69); rows re-read",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "mp_org_resolutions",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 1655,
+   "rows_basis": "reltuples",
+   "table_bytes": 532480,
+   "total_bytes": 729088,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "mp_tenure_events",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 28,
+   "rows_basis": "reltuples",
+   "table_bytes": 65536,
+   "total_bytes": 98304,
+   "held_in": null,
+   "note": "small hand-made or catch tables with no counterpart",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__mp_tenure_events",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_board_asserted",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 10512,
+   "rows_basis": "reltuples",
+   "table_bytes": 4317184,
+   "total_bytes": 4825088,
+   "held_in": "party_boards.roles",
+   "note": "measured PARTLY: 10,512 asserted roles vs 2,876; 189 of the 1,058 board pages not in the store. Copied whole (5 MB)",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__party_board_asserted",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_donations",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2359,
+   "rows_basis": "reltuples",
+   "table_bytes": 1163264,
+   "total_bytes": 1351680,
+   "held_in": "party_returns.*, disclosures.*, candidate_returns.*",
+   "note": "measured PARTLY: the new EC lanes hold 1,315 party donors vs 2,359 and 482 candidate donors vs 3,455; 1,420 of the old EC PDFs (by bytes) are not in the store. Small, copied whole",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__party_donations",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_election_expenses",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 37,
+   "rows_basis": "reltuples",
+   "table_bytes": 57344,
+   "total_bytes": 90112,
+   "held_in": "party_finance.*",
+   "note": "source PDFs held by sha256 (ec-financials 46/46, ec-expenses 40/40, ec-promoters 20/20); 69=69 promoters, 305 vs 303 people",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_financial_documents",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 46,
+   "rows_basis": "reltuples",
+   "table_bytes": 90112,
+   "total_bytes": 122880,
+   "held_in": "party_finance.*",
+   "note": "source PDFs held by sha256 (ec-financials 46/46, ec-expenses 40/40, ec-promoters 20/20); 69=69 promoters, 305 vs 303 people",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_financials",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 78,
+   "rows_basis": "reltuples",
+   "table_bytes": 65536,
+   "total_bytes": 98304,
+   "held_in": "party_finance.*",
+   "note": "source PDFs held by sha256 (ec-financials 46/46, ec-expenses 40/40, ec-promoters 20/20); 69=69 promoters, 305 vs 303 people",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_return_totals",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 151,
+   "rows_basis": "reltuples",
+   "table_bytes": 278528,
+   "total_bytes": 335872,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_rule_documents",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 7,
+   "rows_basis": "exact",
+   "table_bytes": 40960,
+   "total_bytes": 73728,
+   "held_in": null,
+   "note": "party constitutions: 0 of 7 PDFs in the store",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__party_rule_documents",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_rules",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 133,
+   "rows_basis": "reltuples",
+   "table_bytes": 163840,
+   "total_bytes": 196608,
+   "held_in": null,
+   "note": "party constitutions: 0 of 7 PDFs in the store",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__party_rules",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "party_site_documents",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 109762,
+   "rows_basis": "exact",
+   "table_bytes": 44482560,
+   "total_bytes": 67846144,
+   "held_in": null,
+   "note": "104,713 party-site pages and files, none in the new estate (0/40 PDFs, 0/20 pages by sha256)",
+   "date_range": "fetched 2026-09-04 to 2026-11-08",
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__party_site_documents",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "pi_residue",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "kind",
+    "source_ref"
+   ],
+   "rows": 8084,
+   "rows_basis": "reltuples",
+   "table_bytes": 5742592,
+   "total_bytes": 7577600,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "pi_residue_builds",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 129,
+   "rows_basis": "reltuples",
+   "table_bytes": 155648,
+   "total_bytes": 172032,
+   "held_in": null,
+   "note": "the old jobs' bookkeeping",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "pi_residue_pursuit",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 146,
+   "rows_basis": "reltuples",
+   "table_bytes": 65536,
+   "total_bytes": 122880,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "press_appointments",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": null,
+   "rows": 631036,
+   "rows_basis": "reltuples",
+   "table_bytes": 177979392,
+   "total_bytes": 217554944,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "press_enforcement",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": null,
+   "rows": 147530,
+   "rows_basis": "reltuples",
+   "table_bytes": 38625280,
+   "total_bytes": 49381376,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "press_transactions_ownership",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": null,
+   "rows": 119836,
+   "rows_basis": "reltuples",
+   "table_bytes": 30539776,
+   "total_bytes": 40075264,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "promoter_expenses",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 21,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 81920,
+   "held_in": "party_finance.*",
+   "note": "source PDFs held by sha256 (ec-financials 46/46, ec-expenses 40/40, ec-promoters 20/20); 69=69 promoters, 305 vs 303 people",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "promoter_people",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 305,
+   "rows_basis": "reltuples",
+   "table_bytes": 106496,
+   "total_bytes": 172032,
+   "held_in": "party_finance.*",
+   "note": "source PDFs held by sha256 (ec-financials 46/46, ec-expenses 40/40, ec-promoters 20/20); 69=69 promoters, 305 vs 303 people",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "promoters",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 69,
+   "rows_basis": "reltuples",
+   "table_bytes": 57344,
+   "total_bytes": 90112,
+   "held_in": "party_finance.*",
+   "note": "source PDFs held by sha256 (ec-financials 46/46, ec-expenses 40/40, ec-promoters 20/20); 69=69 promoters, 305 vs 303 people",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "registered_offices",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "retired_party_officials_2026_10_01",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 38,
+   "rows_basis": "reltuples",
+   "table_bytes": 65536,
+   "total_bytes": 114688,
+   "held_in": null,
+   "note": "small hand-made or catch tables with no counterpart",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__retired_party_officials_2026_10_01",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "review_verdicts",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 381,
+   "rows_basis": "reltuples",
+   "table_bytes": 155648,
+   "total_bytes": 229376,
+   "held_in": "links.old_decisions",
+   "note": "71,391/5,479/381 vs 71,383/5,479/381 copied",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "roster_fold_watch",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "fold_id"
+   ],
+   "rows": 5154,
+   "rows_basis": "reltuples",
+   "table_bytes": 835584,
+   "total_bytes": 1089536,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "roster_identity_folds",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 5479,
+   "rows_basis": "reltuples",
+   "table_bytes": 2695168,
+   "total_bytes": 3350528,
+   "held_in": "links.old_decisions",
+   "note": "71,391/5,479/381 vs 71,383/5,479/381 copied",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "shareholder_anchors",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "shareholder_role_id"
+   ],
+   "rows": 204156,
+   "rows_basis": "reltuples",
+   "table_bytes": 17006592,
+   "total_bytes": 29876224,
+   "held_in": null,
+   "note": "joins and totals built from other old tables or the press graph",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "shareholdings",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "suppressed_names",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2,
+   "rows_basis": "exact",
+   "table_bytes": 16384,
+   "total_bytes": 49152,
+   "held_in": null,
+   "note": "small hand-made or catch tables with no counterpart",
+   "date_range": null,
+   "dest": "querynz_v4.old_nzbn_canonical_private.registers__suppressed_names",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "trading_names",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "trust_boards",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "a view",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "worksafe_documents",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "ref"
+   ],
+   "rows": 143,
+   "rows_basis": "reltuples",
+   "table_bytes": 196608,
+   "total_bytes": 237568,
+   "held_in": "worksafe.actions",
+   "note": "145 vs 665",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "nzbn_canonical",
+   "schema": "registers",
+   "table": "worksafe_enforcement",
+   "status": "HELD",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 145,
+   "rows_basis": "reltuples",
+   "table_bytes": 319488,
+   "total_bytes": 425984,
+   "held_in": "worksafe.actions",
+   "note": "145 vs 665",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "candidates",
+   "table": "background",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 171078480,
+   "rows_basis": "reltuples",
+   "table_bytes": 21157527552,
+   "total_bytes": 43111047168,
+   "held_in": null,
+   "note": "entity-resolution candidates built from the registers",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "candidates",
+   "table": "build",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "build_id"
+   ],
+   "rows": 6,
+   "rows_basis": "reltuples",
+   "table_bytes": 32768,
+   "total_bytes": 49152,
+   "held_in": null,
+   "note": "entity-resolution candidates built from the registers",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "candidates",
+   "table": "candidate",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 162743856,
+   "rows_basis": "reltuples",
+   "table_bytes": 30573158400,
+   "total_bytes": 76933120000,
+   "held_in": null,
+   "note": "entity-resolution candidates built from the registers",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "alias",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "alias_link",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "alias_id",
+    "entity_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "alias_sighting",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id",
+    "alias_id",
+    "entity_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 8192,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "claim_entities",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "claim_id",
+    "entity_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "claim_heals",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "heal_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "claim_object_detachments",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "claim_splits",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "claims",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 40960,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "detector_signals",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entities",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 81920,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_key_proposal_articles",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "authority",
+    "source_id",
+    "entity_id",
+    "article_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_key_proposals",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 40960,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_keys",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "authority",
+    "source_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_merges",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_prominence",
+   "status": "DERIVED",
+   "relkind": "matview",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 8192,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_quarantine",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_renames",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_splits",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_type_changes",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "entity_type_overrides",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "norm_form"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "er_candidates",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "er_split_candidates",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "extraction_log",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "gazetteer_blocklist",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "guard_drops",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "mentions",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id",
+    "entity_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "mint_lane_state",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "k"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "mint_review",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "entity_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 49152,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "review_decisions",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "source_policy",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "outlet"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "watchlist_entities",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "watchlist_id",
+    "entity_id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "tg_96cf7cd31c89",
+   "table": "watchlists",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "an empty test copy of the press graph's schema",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "alias",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 26483344,
+   "rows_basis": "reltuples",
+   "table_bytes": 1631125504,
+   "total_bytes": 4717969408,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "alias_cleanup_log",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__alias_cleanup_log",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "alias_link",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "alias_id",
+    "entity_id"
+   ],
+   "rows": 7230880,
+   "rows_basis": "reltuples",
+   "table_bytes": 2181357568,
+   "total_bytes": 4314931200,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "alias_refold_quarantine",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 19471,
+   "rows_basis": "reltuples",
+   "table_bytes": 1409024,
+   "total_bytes": 2023424,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__alias_refold_quarantine",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "alias_sighting",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id",
+    "alias_id",
+    "entity_id"
+   ],
+   "rows": 76293184,
+   "rows_basis": "reltuples",
+   "table_bytes": 9315549184,
+   "total_bytes": 20380835840,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "anchor_review",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "entity_id"
+   ],
+   "rows": 4918,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192000,
+   "total_bytes": 8617984,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__anchor_review",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "claim_entities",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "claim_id",
+    "entity_id"
+   ],
+   "rows": 238956560,
+   "rows_basis": "reltuples",
+   "table_bytes": 30482726912,
+   "total_bytes": 57880764416,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "claim_heals",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "heal_id"
+   ],
+   "rows": 1227,
+   "rows_basis": "reltuples",
+   "table_bytes": 434176,
+   "total_bytes": 540672,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__claim_heals",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "claim_object_detachments",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 33740,
+   "rows_basis": "reltuples",
+   "table_bytes": 3489792,
+   "total_bytes": 4268032,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__claim_object_detachments",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "claim_splits",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__claim_splits",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "claim_suppressions",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 16384,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__claim_suppressions",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "claims",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 11662369,
+   "rows_basis": "reltuples",
+   "table_bytes": 8837701632,
+   "total_bytes": 10414907392,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": "published 1981-09-03 to 2026-11-02",
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "detector_signals",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 12074572,
+   "rows_basis": "reltuples",
+   "table_bytes": 2331680768,
+   "total_bytes": 4145561600,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "document_quarantine",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 9153,
+   "rows_basis": "reltuples",
+   "table_bytes": 52461568,
+   "total_bytes": 53116928,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__document_quarantine",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "enterprise_forms",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "form"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__enterprise_forms",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "enterprise_members",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "enterprise_id",
+    "nzbn"
+   ],
+   "rows": 5,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 81920,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__enterprise_members",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entities",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 6674413,
+   "rows_basis": "reltuples",
+   "table_bytes": 2316206080,
+   "total_bytes": 6412320768,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": "created 2026-08-09 to 2026-11-09",
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_key_proposal_articles",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "authority",
+    "source_id",
+    "entity_id",
+    "article_id"
+   ],
+   "rows": 40746248,
+   "rows_basis": "reltuples",
+   "table_bytes": 3542507520,
+   "total_bytes": 7935639552,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_key_proposals",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 487248,
+   "rows_basis": "reltuples",
+   "table_bytes": 526868480,
+   "total_bytes": 784441344,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_keys",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "authority",
+    "source_id"
+   ],
+   "rows": 4088202,
+   "rows_basis": "reltuples",
+   "table_bytes": 347037696,
+   "total_bytes": 783892480,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_merges",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2181866,
+   "rows_basis": "reltuples",
+   "table_bytes": 1344339968,
+   "total_bytes": 1458790400,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_prominence",
+   "status": "DERIVED",
+   "relkind": "matview",
+   "key": null,
+   "rows": 2571127,
+   "rows_basis": "reltuples",
+   "table_bytes": 114352128,
+   "total_bytes": 172154880,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_quarantine",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 560452,
+   "rows_basis": "reltuples",
+   "table_bytes": 107569152,
+   "total_bytes": 120176640,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__entity_quarantine",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_renames",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 481098,
+   "rows_basis": "reltuples",
+   "table_bytes": 71671808,
+   "total_bytes": 82501632,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_splits",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 104,
+   "rows_basis": "reltuples",
+   "table_bytes": 245760,
+   "total_bytes": 278528,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__entity_splits",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_type_changes",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 60236,
+   "rows_basis": "reltuples",
+   "table_bytes": 6963200,
+   "total_bytes": 8429568,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "entity_type_overrides",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "norm_form"
+   ],
+   "rows": 58550,
+   "rows_basis": "reltuples",
+   "table_bytes": 5554176,
+   "total_bytes": 7749632,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__entity_type_overrides",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "er_candidates",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 38,
+   "rows_basis": "reltuples",
+   "table_bytes": 98304,
+   "total_bytes": 147456,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__er_candidates",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "er_split_candidates",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 8192,
+   "total_bytes": 24576,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "extract_policy",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "key"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 32768,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__extract_policy",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "extract_queue",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id"
+   ],
+   "rows": 5651501,
+   "rows_basis": "reltuples",
+   "table_bytes": 774701056,
+   "total_bytes": 1263755264,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "extraction_log",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id"
+   ],
+   "rows": 5708487,
+   "rows_basis": "exact",
+   "table_bytes": 738361344,
+   "total_bytes": 979566592,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "gazette_feed_state",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "family"
+   ],
+   "rows": 8,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "gazetteer_blocklist",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 928,
+   "rows_basis": "reltuples",
+   "table_bytes": 155648,
+   "total_bytes": 270336,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__gazetteer_blocklist",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "guard_drops",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 6143425,
+   "rows_basis": "reltuples",
+   "table_bytes": 1169506304,
+   "total_bytes": 2078597120,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "identity_refusals",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 16384,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__identity_refusals",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "lexicon_entries",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "list_name",
+    "form"
+   ],
+   "rows": 3990,
+   "rows_basis": "reltuples",
+   "table_bytes": 1114112,
+   "total_bytes": 1769472,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__lexicon_entries",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "mentions",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "article_id",
+    "entity_id"
+   ],
+   "rows": 28572000,
+   "rows_basis": "reltuples",
+   "table_bytes": 16981270528,
+   "total_bytes": 31420588032,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "merge_refutations",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 4486,
+   "rows_basis": "reltuples",
+   "table_bytes": 9052160,
+   "total_bytes": 9191424,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__merge_refutations",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "mint_lane_state",
+   "status": "DERIVED",
+   "relkind": "table",
+   "key": [
+    "k"
+   ],
+   "rows": 1,
+   "rows_basis": "reltuples",
+   "table_bytes": 49152,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "mint_review",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "entity_id"
+   ],
+   "rows": 1159075,
+   "rows_basis": "reltuples",
+   "table_bytes": 493600768,
+   "total_bytes": 570613760,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__mint_review",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "model_claims",
+   "status": "DERIVED",
+   "relkind": "view",
+   "key": null,
+   "rows": null,
+   "rows_basis": "reltuples",
+   "table_bytes": 0,
+   "total_bytes": 0,
+   "held_in": null,
+   "note": "the press graph: model readings of the articles (claims 1981 to 2026-11-02), and its build state",
+   "date_range": null,
+   "dest": null
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "reread_log",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "entity_id"
+   ],
+   "rows": 1185,
+   "rows_basis": "reltuples",
+   "table_bytes": 262144,
+   "total_bytes": 327680,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__reread_log",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "review_decisions",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 52,
+   "rows_basis": "reltuples",
+   "table_bytes": 122880,
+   "total_bytes": 155648,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__review_decisions",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "source_policy",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "outlet"
+   ],
+   "rows": 237,
+   "rows_basis": "reltuples",
+   "table_bytes": 589824,
+   "total_bytes": 630784,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__source_policy",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "watchlist_entities",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "watchlist_id",
+    "entity_id"
+   ],
+   "rows": 6,
+   "rows_basis": "reltuples",
+   "table_bytes": 32768,
+   "total_bytes": 65536,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__watchlist_entities",
+   "where_to": "/home (the database's own disk)"
+  },
+  {
+   "database": "extractions",
+   "schema": "v3",
+   "table": "watchlists",
+   "status": "NEW",
+   "relkind": "table",
+   "key": [
+    "id"
+   ],
+   "rows": 2,
+   "rows_basis": "reltuples",
+   "table_bytes": 40960,
+   "total_bytes": 57344,
+   "held_in": null,
+   "note": "decisions, verdicts, quarantines and policies of the old press graph: the cannot-be-regenerated class",
+   "date_range": null,
+   "dest": "querynz_v4.old_extractions_private.v3__watchlists",
+   "where_to": "/home (the database's own disk)"
+  }
+ ],
+ "stores": [
+  {
+   "name": "ec-donations",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-donations",
+   "status": "PARTLY",
+   "source": "old-ec-donations",
+   "html": true,
+   "exclude": [
+    "pageread"
+   ],
+   "files": {
+    "pdf": 3753,
+    "pdf_unique": 3056,
+    "image": 11,
+    "pdf_cut_at_1mib": 29,
+    "html": 82,
+    "spreadsheet": 19,
+    "csv": 6
+   },
+   "bytes": 7208000000,
+   "held_by_sha256": {
+    "pdf": 2329,
+    "image": 11,
+    "html": 68
+   },
+   "missing": {
+    "pdf_unique": 1420,
+    "pdf_bytes": 1937100000,
+    "pdf_cut_at_1mib": 29,
+    "html": 14,
+    "html_bytes": 1500000,
+    "where": "all in archive/; residue/ is held whole"
+   },
+   "html_verdict": "LOST: the listing pages' rows (registers.disclosure_documents) keep ref, url and sha256 only, no title, date or body",
+   "where_to": "/mnt/hdd2/qv4-docs (the document store)",
+   "note": "the 29 files named *.truncated-1mib are captures cut at exactly 1 MiB; they land as PDFs and are known to be broken"
+  },
+  {
+   "name": "party-sites",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/party-sites",
+   "status": "PARTLY",
+   "source": "old-party-sites",
+   "html": false,
+   "files": {
+    "html": 102227,
+    "pdf": 438,
+    "xml": 219,
+    "docx": 5
+   },
+   "bytes": 22263000000,
+   "held_by_sha256": {
+    "pdf": 1,
+    "html": 0
+   },
+   "missing": {
+    "pdf": 437,
+    "pdf_bytes": 1476100000
+   },
+   "html_verdict": "RETAINED for the 101,418 rows landed as articles: 20 sampled pages, every row has url, title and fetch time (published date where the page states one, 11/20), the body's last 80 characters are on the page 20/20, its first 80 15/20 (the National pages prefix a heading), 72 to 100% of the body's 8-word runs are on the page. LOST for 7,850 page rows landed as thin (7,573), unsupported (236) or pdf-queued (41): no article, no body",
+   "html_lost_rows": {
+    "rows": 7850,
+    "distinct_sha256": 1383,
+    "bytes_rows": 823000000,
+    "select": "registers.party_site_documents where kind = 'page' and landed_as in ('thin','unsupported','pdf-queued')"
+   },
+   "where_to": "/mnt/hdd2/qv4-docs"
+  },
+  {
+   "name": "party-boards",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/party-boards",
+   "status": "PARTLY",
+   "source": "old-party-boards",
+   "html": true,
+   "files": {
+    "html": 1060
+   },
+   "bytes": 92300000,
+   "held_by_sha256": {
+    "html": 870
+   },
+   "missing": {
+    "html": 189,
+    "html_bytes": 6900000
+   },
+   "html_verdict": "LOST: registers.party_board_asserted keeps the person, role and source url per snapshot, not the page's title, date or body",
+   "where_to": "/mnt/hdd2/qv4-docs"
+  },
+  {
+   "name": "party-constitutions",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/party-constitutions",
+   "status": "NEW",
+   "source": "old-party-constitutions",
+   "html": true,
+   "exclude": [
+    "pageread"
+   ],
+   "files": {
+    "pdf": 7,
+    "html": 1
+   },
+   "bytes": 10600000,
+   "held_by_sha256": {
+    "pdf": 0,
+    "html": 0
+   },
+   "missing": {
+    "pdf": 7,
+    "pdf_bytes": 10400000,
+    "html": 1
+   },
+   "html_verdict": "LOST: registers.party_rule_documents has 7 rows for 7 PDFs; the one superseded HTML page has no row",
+   "where_to": "/mnt/hdd2/qv4-docs"
+  },
+  {
+   "name": "news-documents",
+   "root": "/home/user/querynz-data/documents",
+   "status": "PARTLY",
+   "source": "old-incoming-news-documents",
+   "html": false,
+   "files": {
+    "pdf": 857
+   },
+   "bytes": 1619200000,
+   "held_by_sha256": {
+    "pdf": 417
+   },
+   "missing": {
+    "pdf": 440,
+    "pdf_bytes": 281100000
+   },
+   "note": "the PDFs of incoming_news.documents (pdf_path). 5,136 rows name a PDF; 4,072 of them are neither on this disk nor in the store: a gap for the MCP (stream K), url in the row",
+   "where_to": "/mnt/hdd2/qv4-docs"
+  },
+  {
+   "name": "ec-party-register",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-party-register",
+   "status": "PARTLY",
+   "source": "old-ec-party-register",
+   "html": true,
+   "files": {
+    "html": 2
+   },
+   "missing": {
+    "html": 2,
+    "html_bytes": 200000
+   },
+   "html_verdict": "LOST: no row holds these pages' body",
+   "where_to": "/mnt/hdd2/qv4-docs"
+  },
+  {
+   "name": "minister-expenses",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/minister-expenses",
+   "status": "PARTLY",
+   "source": "old-minister-expenses",
+   "html": true,
+   "files": {
+    "spreadsheet": 69,
+    "html": 2
+   },
+   "held_by_sha256": {
+    "spreadsheet": 69
+   },
+   "missing": {
+    "html": 2,
+    "html_bytes": 100000
+   },
+   "html_verdict": "LOST: the listing pages have no row",
+   "where_to": "/mnt/hdd2/qv4-docs"
+  },
+  {
+   "name": "ec-expenses",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-expenses",
+   "status": "HELD",
+   "files": {
+    "pdf": 40
+   },
+   "held_by_sha256": {
+    "pdf": 40
+   }
+  },
+  {
+   "name": "ec-financials",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-financials",
+   "status": "HELD",
+   "files": {
+    "pdf": 46
+   },
+   "held_by_sha256": {
+    "pdf": 46
+   }
+  },
+  {
+   "name": "ec-promoters",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-promoters",
+   "status": "HELD",
+   "files": {
+    "pdf": 20,
+    "html": 2
+   },
+   "held_by_sha256": {
+    "pdf": 20,
+    "html": 2
+   }
+  },
+  {
+   "name": "ec-broadcasting",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-broadcasting",
+   "status": "HELD",
+   "files": {
+    "pdf": 1,
+    "html": 2
+   },
+   "held_by_sha256": {
+    "pdf": 1,
+    "html": 2
+   }
+  },
+  {
+   "name": "ec-candidate-list",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-candidate-list",
+   "status": "HELD",
+   "files": {
+    "pdf": 1,
+    "spreadsheet": 1,
+    "html": 2
+   },
+   "held_by_sha256": {
+    "pdf": 1,
+    "spreadsheet": 1,
+    "html": 2
+   }
+  },
+  {
+   "name": "ec-byelections",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-byelections",
+   "status": "HELD",
+   "files": {
+    "html": 4
+   },
+   "held_by_sha256": {
+    "html": 4
+   }
+  },
+  {
+   "name": "ec-results",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-results",
+   "status": "HELD",
+   "files": {
+    "html": 157
+   },
+   "held_by_sha256": {
+    "html": 157
+   }
+  },
+  {
+   "name": "mp-expenses",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/mp-expenses",
+   "status": "HELD",
+   "files": {
+    "spreadsheet": 31
+   },
+   "held_by_sha256": {
+    "spreadsheet": 31
+   }
+  },
+  {
+   "name": "mp-interests",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/mp_interests",
+   "status": "HELD",
+   "files": {
+    "pdf": 21
+   },
+   "held_by_sha256": {
+    "pdf": 21
+   }
+  },
+  {
+   "name": "recovered-news-dump-node1",
+   "root": "/home/user/hetzner-recovery",
+   "status": "OUT",
+   "box": "node1",
+   "files": {
+    "sql.gz": 1
+   },
+   "bytes": 132692104796,
+   "note": "the recovered news dump held on node1 (local-docker_news-scraping-db_newsscraping_20260825_005138.sql.gz, its dump.sha256 a0af730a…, pull.log, pull.sh, verified.OK). Set aside, rulings 154 and 161. Catalogued by name only"
+  },
+  {
+   "name": "recovered-news-dump-node2-copy",
+   "root": "/home/user/offload-2026-09-02/hetzner-recovery",
+   "status": "OUT",
+   "box": "node2",
+   "files": {
+    "sql.gz": 1
+   },
+   "bytes": 132692104796,
+   "note": "the same dump: the same name, size and dump.sha256 as node1's. OUT with it"
+  },
+  {
+   "name": "recovered-news-dump-sample",
+   "root": "/home/user/offload-2026-09-02/hetzner-sample",
+   "status": "OUT",
+   "box": "node2",
+   "files": {
+    "parquet": 1
+   },
+   "bytes": 529241323,
+   "note": "newspapers_batch_0000000001.parquet and pull.log beside the dump; taken as part of it. OUT"
+  }
+ ],
+ "other_files": [
+  {
+   "name": "linz-pulls",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/linz",
+   "class": "NEW",
+   "files": {
+    "json": 4027
+   },
+   "bytes": 11204300000,
+   "held_by_sha256": "0 of 20 sampled",
+   "note": "raw API pages of the old title-owner pulls; their rows are HELD (linz.owners). Not a PDF or image, so outside ruling 160's file kinds: Arthur"
+  },
+  {
+   "name": "ec-donations-spreadsheets",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/ec-donations/archive",
+   "class": "PARTLY",
+   "files": {
+    "xlsx_xls": 19,
+    "csv": 6
+   },
+   "missing": {
+    "spreadsheet": 15,
+    "csv": 4,
+    "bytes": 500000
+   },
+   "note": "EC summary tables 1996 to 2023; not PDFs or images"
+  },
+  {
+   "name": "icij-offshore-leaks",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/icij-offshore-leaks",
+   "class": "NEW",
+   "files": {
+    "zip": 1,
+    "csv": 11
+   },
+   "bytes": 73400000,
+   "note": "not held; not PDFs or images"
+  },
+  {
+   "name": "boundaries",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/boundaries",
+   "class": "PARTLY",
+   "files": {
+    "geojson": 6
+   },
+   "missing": {
+    "geojson": 4,
+    "bytes": 54700000
+   },
+   "note": "electorate boundaries; 2 of 6 held"
+  },
+  {
+   "name": "party-sites-other",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/party-sites",
+   "class": "NEW",
+   "files": {
+    "docx": 5,
+    "xml": 219
+   },
+   "note": "5 Word files (5.3 MB) and 219 sitemaps; not PDFs or images"
+  },
+  {
+   "name": "ocr-cache",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/ocr-cache",
+   "class": "DERIVED",
+   "bytes": 53000000,
+   "note": "page-reader text keyed by sha256"
+  },
+  {
+   "name": "pi-snapshot",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/pi-snapshot",
+   "class": "DERIVED",
+   "bytes": 8900000000,
+   "note": "the frozen site's build output"
+  },
+  {
+   "name": "sealed",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/sealed",
+   "class": "NOT TOUCHED",
+   "bytes": 86000000,
+   "note": "the old seal and its access log; not opened (hard limits 11, 12); not part of ruling 160 unless Arthur says"
+  },
+  {
+   "name": "old-db-backups",
+   "root": "/mnt/hdd/backups",
+   "class": "DERIVED",
+   "note": "nightly dumps of the same old databases (13 Oct onward); not a corpus"
+  },
+  {
+   "name": "bulk-downloads",
+   "root": "/home/user/offload-2026-09-02/bulk",
+   "class": "NEW",
+   "bytes": 98000000000,
+   "note": "the original downloads behind bulk.* (wikidata 96 GB, companies-2026-08 817 MB, geonames 594 MB, gleif 475 MB, ror 34 MB); not PDFs or images"
+  },
+  {
+   "name": "offload-downloads",
+   "root": "/home/user/offload-2026-09-02/Downloads",
+   "class": "NOT A CORPUS",
+   "bytes": 13000000000,
+   "note": "a personal downloads folder in the offload; not inventoried"
+  }
+ ],
+ "totals": [
+  {
+   "database": "extractions",
+   "status": "DERIVED",
+   "tables": 57,
+   "table_bytes": 134444998656,
+   "copy_bytes_estimate": 0
+  },
+  {
+   "database": "extractions",
+   "status": "NEW",
+   "tables": 25,
+   "table_bytes": 684548096,
+   "copy_bytes_estimate": 684548096
+  },
+  {
+   "database": "incoming_news",
+   "status": "DERIVED",
+   "tables": 9,
+   "table_bytes": 40392794112,
+   "copy_bytes_estimate": 0
+  },
+  {
+   "database": "incoming_news",
+   "status": "HELD",
+   "tables": 4,
+   "table_bytes": 36937728,
+   "copy_bytes_estimate": 0
+  },
+  {
+   "database": "incoming_news",
+   "status": "NEW",
+   "tables": 10,
+   "table_bytes": 19208822784,
+   "copy_bytes_estimate": 19208822784
+  },
+  {
+   "database": "nzbn_canonical",
+   "status": "DERIVED",
+   "tables": 44,
+   "table_bytes": 490151936,
+   "copy_bytes_estimate": 0
+  },
+  {
+   "database": "nzbn_canonical",
+   "status": "HELD",
+   "tables": 41,
+   "table_bytes": 3045040128,
+   "copy_bytes_estimate": 0
+  },
+  {
+   "database": "nzbn_canonical",
+   "status": "NEW",
+   "tables": 62,
+   "table_bytes": 13952778240,
+   "copy_bytes_estimate": 13952778240
+  },
+  {
+   "database": "nzbn_canonical",
+   "status": "PARTLY",
+   "tables": 2,
+   "table_bytes": 235159552,
+   "copy_bytes_estimate": 220808
+  }
+ ],
+ "not_old_estate": [
+  {
+   "database": "querynz_v4",
+   "verdict": "the new estate's live database (245 GB), not a leftover: bin/q's session reader reads it; companies, links, docs and every lane load into it to this day"
+  },
+  {
+   "database": "querynz_v4_sample",
+   "verdict": "the new estate's sample database (10 GB, 114 schemas, 4,797 tables), made by ruling 54 / plan 1b.6, read by bin/q --sample; not a leftover"
+  }
+ ]
+}

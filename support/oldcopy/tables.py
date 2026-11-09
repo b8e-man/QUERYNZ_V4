@@ -12,6 +12,9 @@ from psycopg import IsolationLevel, sql
 from support.oldcopy import DEST_PREFIX, DEST_SUFFIX, LEDGER, keytext, keyvalues
 
 BATCH_ROWS = 5000
+#: a table with no usable key is copied whole, in one checked batch, when it is no bigger than this; its md5 is
+#: taken over the rows' md5s sorted, since there is no key to order them by. A bigger keyless table is refused.
+WHOLE_MAX_BYTES = 1_000_000_000
 STATEMENT_TIMEOUT_S = 300
 # the same text for the same value on both sides: these settings govern every type's output
 OUTPUT_SETTINGS = (("TimeZone", "UTC"), ("DateStyle", "ISO, YMD"), ("IntervalStyle", "postgres"),
@@ -111,11 +114,14 @@ def catalogue(src, schema: str, table: str, key=()) -> dict:
             raise Refused(f"the inventory's key {list(key)} is not a primary key or a unique NOT NULL index")
     elif usable:
         key = usable[0]
+    elif int(size) <= WHOLE_MAX_BYTES:
+        key = ()          # copied whole, in one batch
     else:
-        raise Refused("no usable key: no primary key and no unique index on NOT NULL columns")
+        raise Refused(f"no usable key (no primary key and no unique index on NOT NULL columns) and "
+                      f"{int(size)} bytes, past the {WHOLE_MAX_BYTES} copied whole")
     types = {c["name"]: c["type"] for c in columns}
     return {"columns": columns, "key": key, "key_types": tuple(types[k] for k in key),
-            "est_rows": int(est_rows), "bytes": int(size)}
+            "est_rows": int(est_rows), "bytes": int(size), "whole": not key}
 
 
 def check_types(dst, cat: dict) -> None:
@@ -154,7 +160,8 @@ def ensure_dest(dst, cat: dict, schema: str, table: str) -> None:
         if c["collation"]:
             d = sql.SQL("{} COLLATE {}").format(d, sql.Identifier(c["collation"]))
         defs.append(d)
-    defs.append(sql.SQL("PRIMARY KEY ({})").format(sql.SQL(", ").join(sql.Identifier(k) for k in cat["key"])))
+    if cat["key"]:
+        defs.append(sql.SQL("PRIMARY KEY ({})").format(sql.SQL(", ").join(sql.Identifier(k) for k in cat["key"])))
     dst.execute(sql.SQL("CREATE TABLE {} ({})").format(_ident(schema, table), sql.SQL(", ").join(defs)))
     dst.commit()
 
@@ -228,6 +235,49 @@ def _stream(src, dst, src_rel, dst_rel, cat, after, through) -> int:
         return dc.rowcount
 
 
+def measure_whole(conn, rel, cat) -> tuple:
+    """(rows, md5) of a whole keyless table: md5 over each row's md5, the row md5s sorted."""
+    r = conn.execute(sql.SQL(
+        "SELECT count(*), md5(COALESCE(string_agg(m, '' ORDER BY m), '')) FROM (SELECT md5(s::text) AS m "
+        "FROM (SELECT {} FROM {}) s) h").format(_cols(cat), rel)).fetchone()
+    return int(r[0]), r[1]
+
+
+def _stream_whole(src, dst, src_rel, dst_rel, cat) -> int:
+    out = sql.SQL("COPY (SELECT {} FROM {}) TO STDOUT").format(_cols(cat), src_rel)
+    into = sql.SQL("COPY {} ({}) FROM STDIN").format(dst_rel, _cols(cat))
+    with src.cursor() as sc, dst.cursor() as dc:
+        with sc.copy(out) as cin, dc.copy(into) as cout:
+            for block in cin:
+                cout.write(block)
+        return dc.rowcount
+
+
+def copy_whole(src, dst, piece, cat, src_rel, dst_rel, ledger, log=print) -> dict:
+    """A keyless table in one batch: the destination emptied, the rows streamed, counted and hashed on both sides,
+    committed together with the ledger line or rolled back. Run again (--again), it replaces the copy whole."""
+    b0 = time.monotonic()
+    with src.transaction():
+        n_src, md5_src = measure_whole(src, src_rel, cat)
+        dst.execute(sql.SQL("TRUNCATE {}").format(dst_rel))
+        n_copied = _stream_whole(src, dst, src_rel, dst_rel, cat)
+    n_dst, md5_dst = measure_whole(dst, dst_rel, cat)
+    secs = time.monotonic() - b0
+    ok = n_src == n_copied == n_dst and md5_src == md5_dst
+    why = None if ok else f"source {n_src} rows {md5_src}, copied {n_copied}, landed {n_dst} rows {md5_dst}"
+    if not ok:
+        dst.rollback()
+    _ledger_line(dst, ledger, piece, 0, None, None, n_src, n_copied, n_dst, md5_src, md5_dst, ok,
+                 why or "copied whole: no key", secs)
+    if ok:
+        _set_cursor(dst, ledger, piece, 0, None, True, n_dst)
+    dst.commit()
+    if not ok:
+        raise Mismatch(f"{piece} (whole): {why}")
+    log(f"support.oldcopy: {piece}: copied whole (no key), {n_dst} rows")
+    return {"batches": 1, "rows": n_dst, "caught_up": True, "stopped": ""}
+
+
 def _ledger_line(dst, ledger, piece, range_no, after, through, rs, rc, rl, ms, ml, ok, why, secs):
     dst.execute(sql.SQL(
         "INSERT INTO {}.batches (piece, range_no, after_key, through_key, rows_source, rows_copied, rows_landed, "
@@ -275,6 +325,14 @@ def copy_table(src, dst, spec, *, schema: str = None, ledger: str = LEDGER, rows
         raise
     src_rel, dst_rel = _ident(spec.schema, spec.table), _ident(schema, table)
     t0, done = time.monotonic(), {"batches": 0, "rows": 0, "caught_up": True, "stopped": ""}
+    if cat["whole"]:
+        if tuple(spec.ranges) != ((None, None),):
+            refuse(dst, ledger, piece, "no usable key, so its missing ranges cannot be named")
+            raise Refused(f"{piece}: no usable key, so its missing ranges cannot be named")
+        if stop():
+            done.update(caught_up=False, stopped="window")
+            return done
+        return copy_whole(src, dst, piece, cat, src_rel, dst_rel, ledger, log=log)
     for range_no, (lo, hi) in enumerate(spec.ranges):
         after, _ = cursor_of(dst, ledger, piece, range_no)
         dst.rollback()
@@ -325,6 +383,13 @@ def dry_run(src, spec, *, rows: int = BATCH_ROWS, max_batches: int = 10_000, typ
     if types_in is not None:
         check_types(types_in, cat)
     rel = _ident(spec.schema, spec.table)
+    if cat["whole"]:
+        with src.transaction():
+            n, m = measure_whole(src, rel, cat)
+        out = {"piece": spec.piece, "key": [], "whole": True, "columns": len(cat["columns"]),
+               "est_rows": cat["est_rows"], "bytes": cat["bytes"], "rows": n, "batches": 1, "md5": m, "complete": True}
+        log("support.oldcopy: dry run " + json.dumps(out))
+        return out
     total, md5s = 0, []
     for lo, hi in spec.ranges:
         after = lo

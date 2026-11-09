@@ -243,8 +243,9 @@ def test_a_row_changed_on_the_way_is_caught_and_its_batch_rolled_back(env):
     d.rollback()
 
 
-def test_a_table_with_no_key_or_an_old_type_is_refused_and_recorded(env):
+def test_a_big_table_with_no_key_or_an_old_type_is_refused_and_recorded(env, monkeypatch):
     e = env
+    monkeypatch.setattr(T, "WHOLE_MAX_BYTES", -1)         # every keyless table, the empty too, is past it
     for table, why in (("nokey", "no usable key"), ("nullkey", "no usable key"), ("exprkey", "no usable key"), ("oldtype", "not carried"),
                        ("oldrange", "not carried")):
         with pytest.raises(T.Refused, match=why):
@@ -252,6 +253,37 @@ def test_a_table_with_no_key_or_an_old_type_is_refused_and_recorded(env):
     got = e["dst"].execute(f"SELECT piece FROM {e['led']}.refusals ORDER BY refusal_id").fetchall()
     assert [g[0].rsplit(".", 1)[1] for g in got] == ["nokey", "nullkey", "exprkey", "oldtype", "oldrange"]
     e["dst"].rollback()
+
+
+def test_a_small_table_with_no_key_is_copied_whole_duplicates_and_all_and_a_change_is_caught(env):
+    e = env
+    s, d = e["src_s"], e["dst"]
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as c:
+        c.execute(f"INSERT INTO {s}.nokey SELECT g % 50, 'row ' || (g % 50) FROM generate_series(1, 400) g")  # duplicates
+        c.execute(f"INSERT INTO {s}.nokey VALUES (NULL, NULL), (NULL, NULL)")
+        c.commit()
+    out = _copy(e, _spec(s, "nokey"))
+    assert out == {"batches": 1, "rows": 403, "caught_up": True, "stopped": ""}
+    rel = f"{e['dst_s']}.{s}__nokey"
+    order = "md5(s::text)"
+    assert _whole(d, rel, order) == _whole(e["src"], f"{s}.nokey", order)
+    assert d.execute("SELECT count(*) FROM pg_index WHERE indrelid = %s::regclass", (rel,)).fetchone()[0] == 0
+    assert d.execute(f"SELECT caught_up, rows FROM {e['led']}.cursors WHERE piece LIKE %s", ("%nokey",)).fetchone() == (True, 403)
+    d.rollback()
+    assert T.dry_run(e["src"], _spec(s, "nokey"), log=lambda *_: None)["md5"] == _whole(e["src"], f"{s}.nokey", order)[1]
+    again = _copy(e, _spec(s, "nokey"))                       # run again, it replaces the copy, never doubles it
+    assert again["rows"] == 403 and d.execute(f"SELECT count(*) FROM {rel}").fetchone()[0] == 403
+    d.execute(f"CREATE FUNCTION {e['dst_s']}.tamper2() RETURNS trigger LANGUAGE plpgsql AS "
+              f"$$ BEGIN IF NEW.a = 7 THEN NEW.b := NEW.b || '.'; END IF; RETURN NEW; END $$")
+    d.execute(f"CREATE TRIGGER tamper2 BEFORE INSERT ON {rel} FOR EACH ROW EXECUTE FUNCTION {e['dst_s']}.tamper2()")
+    d.commit()
+    with pytest.raises(T.Mismatch):
+        _copy(e, _spec(s, "nokey"))
+    assert d.execute(f"SELECT count(*) FROM {rel} WHERE b LIKE '%.'").fetchone()[0] == 0     # rolled back, the good copy kept
+    assert d.execute(f"SELECT count(*) FROM {rel}").fetchone()[0] == 403
+    with pytest.raises(T.Refused, match="ranges"):
+        _copy(e, _spec(s, "nokey", "PARTLY", ((["1"], ["5"]),)))
+    d.rollback()
 
 
 def test_a_partly_table_copies_only_its_missing_ranges_and_a_two_column_key_works(env):
