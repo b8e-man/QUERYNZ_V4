@@ -42,9 +42,9 @@ old ntfy.
 
 ## Half-done
 
-- Step 9, the one report (rulings 150-157): tranche 1 closed 9 Nov 21:25
-  (templates 02-13 frozen, tab on diagnostic, live check green); next
-  2, then 5, 6, 8; 3, 4, 7 wait for the two-source look.
+- Step 9 (rulings 150-157): tranches 1, 2 closed 9 Nov. 2: 156 files
+  in handover/news-scrapers-2026-11-09.tar.gz, sums checked, no env;
+  for Arthur to pass on. Next 5, 6, 8; 3, 4, 7 wait.
 
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
