@@ -424,7 +424,8 @@ def test_the_provider_list(registry):
     f = fresh_facts(registry, 30, lane=None)
     f["freshness"]["other"] = {**f["freshness"]["mcorp"], "corpus": "other", "pipeline_lane": "other-capture",
                                "pipeline_status": "blocked", "newest_arrival": NOW - dt.timedelta(days=9.5)}
-    f["freshness"]["fine"] = {**f["freshness"]["mcorp"], "corpus": "fine", "newest_arrival": NOW - dt.timedelta(days=1)}
+    f["freshness"]["fine"] = {**f["freshness"]["mcorp"], "corpus": "fine", "newest_arrival": NOW - dt.timedelta(days=1),
+                              "pipeline_lane": "fine-capture", "pipeline_status": "active"}
     f["freshness"]["unread"] = {**f["freshness"]["mcorp"], "corpus": "unread", "pipeline_lane": None,
                                 "pipeline_read": False, "newest_arrival": NOW - dt.timedelta(days=7.4)}
     for k in ("other", "fine", "unread"):
@@ -446,6 +447,25 @@ def test_the_provider_list(registry):
         many["cadence"][f"c{i:02}"] = many["cadence"]["mcorp"]
     text = sl.provider_list(many, NOW)
     assert sum(1 for l in text.splitlines() if l.startswith("| c")) == sl.PAGE_ROWS and "And 6 more." in text
+
+
+def test_a_corpus_with_no_lane_and_nothing_new_is_listed_before_its_cadence(registry):
+    """10 November 2026: thirteen estate-* corpora had no lane in the provider's pipeline and no arrival for one to
+    eleven days; measured against their cadences only one was stale. No collector visible is listed now."""
+    f = fresh_facts(registry, 3, lane=None)                                  # inside a weekly cadence, no lane
+    f["freshness"]["busy"] = {**f["freshness"]["mcorp"], "corpus": "busy", "arrivals_last_24h": 40}
+    f["freshness"]["laned"] = {**f["freshness"]["mcorp"], "corpus": "laned", "pipeline_lane": "laned-capture"}
+    f["freshness"]["unread"] = {**f["freshness"]["mcorp"], "corpus": "unread", "pipeline_read": False}
+    for k in ("busy", "laned", "unread"):
+        f["cadence"][k] = f["cadence"]["mcorp"]
+    assert [x["corpus"] for x in sl.stale_corpora(f, NOW)] == []
+    assert [x["corpus"] for x in sl.no_collector(f, NOW)] == ["mcorp"]
+    text = sl.provider_list(f, NOW)
+    assert "No collector visible" in text and "| mcorp | 1 Nov 12:00 | about weekly |" in text
+    feed = sl.provider_feed(f, NOW)
+    assert [o["corpus"] for o in feed["no_collector"]] == ["mcorp"] and feed["stale"] == []
+    f["cadence"]["mcorp"] = {**f["cadence"]["mcorp"], "days": 0}               # a closed corpus is never asked for
+    assert sl.no_collector(f, NOW) == []
 
 
 def test_the_provider_list_is_written_whole(tmp_path):

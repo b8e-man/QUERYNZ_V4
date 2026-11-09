@@ -454,6 +454,22 @@ def stale_corpora(facts: dict, now: dt.datetime) -> list:
     return sorted((x for x in xs if x["state"] in (RED, ORANGE)), key=lambda x: -x["over_days"])
 
 
+def no_collector(facts: dict, now: dt.datetime) -> list:
+    """Corpora not yet past their cadence but with no lane in the provider's `pipeline` and nothing new in the last
+    24 hours: no collector is visible, so a stop shows now, not a cadence later (10 November 2026: thirteen estate-*
+    corpora had no lane and no arrival for one to eleven days while their cadences called four of them fresh)."""
+    stale = {x["corpus"] for x in stale_corpora(facts, now)}
+    out = []
+    for k in sorted(facts.get("freshness", {})):
+        x = copy_state(k, facts, now)
+        row = x["row"] or {}
+        if (k in stale or x["state"] != "fresh" or not row.get("pipeline_read") or row.get("pipeline_lane")
+                or row.get("arrivals_last_24h")):
+            continue
+        out.append(x)
+    return out
+
+
 PAGE_ROWS = 30      # never more than a page
 ASKED = "a running collector at the cadence, or word that it is a one-time copy"
 CLOSING_TITLE = "For the provider: closing the loop"
@@ -528,8 +544,12 @@ def provider_feed(facts: dict, now: dt.datetime, previous: dict = None) -> dict:
             repaired[c] = {"corpus": c, "request_id": o.get("request_id"), "stale_newest_arrival": was,
                            "repaired_at": _iso(row["newest_arrival"]), "seen_at": _iso(now)}
     at = [r["at"] for r in fresh.values() if r.get("at")]
+    quiet = [{"corpus": x["corpus"], "newest_arrival": _iso(x["newest"]), "records": x["row"].get("records"),
+              "cadence_days": x["cadence"]["days"], "pipeline_lane": None,
+              "asked": "a lane in pipeline for this corpus, or word that it is a one-time copy",
+              "request_id": request_id(x["corpus"], x["newest"])} for x in no_collector(facts, now)]
     return {"schema_version": 1, "measured_at": _iso(max(at)) if at else None, "written_at": _iso(now),
-            "stale": stale, "repaired": sorted(repaired.values(), key=lambda o: o["corpus"])}
+            "stale": stale, "no_collector": quiet, "repaired": sorted(repaired.values(), key=lambda o: o["corpus"])}
 
 
 def provider_list(facts: dict, now: dt.datetime, closing: str = "", feed: dict = None) -> str:
@@ -557,6 +577,14 @@ def provider_list(facts: dict, now: dt.datetime, closing: str = "", feed: dict =
         if len(rows) > PAGE_ROWS:
             out.append(f"\nAnd {len(rows) - PAGE_ROWS} more.")
         out += ["", f"What is asked, for each: {ASKED}."]
+    quiet = no_collector(facts, now)
+    if quiet:
+        out += ["", "No collector visible: not yet past its cadence, but no lane in the provider's pipeline and nothing "
+                "new in the last 24 hours.", "",
+                "| Corpus | Newest arrival | Its source publishes |", "| --- | --- | --- |"]
+        for x in quiet[:PAGE_ROWS]:
+            out.append(f"| {x['corpus']} | {when(x['newest'])} | {publishes(x['cadence']['days'])} |")
+        out += ["", "What is asked, for each: a lane in pipeline for it, or word that it is a one-time copy."]
     rep = (feed or {}).get("repaired") or []
     if rep:
         out += ["", "Repaired (new records have arrived since it was listed): "
