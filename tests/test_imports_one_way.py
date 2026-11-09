@@ -128,6 +128,11 @@ SQL_WORD = re.compile(r"\b(select|from|join|insert|update|delete|truncate|create
 SQL_SHAPE = r"\b(from|join|into|update|table|truncate|only)\s+{schema}\.[a-z_][a-z0-9_]*"
 
 
+#: queries on the OLD estate's databases whose schemas share a lane's name (nzbn_canonical has charities, mp_interests,
+#: parties, courts, gazette); read through db.OLD_READ_KEY, never querynz_v4. Each pair is named, not a pattern.
+OLD_DATABASE_READS = {("support/mcpsource/gaps.py", s) for s in ("charities", "parties", "courts", "gazette", "mp_interests")}
+
+
 def test_no_query_crosses_a_lane():
     """A string that looks like SQL and names `<schema>.<table>` right after
     FROM, JOIN, INTO, UPDATE, TABLE or TRUNCATE may appear only in the module
@@ -139,6 +144,8 @@ def test_no_query_crosses_a_lane():
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and SQL_WORD.search(node.value):
                 for schema, who in SCHEMA_OWNER.items():
+                    if (os.path.relpath(path, REPO), schema) in OLD_DATABASE_READS:
+                        continue
                     if who and who != owner and re.search(SQL_SHAPE.format(schema=schema), node.value, re.I):
                         bad.append(f"{os.path.relpath(path, REPO)} queries {schema}.* which belongs to {who}")
     assert not bad, "\n".join(bad)
