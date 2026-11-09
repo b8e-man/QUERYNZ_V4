@@ -260,6 +260,19 @@ CREATE TABLE IF NOT EXISTS courts.own_files (
 );
 CREATE INDEX IF NOT EXISTS own_files_sha256 ON courts.own_files (sha256);
 
+-- from 9 November 2026 the two walks are the MCP provider's (estate-courts-jdo, estate-courts-era): a ledger row taken
+-- from its copy, not fetched by the boxes, has its line here (own.take_from_mcp), naming the MCP record it came from and
+-- the provider's own fetch time; never wiped. The ledger row's fetched_at is when the estate took it (the load's stamp
+-- counts by it); the provider's time is `provider_fetched_at`.
+CREATE TABLE IF NOT EXISTS courts.own_from_mcp (
+    url                 text PRIMARY KEY,                  -- the ledger row (courts.own_files.url)
+    corpus              text NOT NULL,                     -- estate-courts-jdo or estate-courts-era
+    seq                 bigint NOT NULL,                   -- the MCP record's seq
+    record              text NOT NULL CHECK (record ~ '^[0-9a-f]{64}$'),   -- the MCP record as the pull landed it, by hash
+    provider_fetched_at timestamptz,                       -- the record's capture.fetched_at
+    taken_at            timestamptz NOT NULL DEFAULT now()
+);
+
 -- where the own capture's listing walk is up to: one row per source, court and year
 CREATE TABLE IF NOT EXISTS courts.own_cursor (
     source      text NOT NULL,

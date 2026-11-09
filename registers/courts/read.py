@@ -39,6 +39,7 @@ table, keyed by its row, with where it belongs and the source's words
     recognise(entry, data, texts)          (profile slug, why, document kind)
     read(entries, orders, store, …)        Result
     python -m registers.courts.read --pages SHA    the page-reader piece (qv4-courts-pages)
+    python -m registers.courts.read --pages --pieces [--database D]   its pieces: the documents waiting, one hash a line
 """
 import datetime as dt
 import functools
@@ -850,8 +851,24 @@ def read_pages(sha256: str, *, url: str, model: str, store: rd.Store = None, dpi
             "replayed": got.replayed, "unread": list(got.unread)}
 
 
+def pages_waiting(conn, schema: str = "courts") -> list:
+    """The documents the last load left waiting on the page reader, one hash each, oldest fetch first:
+    qv4-courts-pages's pieces (its pieces_command)."""
+    rows = conn.execute(f"SELECT document, min(fetched_at) FROM {schema}.documents WHERE outcome = %s AND document IS NOT NULL "
+                        "GROUP BY document ORDER BY 2 NULLS LAST, 1", (WAIT_PAGES,)).fetchall()
+    return [r[0] for r in rows]
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
+    if argv[:1] == ["--pages"] and "--pieces" in argv:
+        from support import db
+        database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
+        with db.connect(db.READ_KEY, database) as conn:
+            conn.execute("SET statement_timeout = '60s'")
+            for sha in pages_waiting(conn):
+                print(sha)
+        return 0
     if len(argv) >= 2 and argv[0] == "--pages":
         line = read_pages(argv[-1], url=os.environ["QV4_MODEL_URL"], model=os.environ["QV4_MODEL"])
         print(f"courts pages: {line['document'][:12]}: {line['pages']} page(s), read now {line['read_now']}, "

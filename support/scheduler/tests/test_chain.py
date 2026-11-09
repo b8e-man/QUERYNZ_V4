@@ -710,8 +710,10 @@ def test_the_shipped_catalogue_wires_the_chain():
     # the name pass sits between the load and its reader (31 October 2026): load, sightings, reader
     # a reader lane: load, its names into pub.names, the name pass, then (courts) the reader (1 November)
     for lane in ("courts", "beehive", "hansard", "parliament"):
-        assert jts[f"qv4-{lane}-load"].then == (f"qv4-names-{lane}",), lane
+        assert jts[f"qv4-{lane}-load"].then == (f"qv4-names-{lane}",) + (("qv4-courts-pages",) if lane == "courts" else ()), lane
         assert jts[f"qv4-names-{lane}"].then == (f"qv4-sightings-{lane}",), lane
+    # the page reader is queued by the courts load (10 November 2026: it had no clock and nothing chained it since 30 October)
+    assert jts["qv4-courts-pages"].pieces_command
     assert jts["qv4-sightings-courts"].then == ("qv4-courts-read",)
     # every names job refills one register and is queued by that register's load
     names = [n for n in jts if n.startswith("qv4-names-")]

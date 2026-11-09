@@ -25,6 +25,16 @@ document's own caption is read by the load like any other file.
     python -m registers.courts.own --jdo [--budget-s N] [--max-requests N] [--anytime] [--court NAME] [--year Y]
     python -m registers.courts.own --era [--budget-s N] [--max-requests N] [--anytime] [--year Y]
     python -m registers.courts.own --finder [--budget-s N] [--max-requests N] [--anytime] [--court NAME or ID]
+    python -m registers.courts.own --jdo --from-mcp | --era --from-mcp
+
+From 9 November 2026 the boxes walk neither host (the 5 November split; Arthur, commit 3429166): the ingest MCP's
+provider runs these walks and serves them as the corpora estate-courts-jdo and estate-courts-era, which qv4-mcp-pull
+copies into `mcpsource.files`. `--from-mcp` (take_from_mcp) takes the ledger from that copy: each PDF it holds that
+the MCP's courts corpus and the ledger lack becomes a ledger row, its court and year from the copy's listing page that
+names it, with a line in `courts.own_from_mcp`. It does not replay the walk through an opener (the FMA lane's way):
+the provider walks from its own cursor, not ours (it holds High Court 2019 to 2026 and fetches files the courts corpus
+holds), and its current-year ERA searches carry its own day in the address, so a replay of our cursor would reach
+almost none of what it holds and stop at its first unheld page.
 
 Tranche 3 (EraWalk): the Employment Relations Authority's determinations at determinations.era.govt.nz (position
 docs/legal/positions/specialist-court-and-authority-decisions.md), its search form a year at a time, 10 a page,
@@ -36,6 +46,7 @@ decision a file under /assets/Documents/Decisions/), run by the JDO job once JDO
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import sys
 import time
@@ -483,6 +494,127 @@ class FinderWalk(Walk):
         return out
 
 
+# ── from 9 November 2026: the two walks are the MCP provider's (the 5 November split; commit 3429166) ─────────────────
+#: the ingest MCP's copy of each walk, which `--from-mcp` takes the ledger from; the finder (tranche 2) has none
+MCP_CORPORA = {SOURCE: "estate-courts-jdo", ERA_SOURCE: "estate-courts-era"}
+#: the court a file no listing of the copy names is recorded under (the ledger's court is NOT NULL)
+UNLISTED = {SOURCE: "(no listing in the MCP's copy)", ERA_SOURCE: ERA_COURT}
+TAKE_BATCH = 500
+
+
+def listing_of(source: str, url: str, body: bytes):
+    """(court, year, [pdf addresses]) from one listing page of the MCP's copy, as the walk would have read it; None for
+    a page that is not one of the walk's listings (the taxonomy). ValueError for a listing that does not read."""
+    q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
+    if source == SOURCE:
+        if "/jdo-search-api" not in url:
+            return None
+        data = json.loads(body)
+        hrefs = [r["url"] for r in data["results"] if r.get("url")]
+        return q["court"], int(q["judgmentDate"][2:6]), [urllib.parse.urljoin(BASE, h) for h in hrefs]
+    if "DeterminationSearchForm" not in url:
+        return None
+    _, hrefs = era_listing(body.decode("utf-8", "replace"))
+    return ERA_COURT, int(q["DateFrom"][:4]), [urllib.parse.urljoin(ERA_BASE, h) for h in hrefs]
+
+
+def take_from_mcp(conn, source: str, *, schema: str = SCHEMA, mcp_schema: str = "mcpsource", read_bytes=None,
+                  exists=None, log=print) -> dict:
+    """The walk's ledger taken from the MCP's copy of it, never the web: every PDF the copy holds (state landed or held,
+    so its bytes are in our store), the newest copy of each address, becomes a ledger row of `source` unless the MCP's
+    courts corpus holds its address (the MCP stays first, as the walk skipped it) or the ledger does already. Its court
+    and year are the copy's listing page that names it (the first, by seq), as the walk recorded them; each row taken
+    has its `own_from_mcp` line. A file whose bytes are not in the store yet waits for the next run; one that is not a
+    PDF is counted and never recorded (the walk stopped on one). Every PDF of the copy is accounted for or the run
+    is not ok. No request leaves the boxes."""
+    if read_bytes is None:
+        from support.docstore.landing import read_bytes
+    if exists is None:
+        from support.docstore.landing import path_for
+        exists = lambda sha: os.path.exists(path_for(sha))    # noqa: E731
+    corpus = MCP_CORPORA[source]
+    counts = {"in_copy": 0, "listing_pages": 0, "listings_unread": 0, "skipped_mcp": 0, "skipped_held": 0,
+              "taken": 0, "unlisted": 0, "not_in_store": 0, "not_pdf": 0}
+    named = {}
+    for seq, url, sha in conn.execute(
+            f"SELECT seq, url, capture_sha256 FROM {mcp_schema}.files WHERE corpus = %s AND state IN ('landed', 'held') "
+            f"AND content_type <> 'application/pdf' ORDER BY seq", (corpus,)).fetchall():
+        try:
+            got = listing_of(source, url, read_bytes(sha))
+        except (OSError, ValueError, KeyError, TypeError):
+            counts["listings_unread"] += 1
+            continue
+        if got is None:
+            continue
+        counts["listing_pages"] += 1
+        court, year, pdfs = got
+        for p in pdfs:
+            named.setdefault(p, (court, year, sha))
+    mcp_urls = {r[0] for r in conn.execute(f"SELECT DISTINCT url FROM {mcp_schema}.files WHERE corpus = 'courts'")}
+    held = {r[0] for r in conn.execute(f"SELECT url FROM {schema}.own_files").fetchall()}
+    rows = conn.execute(
+        f"SELECT DISTINCT ON (url) url, seq, record_sha256, capture_sha256 FROM {mcp_schema}.files WHERE corpus = %s "
+        f"AND state IN ('landed', 'held') AND content_type = 'application/pdf' ORDER BY url, seq DESC", (corpus,)).fetchall()
+    pending = 0
+    for url, seq, record, sha in rows:
+        counts["in_copy"] += 1
+        if url in mcp_urls:
+            counts["skipped_mcp"] += 1
+            continue
+        if url in held:
+            counts["skipped_held"] += 1
+            continue
+        if not exists(sha):
+            counts["not_in_store"] += 1
+            continue
+        body = read_bytes(sha)
+        if not body.startswith(b"%PDF"):
+            counts["not_pdf"] += 1
+            continue
+        court, year, listing = named.get(url) or (UNLISTED[source], None, None)
+        if url not in named:
+            counts["unlisted"] += 1
+        try:
+            rec = json.loads(read_bytes(record))
+            fetched = (rec.get("capture") or {}).get("fetched_at") or rec.get("fetched_at")
+        except (OSError, ValueError):
+            fetched = None
+        conn.execute(f"INSERT INTO {schema}.own_files (url, source, court, year, listing, sha256, bytes, status) "
+                     f"VALUES (%s, %s, %s, %s, %s, %s, %s, 'landed') ON CONFLICT (url) DO NOTHING",
+                     (url, source, court, year, listing, sha, len(body)))
+        conn.execute(f"INSERT INTO {schema}.own_from_mcp (url, corpus, seq, record, provider_fetched_at) "
+                     f"VALUES (%s, %s, %s, %s, %s) ON CONFLICT (url) DO NOTHING", (url, corpus, seq, record, fetched))
+        held.add(url)
+        counts["taken"] += 1
+        pending += 1
+        if pending >= TAKE_BATCH:
+            conn.commit()
+            pending = 0
+    conn.commit()
+    # the check, read back from the tables, not from the counts above: every PDF address of the copy is now the MCP
+    # courts corpus's, or a ledger row holding the copy's bytes, or one of the files counted as waiting or not a PDF
+    missing, differ, theirs = conn.execute(
+        f"""SELECT count(*) FILTER (WHERE o.url IS NULL), count(*) FILTER (WHERE o.url IS NOT NULL AND m.url IS NOT NULL
+                   AND o.sha256 IS DISTINCT FROM f.capture_sha256), count(*) FILTER (WHERE o.url IS NOT NULL AND m.url IS NULL
+                   AND o.sha256 IS DISTINCT FROM f.capture_sha256)
+              FROM (SELECT DISTINCT ON (url) url, capture_sha256 FROM {mcp_schema}.files WHERE corpus = %s
+                       AND state IN ('landed', 'held') AND content_type = 'application/pdf' ORDER BY url, seq DESC) f
+              LEFT JOIN {schema}.own_files o ON o.url = f.url
+              LEFT JOIN {schema}.own_from_mcp m ON m.url = f.url
+             WHERE NOT EXISTS (SELECT 1 FROM {mcp_schema}.files c WHERE c.corpus = 'courts' AND c.url = f.url)""",
+        (corpus,)).fetchone()
+    owed = counts["not_in_store"] + counts["not_pdf"]
+    # the boxes' own capture against the provider's of the same address (by hash): a count, never a failure, since the
+    # ledger keeps the file it landed first (a captured document is never deleted) and the court may have replaced one
+    counts["copy_differs_from_ours"] = theirs
+    ok = missing == owed and differ == 0
+    out = {**counts, "ok": ok, "stopped": "end" if ok else
+           f"the ledger lacks {missing} of the copy's files ({owed} counted as waiting or not a PDF); "
+           f"{differ} rows taken from the copy hold other bytes than it"}
+    log(f"courts own capture ({corpus}, from the MCP's copy): " + ", ".join(f"{k} {v}" for k, v in out.items()))
+    return out
+
+
 def job(argv=None, log=print) -> int:
     from support import db, jobrun
     ap = argparse.ArgumentParser(prog="python -m registers.courts.own")
@@ -496,6 +628,9 @@ def job(argv=None, log=print) -> int:
     ap.add_argument("--court", action="append", help="the court as the taxonomy names it; repeatable")
     ap.add_argument("--year", type=int, action="append")
     ap.add_argument("--database", default="querynz_v4")
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="take the ledger from the ingest MCP's copy (estate-courts-jdo or estate-courts-era), never the "
+                         "web (9 November 2026); the finder has no copy and is not walked")
     a = ap.parse_args(argv)
     from registers.courts import load as L
     started = jobrun.now()
@@ -503,6 +638,15 @@ def job(argv=None, log=print) -> int:
         conn.execute(L.capture_tables_sql(SCHEMA))
         conn.commit()
         W = EraWalk if a.era else FinderWalk if a.finder else Walk
+        if a.from_mcp:      # the crawl is the MCP provider's (the 5 November split); no request leaves the boxes
+            if W is FinderWalk:
+                ap.error("the finder has no copy in the MCP: --from-mcp takes --jdo or --era")
+            conn.execute("SET statement_timeout = '300s'")
+            out = take_from_mcp(conn, W.SOURCE, log=log)
+            detail = ", ".join(f"{k} {v}" for k, v in out.items() if k != "ok")
+            jobrun.record(W.JOB, out["ok"], detail[:2000], started,
+                          {k: v for k, v in out.items() if isinstance(v, int) and not isinstance(v, bool)})
+            return 0 if out["ok"] else 1
         t0 = time.monotonic()
         out = W(conn, budget_s=a.budget_s, max_requests=a.max_requests, anytime=a.anytime, log=log).run(
             courts=a.court, years=a.year)

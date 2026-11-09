@@ -104,23 +104,35 @@ OWN_NOTE = {"courts-jdo": ("a decision the estate fetched itself from Judicial D
                            "(determinations.era.govt.nz), because the MCP's corpus lacked it (ruling 140)")}
 
 
+#: a ledger row taken from the MCP's copy of the walk (own.take_from_mcp, from 9 November 2026), by source
+MCP_NOTE = {"courts-jdo": ("a decision of Judicial Decisions Online (www.justice.govt.nz), the Ministry of Justice's own "
+                          "publication, fetched by the MCP's provider (corpus estate-courts-jdo) and taken from its copy by "
+                          "the pull; the boxes asked the host nothing (9 November 2026)"),
+            "courts-era": ("a determination of the Employment Relations Authority (determinations.era.govt.nz), fetched by "
+                           "the MCP's provider (corpus estate-courts-era) and taken from its copy by the pull; the boxes "
+                           "asked the host nothing (9 November 2026)")}
+
+
 def own_records(conn, schema: str = "courts", until=None) -> list:
     """One entry per file the own capture landed (by hash; the first address it was landed under), in the shape
     `entry` gives an MCP record; with `until`, only those landed by then (the load's stamp: the capture may still be
     landing while the load reads). A schema without the ledger answers nothing."""
     if not _has(conn, schema, "own_files"):
         return []
+    taken = (f"EXISTS (SELECT 1 FROM {schema}.own_from_mcp m WHERE m.url = o.url)" if _has(conn, schema, "own_from_mcp")
+             else "false")
     rows = conn.execute(f"""
-        SELECT DISTINCT ON (sha256) sha256, url, source, court, listing, bytes, fetched_at
-          FROM {schema}.own_files WHERE status = 'landed' AND sha256 IS NOT NULL
+        SELECT DISTINCT ON (sha256) sha256, url, source, court, listing, bytes, fetched_at, {taken}
+          FROM {schema}.own_files o WHERE status = 'landed' AND sha256 IS NOT NULL
            AND (%s::timestamptz IS NULL OR fetched_at <= %s::timestamptz)
          ORDER BY sha256, fetched_at, url""", (until, until)).fetchall()
     return [{"record_id": OWN_PREFIX + sha, "seq": None, "record": listing or sha, "url": url, "kind": "judgment_pdf",
              "case_slug": None, "court_hint": court, "fetched_at": fetched.isoformat() if fetched else None,
              "content_type": "application/pdf", "capture": sha, "state": "landed", "bytes": nbytes,
              "mcp_citation": None, "mcp_doc_date": None, "mcp_court": None, "mcp_court_reclassified_at": None,
-             "source": source, "note": OWN_NOTE.get(source, f"a file the estate fetched itself ({source}, ruling 140)")}
-            for sha, url, source, court, listing, nbytes, fetched in rows]
+             "source": source, "note": (MCP_NOTE if from_mcp else OWN_NOTE).get(
+                 source, f"a file the estate fetched itself ({source}, ruling 140)")}
+            for sha, url, source, court, listing, nbytes, fetched, from_mcp in rows]
 
 
 def for_load(mcp: list, own: list) -> list:

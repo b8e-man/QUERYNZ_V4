@@ -415,3 +415,163 @@ def test_the_finder_walk_lands_each_decision_once_and_then_reads_only_the_newest
     assert len([u for u in api2.urls if "Filter_Jurisdiction=17" in u]) == 2           # page one, then page two holds nothing new
     sources = {r[0] for r in env.conn.execute(f"SELECT DISTINCT source FROM {S}.own_files").fetchall()}
     assert sources == {own.FINDER_SOURCE}
+
+
+# ── from 9 November 2026: the ledger taken from the MCP's copy of the walks (own.take_from_mcp) ─────────────────────
+C = "scratch_test_courts_own_copy"
+
+
+def _sha(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
+
+
+class Copy:
+    """A scratch `files` table in the pull's shape and a store in memory: the MCP's copy of the walks, every name
+    invented. JDO: one HIGH COURT 2019 listing page naming decisions 1 to 6 (an earlier copy of the page naming 1 only,
+    as the court's listing first stood); 1 the MCP's courts corpus holds; 2 the ledger holds already; 3 in the copy
+    twice (the newest taken); 4 whose bytes are not in the store yet; 5 not a PDF; 6 taken; 8, in no listing, taken
+    as unlisted; 10 still waiting on the pull (not taken). ERA: one 2015 page naming two determinations."""
+
+    def __init__(self, conn):
+        self.conn, self.store, self.seq = conn, {}, 0
+        conn.execute(f"DROP SCHEMA IF EXISTS {C} CASCADE")
+        conn.execute(f"CREATE SCHEMA {C}")
+        conn.execute(f"CREATE TABLE {C}.files (corpus text, seq bigint, record_sha256 text, record_id text, url text, "
+                     f"content_type text, capture_sha256 text, state text)")
+
+    def add(self, corpus, url, body, content_type="application/pdf", state="landed", in_store=True):
+        self.seq += 1
+        sha = _sha(body)
+        rec = json.dumps({"capture": {"fetched_at": "2026-11-09 23:00:00+13:00", "sha256": sha}, "url": url}).encode()
+        if in_store:
+            self.store[sha] = body
+        self.store[_sha(rec)] = rec
+        self.conn.execute(f"INSERT INTO {C}.files VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                          (corpus, self.seq, _sha(rec), sha, url, content_type, sha, state))
+        return sha
+
+    def read(self, sha):
+        if sha not in self.store:
+            raise FileNotFoundError(sha)
+        return self.store[sha]
+
+    def take(self, source, conn=None):
+        return own.take_from_mcp(conn or self.conn, source, schema=S, mcp_schema=C, read_bytes=self.read,
+                                 exists=lambda s: s in self.store, log=lambda *a: None)
+
+
+def jdo_url(n):
+    return own.BASE + f"/jdo_documents/workspace___{n}.pdf"
+
+
+def jdo_listing(ids):
+    return json.dumps({"count": len(ids), "results": [{"caseName": f"Invented {i} v Other", "url": f"/jdo_documents/workspace___{i}.pdf"}
+                                                      for i in ids]}).encode()
+
+
+@pytest.fixture
+def copy(env):
+    cp = Copy(env.conn)
+    jdo = own.MCP_CORPORA[own.SOURCE]
+    page = own.search_url("HIGH COURT", dt.date(2019, 1, 1), dt.date(2019, 12, 31), 1)
+    cp.add(jdo, own.TAXONOMY, json.dumps([{"Name": "HIGH COURT"}]).encode(), "application/json")
+    cp.add(jdo, page, jdo_listing([1]), "application/json")
+    cp.add(jdo, page, jdo_listing([1, 2, 3, 4, 5, 6]), "application/json")
+    for n in (1, 2, 3, 6, 8):
+        cp.add(jdo, jdo_url(n), pdf(n))
+    cp.add(jdo, jdo_url(3), pdf(3) + b"% the court's corrected copy\n")
+    cp.add(jdo, jdo_url(4), pdf(4), in_store=False)
+    cp.add(jdo, jdo_url(5), b"<html>Just a moment...</html>")
+    cp.add(jdo, jdo_url(10), pdf(10), state="waiting")
+    env.conn.execute(f"INSERT INTO {C}.files (corpus, seq, url) VALUES ('courts', 1, %s)", (jdo_url(1),))
+    env.conn.execute(f"INSERT INTO {S}.own_files (url, source, court, year, sha256, bytes, status) VALUES "
+                     f"(%s, %s, 'HIGH COURT', 2019, %s, 1, 'landed')", (jdo_url(2), own.SOURCE, _sha(pdf(2))))
+    era = own.MCP_CORPORA[own.ERA_SOURCE]
+    cp.add(era, own.era_search_url(2015, 1), era_page(2015, [501, 502], 1, 1), "text/html")
+    for i in (501, 502):
+        cp.add(era, own.ERA_BASE + f"/assets/elawpdf/2015/ab{i:04d}/2015_NZERA_Auckland_{i}.pdf", pdf(i))
+    return cp
+
+
+def test_the_ledger_is_taken_from_the_mcp_s_copy_each_file_once_and_accounted_for(env, copy):
+    out = copy.take(own.SOURCE)
+    assert out["ok"], out
+    assert (out["in_copy"], out["skipped_mcp"], out["skipped_held"], out["taken"], out["not_in_store"], out["not_pdf"],
+            out["unlisted"]) == (7, 1, 1, 3, 1, 1, 1), out
+    rows = {r[0].rsplit("___", 1)[1]: r[1:] for r in env.conn.execute(
+        f"SELECT url, source, court, year, sha256, listing IS NOT NULL FROM {S}.own_files WHERE url LIKE '%%workspace%%'")}
+    assert set(rows) == {"2.pdf", "3.pdf", "6.pdf", "8.pdf"}
+    assert rows["6.pdf"] == (own.SOURCE, "HIGH COURT", 2019, _sha(pdf(6)), True)
+    assert rows["3.pdf"][3] == _sha(pdf(3) + b"% the court's corrected copy\n"), "the newest copy of an address"
+    assert rows["8.pdf"][1:3] == (own.UNLISTED[own.SOURCE], None)
+    lines = env.conn.execute(f"SELECT url, corpus, provider_fetched_at IS NOT NULL FROM {S}.own_from_mcp").fetchall()
+    assert len(lines) == 3 and all(c == "estate-courts-jdo" and f for _, c, f in lines)
+    # the next run takes nothing again; the file whose bytes arrive is taken then
+    copy.store[_sha(pdf(4))] = pdf(4)
+    out2 = copy.take(own.SOURCE)
+    assert out2["ok"] and out2["taken"] == 1 and out2["skipped_held"] == 4, out2
+    # the ERA copy, the same way, its own source and court
+    era = copy.take(own.ERA_SOURCE)
+    assert era["ok"] and era["taken"] == 2 and era["unlisted"] == 0
+    assert {tuple(r) for r in env.conn.execute(f"SELECT source, court, year FROM {S}.own_files WHERE url LIKE '%%elawpdf%%'")} \
+        == {(own.ERA_SOURCE, own.ERA_COURT, 2015)}
+
+
+def test_the_take_s_check_reads_the_tables_back_and_fails_on_a_lost_row(env, copy):
+    class Drops:
+        """A connection whose inserts into the ledger never arrive (the mutant)."""
+        def __init__(self, c):
+            self.c = c
+
+        def execute(self, sql, params=None):
+            if sql.startswith(f"INSERT INTO {S}.own_files"):
+                return None
+            return self.c.execute(sql, params)
+
+        def commit(self):
+            pass
+    out = copy.take(own.SOURCE, conn=Drops(env.conn))
+    assert not out["ok"] and "lacks 5" in out["stopped"], out
+
+
+def test_the_take_s_check_fails_on_a_taken_row_holding_other_bytes(env, copy):
+    env.conn.execute(f"INSERT INTO {S}.own_files (url, source, court, sha256, status) VALUES (%s, %s, 'X', %s, 'landed')",
+                     (jdo_url(6), own.SOURCE, "f" * 64))
+    env.conn.execute(f"INSERT INTO {S}.own_from_mcp (url, corpus, seq, record) VALUES (%s, 'estate-courts-jdo', 1, %s)",
+                     (jdo_url(6), "e" * 64))
+    out = copy.take(own.SOURCE)
+    assert not out["ok"] and "1 rows taken from the copy hold other bytes" in out["stopped"], out
+    # a row the boxes landed themselves that the provider's copy differs from is counted, never a failure
+    env.conn.execute(f"DELETE FROM {S}.own_from_mcp")
+    out2 = copy.take(own.SOURCE)
+    assert out2["ok"] and out2["copy_differs_from_ours"] == 1, out2
+
+
+def test_a_row_taken_from_the_copy_says_so_in_its_note_and_keeps_the_entry_shape(env, copy):
+    copy.take(own.SOURCE)
+    recs = {r["url"].rsplit("___", 1)[1]: r for r in capture.own_records(env.conn, S)}
+    assert "fetched by the MCP's provider" in recs["6.pdf"]["note"] and "estate-courts-jdo" in recs["6.pdf"]["note"]
+    assert "fetched itself" in recs["2.pdf"]["note"], "a file the boxes landed keeps its own note"
+    shape = set(capture.entry("x", 1, "c" * 64, "u", "application/pdf", "d" * 64, "landed", 1, rec={}))
+    assert all(set(r) == shape for r in recs.values())
+
+
+def test_a_listing_of_the_copy_is_read_as_the_walk_read_it():
+    page = own.search_url("COURT OF APPEAL", dt.date(2024, 1, 1), dt.date(2024, 12, 31), 3)
+    assert own.listing_of(own.SOURCE, page, jdo_listing([7])) == ("COURT OF APPEAL", 2024, [jdo_url(7)])
+    assert own.listing_of(own.SOURCE, own.TAXONOMY, b"[]") is None
+    url = own.era_search_url(2026, 2, today=dt.date(2026, 11, 7))
+    assert own.listing_of(own.ERA_SOURCE, url, era_page(2026, [3], 2, 3)) == (
+        own.ERA_COURT, 2026, [own.ERA_BASE + "/assets/elawpdf/2026/ab0003/2026_NZERA_Auckland_3.pdf"])
+    with pytest.raises(ValueError):
+        own.listing_of(own.ERA_SOURCE, url, b"<html>a maintenance page</html>")
+
+
+def test_the_page_reader_s_pieces_are_the_documents_the_load_left_waiting(env):
+    from registers.courts import read as R
+    Copy(env.conn)      # a fresh scratch schema of its own
+    env.conn.execute(f"CREATE TABLE {C}.documents (document text, outcome text, fetched_at timestamptz)")
+    env.conn.execute(f"INSERT INTO {C}.documents VALUES ('b', %s, '2026-11-02'), ('a', %s, '2026-11-01'), "
+                     f"('a', %s, '2026-11-03'), ('c', 'read', '2026-11-01'), ('d', %s, NULL)",
+                     (R.WAIT_PAGES, R.WAIT_PAGES, R.WAIT_PAGES, R.WAIT_TEXT))
+    assert R.pages_waiting(env.conn, C) == ["a", "b"]
