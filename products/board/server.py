@@ -33,7 +33,7 @@ Routes:
                     through the lane's read-only module, a page of hits by relevance with the count and the time taken;
                     searched, never mined (hard limit 17), nothing written (papers_past.py)
   GET  /papers-past/text?k=<article id>&q=   one article's text as the archive's store holds it
-  GET  /subject-report?q=&ref=&template=&since=   the subject report tab (Arthur, 9 November 2026): the report's search,
+  GET  /subject-report?q=&ref=&template=&since=&c.…   the subject report tab (Arthur, 9 November 2026): the report's search,
                     rows and memo drawn in the board's page (subject_report.py), its links kept in the tab
   GET  /health      'ok' and the port, for the launcher
   POST /chat        the chat pane (ruling 122, chat.py): JSON {"thread": [{role, content}…]}, the whole thread the
@@ -363,10 +363,11 @@ def render_papers_past(q: str, offset: int = 0, key: str = "", asked: dict = Non
         return papers_past.render(conn, q, offset, db=counter(), asked=asked)
 
 
-def render_subject_report(q: str, ref: str, template_name: str, since: str) -> str:
-    """The subject report tab. Not under RENDER_LOCK: a report on a busy row takes seconds; one reader connection."""
+def render_subject_report(q: str, ref: str, template_name: str, since: str, qs: dict | None = None) -> str:
+    """The subject report tab. Not under RENDER_LOCK: a report on a busy row takes seconds; one reader connection. `qs`:
+    the page's query, of which the tab reads the connections pane's names alone (subject_report.query_settings)."""
     with db.read_connect() as conn:
-        return subject_report.render(conn, q, ref, template_name, since, db=counter())
+        return subject_report.render(conn, q, ref, template_name, since, db=counter(), qs=subject_report.query_settings(qs))
 
 
 def render_list(which: str) -> str:
@@ -440,7 +441,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if url.path == subject_report.PATH:   # the subject report tab (Arthur, 9 November 2026)
                 one = lambda k, n=200: (qs.get(k) or [""])[0].strip()[:n]
-                self.send_html(render_subject_report(one("q"), one("ref", 600), one("template", 60), one("since", 10)))
+                self.send_html(render_subject_report(one("q"), one("ref", 600), one("template", 60), one("since", 10), qs))
                 return
             if url.path in (papers_past.PATH, papers_past.TEXT):
                 q = (qs.get("q") or [""])[0].strip()[:200]

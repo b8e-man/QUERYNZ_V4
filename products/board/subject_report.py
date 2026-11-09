@@ -8,7 +8,14 @@ calls products.report, which reads only the published tables, as the report's ow
 tab; the tab's state is its address (the term, the row, the template, the since date), and the bar's script
 (static/tabs.js) brings each tab back to the address it was last on.
 
-    GET /subject-report?q=&ref=&template=&since=
+    GET /subject-report?q=&ref=&template=&since=&c=1&c.<type>=on&c.<type>.<variable>=…
+
+The connections pane (Arthur, 10 November 2026; ruling 159: on this tab only) opens beside a report: every connection
+type the report listed or set aside, with its count, a tick to show it or not and a dropdown for each of its type's
+variables (products/report/connections.toml). A change sends the pane's form (static/connections.js), and the report is
+rebuilt with the setting, because a setting changes what is followed. The settings are in the address (`c.…`), so a
+filtered report reopens as it was; with none the subject's base configuration applies. Only types, counts and
+controls are in the pane: the report keeps its notes.
 """
 from __future__ import annotations
 
@@ -16,8 +23,8 @@ import html
 import re
 import urllib.parse
 
-from products.board import panes
-from products.report import build, memo, search, template
+from products.board import assets, panes
+from products.report import build, connections, memo, search, template
 
 PATH = "/subject-report"
 TAB = "subject report"
@@ -77,13 +84,71 @@ def pane(q: str, ref: str, template_name: str, since: str, body: str, failed: st
     return "\n".join(out)
 
 
-def render(conn, q: str = "", ref: str = "", template_name: str = "", since: str = "", db=None) -> str:
-    """The tab on `conn`, a reader connection: the start (the search box), the rows a name finds, or the memo on a row."""
+CONNECTIONS_CSS = (".pane.connections fieldset{border:0;border-top:1px solid #3a404c;margin:0;padding:.35rem 0}"
+                   ".pane.connections .count{color:#aab1bc;font-size:12px;margin-left:.3rem}"
+                   ".pane.connections .off{color:#6c7380}"
+                   ".pane.connections select{color:#e8eaed;background:#232833;border:1px solid #5a6270;border-radius:3px;margin:.15rem .3rem 0 0}"
+                   ".pane.connections .vars{display:flex;flex-wrap:wrap;gap:.1rem .4rem;font-size:12px;color:#aab1bc;margin-left:1.4rem}"
+                   ".pane.memo .hubs{border:1px solid #ffb26b;border-radius:4px;padding:.25rem .6rem;margin:.5rem 0}"
+                   ".pane.memo .hubs li.hub strong{color:#ffb26b;font-weight:normal}")
+
+
+def query_settings(qs: dict) -> dict:
+    """The pane's names from the page's query (`c` and `c.…`), each a short value; nothing else."""
+    out = {}
+    for k, v in (qs or {}).items():
+        if k == connections.QUERY or k.startswith(connections.QUERY + "."):
+            v = v[0] if isinstance(v, (list, tuple)) else v
+            if len(k) <= 80:
+                out[k] = str(v or "").strip()[:20]
+    return out
+
+
+def _count_text(r: dict) -> str:
+    bits = [f"{r['listed']:,} listed"] if r["listed"] else []
+    if r["set_aside"]:
+        bits.append(f"{r['set_aside']:,} set aside")
+    return " · ".join(bits) or "none"
+
+
+def connections_pane(q: str, ref: str, template_name: str, since: str, report: dict) -> str:
+    """The pane beside the report: types, counts and controls, and nothing else (Arthur: keep the notes out of it)."""
+    con = report.get("connections") or {}
+    hidden = [("q", q), ("ref", ref), ("template", template_name), ("since", since), (connections.QUERY, "1")]
+    out = ['<section class="pane left connections" id="connections">', '<div class="reg">connections</div>',
+           f'<form class="connections" method="get" action="{PATH}">']
+    out += [f'<input type="hidden" name="{panes.esc(k)}" value="{panes.esc(v)}">' for k, v in hidden if v]
+    if con.get("kind_words"):
+        out.append(f'<p class="meta">base: {panes.esc(con["kind_words"])}</p>')
+    for r in connections.pane_rows(report):
+        name = f'{connections.QUERY}.{r["key"]}'
+        out.append(f'<fieldset><label class="{"" if r["show"] else "off"}"><input type="checkbox" name="{panes.esc(name)}" value="on"'
+                   f'{" checked" if r["show"] else ""}> {panes.esc(r["words"])}</label><span class="count">{panes.esc(_count_text(r))}</span>')
+        if r["variables"]:
+            out.append('<div class="vars">')
+            for var, words, value, choices in r["variables"]:
+                opts = "".join(f'<option value="{panes.esc(k)}"{" selected" if k == value else ""}>{panes.esc(w)}</option>' for k, w in choices)
+                out.append(f'<label>{panes.esc(words)} <select name="{panes.esc(name + "." + var)}">{opts}</select></label>')
+            out.append("</div>")
+        out.append("</fieldset>")
+    out.append(f'<div class="actions"><button>apply</button> <a href="{panes.esc(href(q, ref, template_name, since))}">base configuration</a></div>')
+    out.append("</form>")
+    out.append(f'<script src="{panes.esc(assets.url("connections.js"))}" defer></script>')
+    out.append("</section>")
+    return "\n".join(out)
+
+
+def render(conn, q: str = "", ref: str = "", template_name: str = "", since: str = "", db=None, qs: dict | None = None) -> str:
+    """The tab on `conn`, a reader connection: the start (the search box), the rows a name finds, or the memo on a row with
+    the connections pane beside it; `qs`, the pane's settings from the address (`c.…`)."""
     template_name = chosen(template_name)
-    body, failed = "", ""
+    body, failed, side = "", "", ""
     try:
         if ref:
-            report = build.build(conn, ref, template.by_name(template_name), since=since or None)
+            t = template.by_name(template_name)
+            kind, settings = connections.settings_for(conn, ref, query_settings(qs))
+            report = build.build(conn, ref, t, since=since or None, walker=connections.walker(settings, kind, stage=t.stage))
+            side = connections_pane(q, ref, template_name, since, report) if report.get("found") else ""
             body = in_tab(memo.html_body(report), template_name)
             if q:   # the term travels on, so "back" and the memo's own links keep it
                 body = body.replace(f'{PATH}?ref=', f'{PATH}?q={urllib.parse.quote(q)}&amp;ref=')
@@ -93,4 +158,5 @@ def render(conn, q: str = "", ref: str = "", template_name: str = "", since: str
     except Exception as exc:  # noqa: BLE001 — the pane says what failed
         conn.rollback()
         failed = f"{type(exc).__name__}: {exc}".splitlines()[0]
-    return panes.page("", [], [pane(q, ref, template_name, since, body, failed)], tab=TAB, db=db)
+    style = f"<style>{CONNECTIONS_CSS}</style>"
+    return panes.page("", [], [style] + ([side] if side else []) + [pane(q, ref, template_name, since, body, failed)], tab=TAB, db=db)

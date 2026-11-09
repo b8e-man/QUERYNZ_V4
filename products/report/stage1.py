@@ -41,6 +41,12 @@ FOLLOW_VIEWS = ("directors", "shareholders", "society_officers", "charity_office
                 "company_lookup_roles", "company_lookup_holdings")
 ENTITY_VIEW = {"companies": "companies", "societies": "societies", "charities": "charities",
                "limited_partnerships": "limited_partnerships"}
+HUB_LINE_PEOPLE = "a hub: {n} current people on it; not followed further ({why})"
+HUB_LINE_ENTITIES = "a hub: {n} organisations; not followed further ({why})"
+SUBJECT_HUB_ENTITIES = ("a hub: {n} organisations, more than {limit}; its own are listed, as the subject's record "
+                        "always is, and the people on them are listed to the depth printed")
+SUBJECT_HUB_PEOPLE = ("a hub: {n} current people on it, more than {limit}; they are listed, as the subject's record "
+                      "always is, and their other organisations to the depth printed")
 HUB_TEXT_PEOPLE = "an organisation with more than {n} current people on it: listed, and the people on it not followed further"
 HUB_TEXT_ENTITIES = "a person on more than {n} organisations: listed, and the organisations not followed further"
 NEAR_STAGE_ORG = ("an organisation of {who}, a person on the subject: a connection through a person is the person's, listed near by the "
@@ -147,18 +153,23 @@ class Web:
                 out.setdefault(x["entity_ref"], []).append(x["ref"])
         return out
 
-    def current_only(self, refs) -> set:
-        """The refs whose rows are current (a row the view does not carry is kept: it is not a role)."""
+    def current_only(self, refs, keep=None) -> set:
+        """The refs whose rows are current, or that `keep(view, row)` keeps (a row the view does not carry is kept: it is
+        not a role)."""
+        keep = keep or current
         got = _fetch(self.conn, refs)
         self.rows = getattr(self, "rows", {})
         self.rows.update(got)
-        return {r for r in refs if r not in got or current(got[r][0].name, got[r][1])}
+        return {r for r in refs if r not in got or keep(got[r][0].name, got[r][1])}
 
 
-def closure(conn, start: str, own: list, hops: int = HOPS, hub_people: int = HUB_PEOPLE, hub_entities: int = HUB_ENTITIES) -> dict:
+def closure(conn, start: str, own: list, hops: int = HOPS, hub_people: int = HUB_PEOPLE, hub_entities: int = HUB_ENTITIES,
+            keep_role=None, stop_views=frozenset(), hide_views=frozenset()) -> dict:
     """The confirmed web from `start` (whose own rows, the group, are `own`): {'levels', 'entities': {ref: hop}, 'people':
     {row: (hop, via organisation or officer row)}, 'hubs': [(ref, kind, n)], 'beyond_entities', 'beyond_people', 'cut'}.
-    Counts and refs only; the rows listed are fetched by `items`."""
+    Counts and refs only; the rows listed are fetched by `items`. The connections pane's settings (connections.py):
+    `keep_role(view, row)` in place of `current` for a role walked on from; a row in `stop_views` that is not the
+    subject's own is listed and not walked on from; a row in `hide_views` is neither."""
     W = Web(conn)
     ents, people, hubs, levels, through = {}, {}, [], [], {}
     beyond_entities = beyond_people = 0
@@ -168,7 +179,8 @@ def closure(conn, start: str, own: list, hops: int = HOPS, hub_people: int = HUB
     def entities_of(rows_, hop, through=None):
         """The organisations the rows sit on, current roles only, a person on more than hub_entities not followed."""
         W.names(rows_)
-        live = W.current_only([r for r in rows_ if W.view_of.get(r) in FOLLOW_VIEWS]) | {r for r in rows_ if W.view_of.get(r) not in FOLLOW_VIEWS}
+        rows_ = [r for r in rows_ if W.view_of.get(r) not in hide_views and (W.view_of.get(r) not in stop_views or W.person(r) in mine)]
+        live = W.current_only([r for r in rows_ if W.view_of.get(r) in FOLLOW_VIEWS], keep_role) | {r for r in rows_ if W.view_of.get(r) not in FOLLOW_VIEWS}
         linked = W.confirmed_entities(set(rows_))
         per = {}
         for r in rows_:
@@ -188,7 +200,8 @@ def closure(conn, start: str, own: list, hops: int = HOPS, hub_people: int = HUB
 
     def people_on(es, hop):
         on = W.on(es)
-        live = W.current_only([r for rs in on.values() for r in rs])
+        on = {e: [r for r in rs if W.view_of.get(r) not in hide_views] for e, rs in on.items()}
+        live = W.current_only([r for rs in on.values() for r in rs], keep_role)
         out = {}
         for e, rs in on.items():
             rs = [r for r in rs if r in live]
@@ -302,14 +315,51 @@ def _hub(it, hub_of):
             n=HUB_PEOPLE if kind == "organisation" else HUB_ENTITIES) + f" ({n})", "evidence": {"count": n}})
 
 
-def walk1(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth: int = 0) -> dict:
+def hub_lines(conn, c: dict, start: str) -> list:
+    """The hubs the web met and did not follow, each as a line the result carries (ruling 158: a hub is said to be one on
+    the result): {'ref', 'title', 'kind', 'count', 'text'}; the subject's own line first when its first hop passes a limit.
+    The title is the row's own (a suppressed name stays suppressed: rows.title)."""
+    out = []
+    first = (c.get("levels") or [{}])[0]
+    if is_entity_ref(start) and first.get("people", 0) > HUB_PEOPLE:
+        out.append({"ref": start, "kind": "subject", "count": first["people"], "subject": True,
+                    "text": SUBJECT_HUB_PEOPLE.format(n=f"{first['people']:,}", limit=HUB_PEOPLE)})
+    elif not is_entity_ref(start) and first.get("entities", 0) > HUB_ENTITIES:
+        out.append({"ref": start, "kind": "subject", "count": first["entities"], "subject": True,
+                    "text": SUBJECT_HUB_ENTITIES.format(n=f"{first['entities']:,}", limit=HUB_ENTITIES)})
+    have = dict(getattr(c["web"], "rows", {}))
+    refs = sorted({h[0] for h in c["hubs"]} | {x["ref"] for x in out})
+    have.update(_fetch(conn, [r for r in refs if r not in have]))
+    seen = set()
+    for ref, kind, n in c["hubs"]:
+        key = (c["web"].person(ref) if kind == "person" else ref)
+        if key in seen:
+            continue
+        seen.add(key)
+        why = (HUB_TEXT_PEOPLE.format(n=HUB_PEOPLE).split(":")[0] if kind == "organisation" else HUB_TEXT_ENTITIES.format(n=HUB_ENTITIES).split(":")[0])
+        out.append({"ref": ref, "kind": kind, "count": n,
+                    "text": (HUB_LINE_PEOPLE if kind == "organisation" else HUB_LINE_ENTITIES).format(n=f"{n:,}", why=why)})
+    for x in out:
+        got = have.get(x["ref"])
+        x["title"] = rows.title(*got) if got else x["ref"]
+    return out
+
+
+def walk1(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth: int = 0, settings: dict | None = None) -> dict:
     """The walk for the one report's first stage: the diagnostic walk with no near link, and the confirmed web in the bucket
-    `stage1`, its counts in `stage1_stats` (copied to report['walk']['stage1'])."""
+    `stage1`, its counts in `stage1_stats` (copied to report['walk']['stage1']), the hubs it did not follow as lines in
+    `hub_lines`. `settings`: the connections pane's (connections.py), which tell the web what not to walk on from."""
     w = walk.walk(conn, ref, allowed, depth=depth, buckets=buckets, chain_depth=chain_depth, near_links=False)
     if not w.get("found"):
         return w
     own = [ref] + [m["ref"] for m in w["members"] if m["grade"] == "confirmed"]
-    c = closure(conn, ref, own)
+    opts = {}
+    if settings is not None:
+        from products.report import connections
+        opts = {"keep_role": connections.role_keeps(settings), "stop_views": connections.stop_views(settings),
+                "hide_views": connections.hidden_views(settings)}
+    c = closure(conn, ref, own, **opts)
+    w["hub_lines"] = hub_lines(conn, c, ref)
     taken = {ref} | {it["ref"] for b in walk.BUCKETS for it in w.get(b, []) if "ref" in it} | {e["ref"] for e in w["entities"]}
     titles = {it["ref"]: it["title"] for it in w.get("roles", []) if "ref" in it}
     listed, omitted = items(conn, c, ref, taken, titles)

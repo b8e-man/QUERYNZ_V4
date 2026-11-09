@@ -1,0 +1,173 @@
+# The one report's connection types and its base configuration (Arthur, 10 November 2026; rulings 158 and 159).
+#
+# A connection type is a kind of row the walk lists, named in plain words, by the published view the row comes from
+# (products/report/connections.py, `type_of`; a view no type names falls into the type of its register). Each type
+# has a tick (shown or not) and the variables named in its `variables`, offered as dropdowns in the pane beside the
+# report on the board's report tab. A setting changes what is followed, not only what is shown: a row of a type
+# that is off is neither listed nor followed, and every row reached through it goes with it, counted.
+#
+# The base configuration is what a report starts with, by the kind of subject (`[[base]]`, the first that matches;
+# none matching: every type followed as before). The pane's settings live in the page's address.
+
+# ── the variables ────────────────────────────────────────────────────────────
+
+[variables.when]
+words = "roles"
+default = "past"
+choices = [["current", "current only"], ["past", "past too, listed"], ["followed", "past too, followed"]]
+
+[variables.since]
+words = "ended"
+default = "any"
+choices = [["any", "any time"], ["1", "in the past year"], ["3", "in the past 3 years"], ["5", "in the past 5 years"], ["10", "in the past 10 years"]]
+
+[variables.follow]
+words = "from it"
+default = "yes"
+choices = [["yes", "followed further"], ["no", "not followed further"]]
+
+[variables.order]
+words = "by"
+default = "size"
+choices = [["size", "size"], ["recency", "recency"]]
+
+[variables.top]
+words = "top"
+default = "all"
+choices = [["10", "10"], ["25", "25"], ["50", "50"], ["100", "100"], ["all", "all"]]
+
+[variables.years]
+words = "over"
+default = "all"
+choices = [["1", "the past year"], ["3", "the past 3 years"], ["6", "the past 6 years"], ["10", "the past 10 years"], ["all", "every year held"]]
+
+# ── the types, in the pane's order ───────────────────────────────────────────
+
+[[types]]
+key = "director"
+words = "director"
+views = ["directors", "company_lookup_roles"]
+variables = ["when", "since", "follow"]
+
+[[types]]
+key = "shareholder"
+words = "shareholder"
+views = ["shareholders", "company_lookup_holdings"]
+variables = ["when", "since", "follow"]
+
+[[types]]
+key = "society_officer"
+words = "society officer"
+views = ["society_officers"]
+variables = ["when", "since", "follow"]
+
+[[types]]
+key = "charity_officer"
+words = "charity officer"
+views = ["charity_officers"]
+variables = ["when", "since", "follow"]
+
+[[types]]
+key = "partner"
+words = "general partner"
+views = ["limited_partnership_partners"]
+variables = ["when", "since", "follow"]
+
+[[types]]
+key = "party_board"
+words = "party board role"
+views = ["party_board_roles"]
+variables = ["when", "since"]
+
+[[types]]
+key = "company"
+words = "company"
+views = ["companies", "company_states", "company_lookups", "company_changes", "retirement_villages"]
+variables = []
+
+[[types]]
+key = "office"
+words = "registered office"
+views = ["company_addresses"]
+variables = []
+
+[[types]]
+key = "body"
+words = "society, charity or partnership"
+views = ["societies", "society_states", "charities", "limited_partnerships"]
+variables = []
+
+[[types]]
+key = "donation"
+words = "donation"
+views = ["party_return_donors", "candidate_return_donors", "disclosure_items", "disclosures"]
+variables = ["order", "top", "years"]
+
+[[types]]
+key = "loan"
+words = "loan to a party"
+views = ["party_return_loans"]
+variables = []
+
+[[types]]
+key = "return"
+words = "return or annual return"
+views = ["party_return_totals", "candidate_return_totals", "charity_returns", "mp_interest_returns", "mp_interests"]
+variables = []
+
+[[types]]
+key = "insolvency"
+words = "liquidator or receiver appointment"
+views = ["company_insolvencies", "gazette_liquidators", "gazette_practitioners"]
+variables = ["follow"]
+
+[[types]]
+key = "gazette"
+words = "Gazette notice"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_possessions", "gazette_prohibitions", "gazette_bankruptcies",
+         "gazette_appointments", "gazette_celebrants", "gazette_board_interventions"]
+variables = []
+
+[[types]]
+key = "land"
+words = "land title"
+views = ["linz_titles", "linz_title_owners"]
+variables = []
+
+[[types]]
+key = "house"
+words = "candidate or member of the House"
+views = ["candidates", "members"]
+variables = []
+
+# ── the base configuration, by the kind of subject ───────────────────────────
+# `views`: the subject's view; `fragment`: when the subject's ref carries a part after '#', the part it must be;
+# `name`: a pattern the subject's registered name must carry (folded, whole words); `min_directorships`: a current director
+# of the subject must hold more directorships than this (walk.role_counts, by the director's group). `set`: "type.variable" = value,
+# "type" = "off" for a type not shown. `hub`: the line the result carries; `gap`: what is not built yet.
+
+[[base]]
+subject = "party"
+words = "a registered political party"
+views = ["parties"]
+set = { "donation.order" = "size", "donation.top" = "10", "donation.years" = "3" }
+hub = "a party: {n} donations filed in its returns, {p} of them over {years}; the top {top} by {order} are listed and no donor is followed further"
+hub_off = "a party: {n} donations filed in its returns, {p} of them over {years}; none is listed (donations are off) and no donor is followed further"
+
+[[base]]
+subject = "liquidator"
+words = "a liquidator or receiver"
+views = ["company_insolvencies", "gazette_liquidators", "gazette_practitioners"]
+fragment = "appointee"
+set = { "insolvency" = "off" }
+hub = "a liquidator or receiver: {n} appointments held in the companies file; the companies appointed to are not listed and not followed further (the appointment shows on the company's own record)"
+
+[[base]]
+subject = "trustee"
+words = "a trustee, nominee or custodian company"
+views = ["companies"]
+name = "trustees?|nominees?|custodians?|custodial"
+min_directorships = 50   # and a current director whose group holds more than this: a family trust's trustee company is no hub
+set = { "director.follow" = "no", "shareholder.follow" = "no" }
+hub = "a trustee, nominee or custodian company: its people are listed and their other directorships and holdings are not followed further ({n} directorships among them)"
+gap = "a measure of the significance of a trustee company's directorships (the value of the companies, or their deeper connections) is not built: until it is, they are counted, not followed"

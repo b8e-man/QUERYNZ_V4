@@ -58,7 +58,8 @@ PARAM_KINDS = ("integer", "text", "date")   # what a declared parameter's value 
 #: names a parameter may not take: the report's own keys, and the page's and the command line's own arguments
 RESERVED_PARAMS = frozenset({"template", "title", "version", "owner", "reads", "ref", "as_of", "built_at", "since", "new", "cannot_say", "found",
                              "why", "subject", "group", "sections", "flags", "hubs", "citations", "walk", "limits", "not_held", "views_not_published",
-                             "problems", "members", "params", "params_declared", "format", "m", "saved", "set", "html", "superseded_not_held"})
+                             "problems", "members", "params", "params_declared", "format", "m", "saved", "set", "html", "superseded_not_held",
+                             "hub_lines", "connections", "c"})
 PARAM_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 
 

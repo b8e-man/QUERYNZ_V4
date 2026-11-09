@@ -182,6 +182,12 @@ def starts_from(report: dict) -> str:
     return f"This report starts from {s['title']}, {where}." if s and s.get("title") else f"This report starts from {where}."
 
 
+def _hub_line_text(h: dict) -> str:
+    """A hub said on the result (ruling 158): the subject's own, or the row's title, its count and why it is not followed."""
+    head = "this subject" if h.get("subject") else h.get("title") or h["ref"]
+    return f"{head}: {h['text']}" + (f"; not built yet: {h['gap']}" if h.get("gap") else "")
+
+
 def text(report: dict) -> str:
     """The memo as plain text."""
     t = report["template"]
@@ -206,6 +212,8 @@ def text(report: dict) -> str:
     for m in report.get("members", []):
         out.append(f"  same person, by confirmed link: {m['statement']} ({m['dates']['text']}) [{m.get('cite', '?')}]"
                    + (f"\n      near: {m['reason']}" if m.get("reason") else ""))
+    if report.get("hub_lines"):
+        out += ["", "HUBS NOT FOLLOWED"] + [f"  - {_hub_line_text(h)}" for h in report["hub_lines"]]
     if report.get("problems"):
         out += ["", "REFUSED: this report breaks the presentation rules and is not to be relied on:"] + [f"  - {p}" for p in report["problems"]]
     out += ["", "FLAGS"]
@@ -330,6 +338,10 @@ def html_body(report: dict) -> str:
     out.append('<p class="note">group: ' + esc(_group_line(g)) + "</p>")
     if report.get("members"):
         out.append("<ul>" + "".join(_li(dict(m, statement="same person, by confirmed link: " + m["statement"]), t["name"]) for m in report["members"]) + "</ul>")
+    if report.get("hub_lines"):
+        out.append('<div class="hubs"><h3>Hubs not followed</h3><ul>' + "".join(
+            f'<li class="hub"><strong>{esc(_hub_line_text(h))}</strong> <span class="meta">{esc(h["ref"])}</span></li>' for h in report["hub_lines"])
+            + "</ul></div>")
     if report.get("problems"):
         out.append('<p class="warn">Refused: this report breaks the presentation rules and is not to be relied on.</p><ul>' +
                    "".join(f"<li>{esc(p)}</li>" for p in report["problems"]) + "</ul>")

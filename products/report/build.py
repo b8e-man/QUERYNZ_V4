@@ -104,7 +104,8 @@ def _sort_key(it: dict) -> tuple:
     when = d.get("start") or d.get("on") or d.get("published") or (dt.date(int(d["year"]), 1, 1) if d.get("year") and str(d["year"]).isdigit() else None)
     if not isinstance(when, dt.date):   # a date as printed that is no date the report can read: undated for the order, shown as printed
         when = None
-    return (SECTION_ORDER_GRADE.get(it["grade"], 1), when is None, -(when.toordinal() if when else 0), it["ref"])
+    # a rank the connections pane's order gave (connections.py: donations by size or recency) comes before the date
+    return (SECTION_ORDER_GRADE.get(it["grade"], 1), it.get("rank", 0), when is None, -(when.toordinal() if when else 0), it["ref"])
 
 
 def _ordered(items: list) -> list:
@@ -185,7 +186,7 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
               "ref": ref, "as_of": now.date().isoformat(), "built_at": now.isoformat(timespec="seconds"),
               "since": since.isoformat() if since else None, "new": None,
               "params": values, "params_declared": list(declared), **values,
-              "found": False, "why": "", "subject": None, "group": {}, "sections": [], "flags": [], "hubs": [], "citations": [],
+              "found": False, "why": "", "subject": None, "group": {}, "sections": [], "flags": [], "hubs": [], "hub_lines": [], "citations": [],
               "walk": {}, "limits": list(t.limits), "not_held": [name for _, name in cat.NOT_HELD],
               "superseded_not_held": [f"{cat.REGISTER_NAME[reg]} (named {key!r} in the template; published as "
                                       f"{', '.join('pub.' + v.name for v in cat.views_of(reg))})" for key, reg in t.superseded_not_held],
@@ -199,6 +200,9 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
     report["subject"] = w["start"]
     report["group"] = w["group"]
     report["hubs"] = w["hubs"]
+    report["hub_lines"] = w.get("hub_lines", [])   # the hubs not followed, said on the result (ruling 158)
+    if w.get("connections"):
+        report["connections"] = w["connections"]   # the connections pane's settings and counts (connections.py)
     report["walk"] = {"links_built": w.get("links_built"), "links_omitted": w.get("links_omitted", 0), "entities_omitted": w.get("entities_omitted", 0),
                       "entities_not_expanded": w.get("entities_not_expanded", 0),
                       "group_omitted": w["group"].get("omitted", 0), "skipped": w.get("skipped", []), "limits": w["limits"], "settings": w["settings"],
