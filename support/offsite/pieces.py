@@ -60,9 +60,6 @@ RULES = {
         f"{OLD_REPO}/ingestion/geonames/sync.py"),
     "nzbn_canonical.bulk.geonames_alternate": (OUT, "public reference data, fetched again",
         f"{OLD_REPO}/ingestion/geonames/sync.py"),
-    "querynz_v4.old_*_private.*": (OUT, "the old estate's tables copied verbatim (ruling 160); their source "
-        "databases are copied off-site already, so not sent twice (Arthur, 10 November)",
-        "/home/user/querynzv4/support/oldcopy/__main__.py"),
     "incoming_news.public.article_embeddings": (LOCAL,
         "the vectors, 38 GB: days of a graphics card to rebuild, so a second local copy",
         f"{OLD_REPO}/ops/embed_articles.py"),
