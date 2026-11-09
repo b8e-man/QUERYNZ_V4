@@ -33,6 +33,7 @@ class Store:
     source: str
     html: bool = False
     exclude: tuple = ()
+    every_kind: bool = False        # every file whatever its kind (an old record tree), not only PDFs and images
 
 
 def parse_piece(piece: str) -> tuple:
@@ -83,7 +84,7 @@ def tables(inv: dict, databases=None) -> tuple:
         if databases is not None and db_ not in databases:
             skipped.append((name, st, f"database {db_} is not an old database this copier reads"))
             continue
-        if st not in COPIED:
+        if st not in COPIED and not (st == "DERIVED" and e.get("keep") is True):
             skipped.append((name, st, "not copied: " + (st or "no status") if st in KNOWN or not st
                             else f"an unknown status {st!r}, not copied"))
             continue
@@ -120,7 +121,8 @@ def stores(inv: dict) -> tuple:
         if st not in COPIED:
             skipped.append((name, st, "not copied: " + (st or "no status")))
             continue
+        every = e.get("every_kind") is True
         html = bool(e.get("html") or e.get("lost_body") or e.get("html_kept"))
         out.append(Store(name, root.rstrip("/") or "/", st, e.get("source") or f"old-{name}", html,
-                         tuple(x.strip("/") for x in e.get("exclude") or ())))
+                         tuple(x.strip("/") for x in e.get("exclude") or ()), every))
     return out, skipped

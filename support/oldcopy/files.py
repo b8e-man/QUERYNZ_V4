@@ -13,7 +13,7 @@ from support.docstore import landing
 from support.oldcopy import LEDGER
 
 BATCH_FILES = 200
-MAX_BYTES = 256 * 1024 * 1024          # a file over this is recorded (too-big), never read into memory
+MAX_BYTES = 512 * 1024 * 1024          # a file over this is recorded (too-big), never read into memory (the old audits hold one of 293 MB)
 _MAGIC = ((b"%PDF-", "pdf", "application/pdf"), (b"\x89PNG\r\n\x1a\n", "image", "image/png"),
           (b"\xff\xd8\xff", "image", "image/jpeg"), (b"GIF87a", "image", "image/gif"), (b"GIF89a", "image", "image/gif"),
           (b"II*\x00", "image", "image/tiff"), (b"MM\x00*", "image", "image/tiff"))
@@ -37,8 +37,8 @@ def sniff(path: str, name: str) -> tuple:
     return "other", ""
 
 
-def wanted(kind: str, html: bool) -> bool:
-    return kind in ("pdf", "image") or (html and kind == "web-page")
+def wanted(kind: str, html: bool, every: bool = False) -> bool:
+    return every or kind in ("pdf", "image") or (html and kind == "web-page")
 
 
 def walk(root: str, after: str = None, exclude=()):
@@ -76,10 +76,21 @@ def _line(conn, ledger, store, rel, size, mtime, sha, outcome, why=None):
                  (store, rel, size, mtime, sha, outcome, why))
 
 
+HELD_OUTCOMES = ("landed-new", "landed-held", "held-by-path")
+
+
+def _in_ledger(conn, ledger, store, rel, outcomes=HELD_OUTCOMES) -> bool:
+    return conn.execute(sql.SQL("SELECT EXISTS (SELECT 1 FROM {}.files WHERE store = %s AND old_path = %s AND "
+                                "outcome = ANY(%s))").format(sql.Identifier(ledger)),
+                        (store, rel, list(outcomes))).fetchone()[0]
+
+
 def _cursor(conn, ledger, store):
-    r = conn.execute(sql.SQL("SELECT after_path FROM {}.file_cursors WHERE store = %s").format(sql.Identifier(ledger)),
-                     (store,)).fetchone()
-    return r[0] if r else None
+    """Where the walk resumes: past the last path done, or from the start again once a walk has caught up (the old
+    jobs still write, and a new file may sort before the cursor; a file already landed costs a lookup, no read)."""
+    r = conn.execute(sql.SQL("SELECT after_path, caught_up FROM {}.file_cursors WHERE store = %s").format(
+        sql.Identifier(ledger)), (store,)).fetchone()
+    return None if r is None or r[1] else r[0]
 
 
 def _set_cursor(conn, ledger, store, after, caught_up, n):
@@ -106,14 +117,16 @@ def land_one(conn, store, rel, *, root=None, ledger=LEDGER) -> str:
         _line(conn, ledger, store.name, rel, None, None, None, "failed", type(exc).__name__)
         return "failed"
     kind, ct = sniff(full, rel)
-    if not wanted(kind, store.html):
+    if not wanted(kind, store.html, store.every_kind):
         return "not-wanted"
     held = _held_by_path(conn, full)
     if held:
-        _line(conn, ledger, store.name, rel, st.st_size, st.st_mtime, held[0], "held-by-path")
+        if not _in_ledger(conn, ledger, store.name, rel):      # a rescan writes no second line for a file it has
+            _line(conn, ledger, store.name, rel, st.st_size, st.st_mtime, held[0], "held-by-path")
         return "held-by-path"
     if st.st_size > MAX_BYTES:
-        _line(conn, ledger, store.name, rel, st.st_size, st.st_mtime, None, "too-big", f"over {MAX_BYTES} bytes")
+        if not _in_ledger(conn, ledger, store.name, rel, ("too-big",)):
+            _line(conn, ledger, store.name, rel, st.st_size, st.st_mtime, None, "too-big", f"over {MAX_BYTES} bytes")
         return "too-big"
     try:
         with open(full, "rb") as f:

@@ -1967,9 +1967,9 @@ nice = 15
 
 [jobs.qv4-old-copy-files]
 enabled = true   # 10 November 2026, integrator: the inventory reviewed, the disk checked
-description = "Ruling 160: the old file stores' PDFs and images (an HTML page only where the inventory says its source's rows lost the body) landed into the document store by their bytes, every NEW or PARTLY store of stream I's inventory walked in sorted order from its cursor: a file the store holds already adds a name and no bytes, one already landed under its old path is not read again. 200 files a batch, each file a ledger line (oldcopy_private.files, never wiped), read only from the old folders. Stops at 50 minutes or at 05:45 NZDT and resumes from the cursor the next night. Nightly at 00:50 NZDT."
+description = "Ruling 160: the old file stores' PDFs and images (an HTML page only where the inventory says its source's rows lost the body; every file of the old record trees the inventory marks every_kind, ruling 162) landed into the document store by their bytes, every NEW or PARTLY store of stream I's inventory walked in sorted order from its cursor: a file the store holds already adds a name and no bytes, one already landed under its old path is not read again. 200 files a batch, each file a ledger line (oldcopy_private.files, never wiped), read only from the old folders. Stops at 50 minutes or at 05:45 NZDT and resumes from the cursor the next night. Nightly at 00:50 NZDT."
 needs = "processor"
-memory_gb = 0.6   # not measured on the old stores yet: one file is read whole, and a file over 256 MB is recorded (too-big), never read
+memory_gb = 1.2   # not measured on the old stores yet: one file is read whole (the old audits hold one of 293 MB), and a file over 512 MB is recorded (too-big), never read
 deadline_s = 3600   # its own budget is 3,000 s (--budget-s)
 query_timeout_s = 300
 class = "whenever"
@@ -1989,4 +1989,16 @@ priority = 203   # unique (10 November 2026)
 command = ["python", "-m", "support.mcpsource.gaps"]
 requires = ["qv4-mcp-tunnel"]   # it reads the MCP's `corpora` and `records` through node2's tunnel
 at_utc = "16:20"
+nice = 15
+
+[jobs.qv4-old-consumed]
+description = "Ruling 162: has the new estate consumed the old one? Every table of the three old databases (from their live catalogues) and every old tree the off-site copy sends, classed copied (caught up, no failed batch standing, the rows counted the same at the source and in the copy now; a store's every wanted file on disk in the ledger), held (stream I's evidence), let go (rulings 161, 164), waiting or not held; ready only when nothing waits and nothing is not held. Writes <live>/checks/old-consumed.json. It never stops the old off-site copy: that is Arthur's word, on this proof. Reads only. Daily at 06:10 NZDT, after the night's copies."
+needs = "processor"
+memory_gb = 0.8   # the files ledger's paths held as sets, about 120,000
+deadline_s = 3600
+query_timeout_s = 1200
+class = "due"
+priority = 204   # unique (10 November 2026)
+command = ["python", "-m", "support.oldcopy.consumed"]
+at_utc = "17:10"
 nice = 15

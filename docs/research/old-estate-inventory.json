@@ -24,7 +24,9 @@
    "held_in": null,
    "note": "bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -143,7 +145,9 @@
    "held_in": null,
    "note": "bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -200,7 +204,9 @@
    "held_in": null,
    "note": "hash index over the articles",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -218,7 +224,9 @@
    "held_in": null,
    "note": "hash index over the articles",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -256,7 +264,9 @@
    "held_in": null,
    "note": "bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -274,7 +284,9 @@
    "held_in": null,
    "note": "bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -329,7 +341,9 @@
    "held_in": null,
    "note": "bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -383,7 +397,9 @@
    "held_in": null,
    "note": "bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "incoming_news",
@@ -458,7 +474,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -969,7 +987,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1041,7 +1061,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1383,7 +1405,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1420,7 +1444,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1493,7 +1519,9 @@
    "held_in": "gazette.*",
    "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1511,7 +1539,9 @@
    "held_in": "gazette.*",
    "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1529,7 +1559,9 @@
    "held_in": "gazette.*",
    "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1547,7 +1579,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1565,7 +1599,9 @@
    "held_in": "gazette.*",
    "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1583,7 +1619,9 @@
    "held_in": "gazette.*",
    "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1619,7 +1657,9 @@
    "held_in": "gazette.*",
    "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1637,7 +1677,9 @@
    "held_in": "gazette.*",
    "note": "read from the Gazette notices' text, which the new gazette lane holds and re-reads",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1747,7 +1789,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -1799,7 +1843,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -2012,7 +2058,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -2104,7 +2152,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -2122,7 +2172,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -2138,7 +2190,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -5879,7 +5933,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -5916,7 +5972,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -5970,7 +6028,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -5986,7 +6046,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6004,7 +6066,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6020,7 +6084,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6133,7 +6199,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6152,7 +6220,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6207,7 +6277,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6225,7 +6297,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6261,7 +6335,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6370,7 +6446,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6499,7 +6577,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6575,7 +6655,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6593,7 +6675,9 @@
    "held_in": null,
    "note": "the old jobs' bookkeeping",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6611,7 +6695,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6627,7 +6713,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6643,7 +6731,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6659,7 +6749,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6729,7 +6821,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6784,7 +6878,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6820,7 +6916,9 @@
    "held_in": null,
    "note": "joins and totals built from other old tables or the press graph",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6836,7 +6934,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6871,7 +6971,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -6887,7 +6989,9 @@
    "held_in": null,
    "note": "a view",
    "date_range": null,
-   "dest": null
+   "dest": null,
+   "keep": true,
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   },
   {
    "database": "nzbn_canonical",
@@ -8751,6 +8855,78 @@
    },
    "bytes": 529241323,
    "note": "newspapers_batch_0000000001.parquet and pull.log beside the dump; taken as part of it. OUT"
+  },
+  {
+   "name": "old-audits",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/audits",
+   "source": "old-old-audits",
+   "every_kind": true,
+   "note": "what every gate and robots read said, when (cannot be regenerated)",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+  },
+  {
+   "name": "old-eras",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/eras",
+   "source": "old-old-eras",
+   "every_kind": true,
+   "note": "era fire records (cannot be regenerated)",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+  },
+  {
+   "name": "old-review",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/review",
+   "source": "old-old-review",
+   "every_kind": true,
+   "note": "what a person wrote: findings and the review ledger (cannot be regenerated)",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+  },
+  {
+   "name": "old-systemd",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/ops/systemd",
+   "source": "old-old-systemd",
+   "every_kind": true,
+   "note": "the old units",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+  },
+  {
+   "name": "staging-boundaries",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/boundaries",
+   "source": "old-staging-boundaries",
+   "every_kind": true,
+   "note": "boundary files as downloaded",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+  },
+  {
+   "name": "staging-icij-offshore-leaks",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/icij-offshore-leaks",
+   "source": "old-staging-icij-offshore-leaks",
+   "every_kind": true,
+   "note": "the ICIJ download as fetched",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+  },
+  {
+   "name": "staging-letters",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/letters",
+   "source": "old-staging-letters",
+   "every_kind": true,
+   "note": "letters",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+  },
+  {
+   "name": "staging-linz",
+   "status": "NEW",
+   "root": "/home/user/Git Repos/QueryNZ_V3/var/staging/linz",
+   "source": "old-staging-linz",
+   "every_kind": true,
+   "note": "LINZ downloads (JSON), 11 GB",
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
   }
  ],
  "other_files": [

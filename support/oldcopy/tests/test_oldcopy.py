@@ -388,3 +388,49 @@ def test_the_inventory_reads_leave_out_and_refuses_a_malformed_one():
     todo, skipped = inventory.tables(inv)
     assert [t.leave_out for t in todo] == [(("news_url", "%paperspast.natlib.govt.nz%"),)]
     assert any("leave_out" in w for _, _, w in skipped)
+
+
+def test_an_every_kind_store_takes_every_file_and_a_caught_up_walk_rescans_for_a_file_written_since(env, tmp_path):
+    e = env
+    tree, store_root = tmp_path / "old", tmp_path / "store"
+    (tree / "b").mkdir(parents=True)
+    (tree / "b" / "audit.jsonl").write_bytes(b'{"read": 1}\n')
+    (tree / "b" / "note.txt").write_bytes(b"what a person wrote")
+    store = inventory.Store("test-every", str(tree), "NEW", "test-every", every_kind=True)
+    conn = _Held(e["dst"])
+    try:
+        first = F.copy_store(conn, store, root=str(store_root), ledger=e["led"], log=lambda *_: None)
+        assert first["caught_up"] and first["counts"] == {"landed-new": 2}
+        (tree / "a").mkdir()
+        (tree / "a" / "later.json").write_bytes(b"[1]")               # sorts before the cursor (b/note.txt)
+        again = F.copy_store(conn, store, root=str(store_root), ledger=e["led"], log=lambda *_: None)
+        assert again["counts"] == {"landed-new": 1, "held-by-path": 2}
+        lines = conn.execute(f"SELECT old_path, count(*) FROM {e['led']}.files WHERE store = 'test-every' "
+                             f"GROUP BY 1 ORDER BY 1").fetchall()
+        assert lines == [("a/later.json", 1), ("b/audit.jsonl", 1), ("b/note.txt", 1)]   # no second line on a rescan
+        from support.oldcopy import consumed as C
+        state = C.file_state(conn, e["led"])["test-every"]
+        assert C.judge_store(store, state)[0] == "copied"
+        (tree / "a" / "newest.json").write_bytes(b"[2]")
+        assert C.judge_store(store, state) == ("waiting", "1 files on disk not yet in the ledger (written since the walk)")
+    finally:
+        e["dst"].rollback()
+
+
+def test_the_consumed_check_blocks_on_everything_not_proven():
+    from support.oldcopy import consumed as C
+    spec = inventory.Table("nzbn_canonical", "bulk", "x", "NEW")
+    ok = {"caught_up": True, "rows": 5, "failed_since_ok": False, "refused": None}
+    assert C.judge_table("nzbn_canonical", "bulk", "x", {"status": "NEW"}, spec, ok, lambda: (5, 5))[0] == "copied"
+    assert C.judge_table("nzbn_canonical", "bulk", "x", {"status": "NEW"}, spec, ok, lambda: (6, 5))[0] == "waiting"
+    assert C.judge_table("nzbn_canonical", "bulk", "x", {"status": "NEW"}, spec, None, lambda: (5, 5))[0] == "waiting"
+    assert C.judge_table("nzbn_canonical", "bulk", "x", {"status": "NEW"}, spec, dict(ok, failed_since_ok=True),
+                         lambda: (5, 5))[0] == "waiting"
+    assert C.judge_table("nzbn_canonical", "bulk", "x", {"status": "NEW"}, spec,
+                         dict(ok, caught_up=False, refused="no usable key"), lambda: (5, 5))[0] == "not held"
+    assert C.judge_table("nzbn_canonical", "bulk", "y", {"status": "HELD", "held_in": "a.b"}, None, None, None)[0] == "held"
+    assert C.judge_table("nzbn_canonical", "bulk", "y", {"status": "DERIVED"}, None, None, None)[0] == "not held"
+    assert C.judge_table("nzbn_canonical", "bulk", "z", None, None, None, None)[0] == "not held"
+    assert C.judge_table("extractions", "v3", "claims", {"status": "DERIVED"}, None, None, None)[0] == "let go"   # 164
+    names = {"/r": ["a", "b", "c"], "/r/b": []}
+    assert C.uncovered("/r", ["/r/a", "/r/b/deep"], listdir=lambda p: names[p]) == ["b (partly: a store lies inside it)", "c"]
