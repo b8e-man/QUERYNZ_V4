@@ -9,6 +9,7 @@ with no date is marked "undated". Reads `pub.*` only."""
 from __future__ import annotations
 
 import datetime as dt
+import re
 import decimal
 
 from products.report import catalogue as cat
@@ -58,6 +59,27 @@ def shown(v: cat.View, r: dict, column: str):
     return r.get(column)
 
 
+_TEXT_DATE = (("%d %B %Y", re.compile(r"^\d{1,2} [A-Za-z]+ \d{4}$")), ("%d/%m/%Y", re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")),
+              ("%Y-%m-%d", re.compile(r"^\d{4}-\d{2}-\d{2}$")))
+
+
+def as_date(value):
+    """A date column's value as a date: a date as it is; a text date in a form the registers print ("16 February
+    2026", "11/03/2025" day first as New Zealand writes it, "2026-02-16") read; anything else as it is, so it is
+    shown as printed and never guessed at (9 November 2026: councillors' interests and the iwi directory print text)."""
+    if isinstance(value, dt.datetime):
+        return value.date()
+    if isinstance(value, str):
+        text = value.strip()
+        for form, rx in _TEXT_DATE:
+            if rx.match(text):
+                try:
+                    return dt.datetime.strptime(text, form).date()
+                except ValueError:
+                    return value
+    return value
+
+
 def fmt_date(d) -> str:
     if isinstance(d, dt.datetime):
         d = d.date()
@@ -103,12 +125,12 @@ def dates(v: cat.View, r: dict) -> dict:
     A row with none of its view's date columns filled is undated and says
     so; the files it was seen in are stated beside, as a bound on when,
     never as the date of anything."""
-    start = r.get(v.start) if v.start else None
-    end = r.get(v.end) if v.end else None
-    on = r.get(v.on) if v.on else None
+    start = as_date(r.get(v.start)) if v.start else None
+    end = as_date(r.get(v.end)) if v.end else None
+    on = as_date(r.get(v.on)) if v.on else None
     year = r.get(v.year) if v.year else None
-    filed = r.get(v.filed) if v.filed else None
-    published = r.get(v.published) if v.published else None
+    filed = as_date(r.get(v.filed)) if v.filed else None
+    published = as_date(r.get(v.published)) if v.published else None
     period = tuple(r.get(c) if c else None for c in v.period) if v.period else ()
     as_in = r.get(v.as_in) if v.as_in else None
     bits = []

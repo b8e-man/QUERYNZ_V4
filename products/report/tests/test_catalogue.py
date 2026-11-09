@@ -73,3 +73,14 @@ def test_every_published_table_is_read_or_left_out_with_a_reason():
     assert all(len(why) > 20 for why in cat.NOT_READ.values())
     assert {v.register for v in cat.VIEWS} <= {r for r, _ in cat.REGISTERS}
 
+
+
+def test_a_text_date_the_registers_print_is_read_and_anything_else_is_left_as_printed():
+    import datetime as dt
+    from products.report import rows
+    assert rows.as_date("16 February 2026") == dt.date(2026, 2, 16)
+    assert rows.as_date("11/03/2025") == dt.date(2025, 3, 11)                 # day first, as New Zealand writes it
+    assert rows.as_date("2026-02-16") == dt.date(2026, 2, 16)
+    assert rows.as_date("31/02/2025") == "31/02/2025" and rows.as_date("about 2019") == "about 2019"
+    v = cat.BY_NAME["councillor_interests"]
+    assert rows.dates(v, {"as_at": "16 February 2026"})["on"] == dt.date(2026, 2, 16)

@@ -102,6 +102,8 @@ def _blank(section: tpl.Section, held: set) -> str:
 def _sort_key(it: dict) -> tuple:
     d = it["dates"]
     when = d.get("start") or d.get("on") or d.get("published") or (dt.date(int(d["year"]), 1, 1) if d.get("year") and str(d["year"]).isdigit() else None)
+    if not isinstance(when, dt.date):   # a date as printed that is no date the report can read: undated for the order, shown as printed
+        when = None
     return (SECTION_ORDER_GRADE.get(it["grade"], 1), when is None, -(when.toordinal() if when else 0), it["ref"])
 
 
