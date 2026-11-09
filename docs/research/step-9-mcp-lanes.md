@@ -80,3 +80,44 @@ switched on with `--from-mcp`.
 - **The provider's freshness.** Commerce Commission, WorkSafe and councillors' interests have had no arrivals since
   7 November; council minutes and local elections none since 8 November. The lanes now keep pace with the copy, so
   a lane is only as fresh as the provider makes it.
+
+## councillor_interests, ruling 159
+
+Stream H, 10 November 2026. Arthur's ruling 159: the lane takes the provider's copy of councils that blocked the
+boxes, since that copy has a different compliance relationship. `capture.from_mcp` now hands the walk
+`lane_holds=False`: under `--from-mcp`, `Run.run` starts from no stored holds, and the gate is not asked (as before).
+Neither hold is cleared. The 11 rows of `capture_held_hosts` and the gate's holds stay, and the boxes' own walk
+(`lane_holds=True`, the default) still asks a held host nothing. A copy that is a challenge page is still a block
+(hard limit 6). It holds its host in the table and for the rest of the run.
+
+**What it takes now** (a dry walk of all 78 councils on the real copy, nothing written, compared with the same walk
+honouring the holds):
+
+| Council | Copy records | Taken | Through the lane's reader |
+| --- | --- | --- | --- |
+| Matamata-Piako | 53 (51 on www.mpdc, 2 on mpdc) | 2 pages and 51 documents, 51 distinct sha256, none held before | 21 PDFs have a text layer and name the register: read by the text reader. 30 have no text layer and wait for the page reader. The 2 pages are landing pages that link the documents. The load would call the council "per-member files". |
+| Dunedin | 23 (21 on www, 2 on secure) | 1 page: the register page `REGISTERS` names | It prints the register itself, with no document linked. The text reader reads it (`recognise_page` passes), so the load would call it "html register, waiting: text reader". |
+| Gisborne | 3 (one address, three copies) | nothing | `REGISTERS` has no address for Gisborne. The copy's one address is the council's "Page Not Found" page. |
+
+The walk's totals went from 53 pages and 391 documents to 56 and 442. That is the 54 above and nothing else. Failed
+reads went from 8 to 17: these are the other 8 held councils' addresses, which the copy does not hold. They are
+`NotHeld`, so no host is held and each address is asked again next run. The 11 addresses on held sites that are not
+taken are all off the walk: Dunedin's dog, premises, road-name and ePathway pages, and its own "Page Not Found" at
+governance/elected-members/registers-of-interests, plus Gisborne's page. The 21 readable PDFs and the Dunedin page
+make 69 text-reader pieces (412,026 characters). They are read by qv4-councillor-interests-read after the capture
+and the load. No model was called here.
+
+**Tests** (`registers/councillor_interests/tests/test_councillor_interests_from_mcp.py`):
+
+- A held council's copy is taken and its hold stands.
+- The three councils, as `REGISTERS` has them and held as the live record holds them, are read from the copy.
+- A challenge copy on a held council still blocks.
+- A challenge copy met in the run holds its site for the rest of the run.
+- The boxes' own walk still asks a held host nothing.
+
+Five mutants were tried and each was caught: from_mcp keeping the holds, run reading the holds always, the direct
+mode dropping them, no challenge check, and the in-run hold dropped.
+
+**For the integrator:** `support.mcpsource.replay.opener` serves every copy as a 200. Gisborne's and Dunedin's
+"Page Not Found" copies are not reached by this walk. A copy of a 404 that a walk does reach would land as a page.
+If the pull records the provider's HTTP status, the opener could carry it (stream F's file).

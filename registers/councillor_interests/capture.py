@@ -32,7 +32,11 @@ automated access (`TERMS_BAR`) is not asked. The position on file is
     python -m registers.councillor_interests.capture [--anytime] [--budget-s N] [--only COUNCIL] [--from-mcp]
 
 From 9 November 2026 the crawl is the ingest MCP provider's: `--from-mcp` answers every address of the walk from
-the newest copy in `estate-councillor_interests` (taken by qv4-mcp-pull) and asks the web for nothing.
+the newest copy in `estate-councillor_interests` (taken by qv4-mcp-pull) and asks the web for nothing. Ruling 159
+(Arthur, 10 November 2026): the provider's copy has a different compliance relationship, so `--from-mcp` takes the
+copy of every council, those whose hosts the lane holds (`capture_held_hosts`) or the gate holds included. The holds
+stand for the boxes: the direct walk still asks a held host nothing, and no hold is cleared. A copy that is a
+challenge page is still a block (hard limit 6) and holds its host.
 """
 import argparse
 import datetime as dt
@@ -286,8 +290,11 @@ def from_mcp(conn, read_bytes=None) -> dict:
     """The run's opener when the crawl is the MCP provider's (the 5 November split; Arthur, 9 November 2026): every
     address answered with the newest copy the MCP holds, an address it lacks a failed read (a transport failure: no
     host is held for it), and no request leaving the boxes, so no pacing, no off-peak hours and no asking the gate. A
-    copy that is a challenge page is a block, as it would be from the web (hard limit 6). A host the lane itself
-    holds stays held: a session reads why before the lane takes anything from it again."""
+    copy that is a challenge page is a block, as it would be from the web (hard limit 6), and holds its host for the
+    rest of the run and for the boxes. Ruling 159 (Arthur, 10 November 2026): the provider's copy of a council the
+    boxes were blocked from is taken: the lane's holds (`capture_held_hosts`) are not read for the walk
+    (`lane_holds=False`) and the gate is not asked, so a held council's copy is read like any other. Neither hold
+    is cleared, and the boxes' own direct walk still asks a held host nothing."""
     from support.mcpsource import replay
     open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
 
@@ -295,13 +302,18 @@ def from_mcp(conn, read_bytes=None) -> dict:
         f = open_copy(url, timeout)
         why = fg.looks_challenged(f.status, f.body)
         return fg.Fetched(url=f.url, status=f.status, body=f.body, final_url=f.final_url, blocked=why) if why else f
-    return {"opener": opener, "sleep": lambda s: None, "anytime": True, "gate_held": lambda host: None}
+    return {"opener": opener, "sleep": lambda s: None, "anytime": True, "gate_held": lambda host: None,
+            "lane_holds": False}
 
 
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None, registers: dict = None,
-                 budget_s: float = DEFAULT_BUDGET_S, anytime: bool = False, log=print, gate_held=None):
+                 budget_s: float = DEFAULT_BUDGET_S, anytime: bool = False, log=print, gate_held=None,
+                 lane_holds: bool = True):
         self.t, self.land_fn, self.log = tables, land_fn, log
+        # whether the walk starts from the lane's held hosts: always for the boxes' own walk; never when it reads the
+        # MCP provider's copy (ruling 159), where only a challenge copy met in the run holds a host
+        self.lane_holds = lane_holds
         # the gate's hold on a host (ruling 141); an injected opener is a test's site, never the live ledger's host
         self.gate_held = gate_held or (fg.refused_by if opener is None else (lambda host: None))
         self.opener = opener or (lambda url, timeout: fg.open_url(url, timeout=timeout, positions_dir=POSITIONS,
@@ -416,7 +428,7 @@ class Run:
             self.ask(name, pdf, "document", None, held)
 
     def run(self) -> dict:
-        held = self.t.held_hosts()
+        held = self.t.held_hosts() if self.lane_holds else {}
         for name in self.registers:
             if not self.time_left():
                 break
