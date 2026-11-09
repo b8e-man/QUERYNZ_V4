@@ -1418,3 +1418,11 @@ has a different compliance relationship. The estate needs a system for
 knowing whether the ingest MCP is up to date: each corpus's freshness against
 its source's cadence, on the lights, with a list of stale corpora for the
 provider; this is how the stale copies are fixed.
+
+160. Arthur, 10 November: the new estate ingests the old estate's corpora and tells the
+ingest MCP what is missing so the provider can gather it, the gaps identified first. Kept: the
+original documents that are PDFs and images, and the contents of the databases. An HTML page is
+not kept apart where its database row retains its metadata and body text (checked source by
+source; a source whose rows did not is kept whole). No second copy of the same content: a
+document is its bytes, and what the new estate holds is not copied again. The two news sources
+set aside by ruling 154 stay out until Arthur's look. Hard limits 18 and 22 hold.
