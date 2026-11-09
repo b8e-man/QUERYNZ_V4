@@ -1430,3 +1430,8 @@ set aside by ruling 154 stay out until Arthur's look. Hard limits 18 and 22 hold
 161. Arthur, 10 November, on the two news sources set aside by ruling 154: the NZME
 mastheads (the NZ Herald included) come into the copy of the old estate under ruling 160;
 the recovered news dump held on node1 is left out.
+
+162. Arthur, 10 November, on the off-site copy: the new estate's tables are backed up,
+the copies of the old estate's tables in querynz_v4 among them; the old estate's own
+databases and trees go on being backed up until the new estate is proven to hold
+everything in them, and only then stop. Nothing is lost in between.
