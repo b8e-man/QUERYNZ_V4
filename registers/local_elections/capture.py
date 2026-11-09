@@ -218,6 +218,7 @@ class Run:
         self.clock = clock or (lambda: dt.datetime.now(NZ))
         self.seed_list = seed_list
         self.requests = self.landed = self.failed = 0
+        self.not_held = 0   # addresses the MCP's copy does not hold yet: no request, no failure (10 November 2026)
         self.bad_hosts = {}
         self.t0 = time.monotonic()
 
@@ -234,6 +235,9 @@ class Run:
             self.bad_hosts[host] = f"the fetch gate holds the host ({held})"
             return None, "skipped", self.bad_hosts[host]
         r, state, why = self.fetch(url, max_bytes)
+        if state == NOT_HELD:   # nothing left the boxes and nothing failed: the provider has not copied it yet
+            self.not_held += 1
+            return r, state, why
         self.requests += 1
         if state in ("blocked", "refused"):
             self.bad_hosts[host] = why
@@ -321,7 +325,8 @@ class Run:
             self.t.file(pid, url, r.status, ref.sha256, ref.kind, ref.size, "landed")
         note = stopped or "every wanted file asked"
         self.t.end_pass(pid, self.requests, self.landed, self.failed, note)
-        return {"pass": pid, "requests": self.requests, "landed": self.landed, "failed": self.failed, "stopped": note}
+        return {"pass": pid, "requests": self.requests, "landed": self.landed, "failed": self.failed,
+                "not_held": self.not_held, "stopped": note}
 
 
 def landing(conn):

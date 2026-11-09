@@ -81,3 +81,13 @@ def test_both_nightly_jobs_take_the_mcp_copy_and_the_pull_brings_it():
         assert jobs[name].get("enabled", True) and "--from-mcp" in jobs[name]["command"], name
     pulled = jobs["qv4-mcp-pull"]["command"]
     assert set(capture.MCP_CORPORA) <= {pulled[i + 1] for i, a in enumerate(pulled) if a == "--corpus"}
+
+
+def test_a_night_the_copy_holds_none_of_the_wanted_files_is_no_failure(monkeypatch):
+    """10 November 2026: the first --from-mcp files run asked the copy for 97 wanted files it did not hold yet,
+    counted each a request and a failure, and the job failed (the lane red) on a night nothing failed."""
+    a, b = "https://www.example.govt.nz/media/a.pdf", "https://www.example.govt.nz/media/b.pdf"
+    t = FakeTables([(a, "A", 2019), (b, "A", 2022)])
+    out = _run(set(), monkeypatch, t).files()
+    assert out["requests"] == 0 and out["failed"] == 0 and out["not_held"] == 2 and out["landed"] == 0
+    assert [w[0] for w in t.wanted()] == [a, b]                     # both stay wanted, asked again next run
