@@ -42,10 +42,9 @@ old ntfy.
 
 ## Half-done
 
-- Step 9 (rulings 150-157): tranches 1, 2 closed 9 Nov. 2: 156 files
-  in handover/news-scrapers-2026-11-09.tar.gz, sums checked, no env;
-  for Arthur to pass on. Next 5, 6, 8; 3, 4, 7 wait.
-
+- Step 9 (150-157), 9-10 Nov night: 1, 2, 6, 8 built; 5 under way
+  (insolvency, grants green; 7 lanes orange until read from the MCP).
+  Hops and hub limits: Arthur (docs/research/step-9-stage1-depth.md).
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
