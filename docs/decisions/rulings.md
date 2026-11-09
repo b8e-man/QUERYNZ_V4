@@ -1353,3 +1353,28 @@ the Insolvency Register and the courts not held): "let's work on this
 product by product". Each template's registers, fields and links are
 settled one product at a time (ruling 146), the template's stale lines
 with them.
+
+150. Arthur, 9 November, at the planning session: "one product. one
+lookup. one report. comprehensive. We use every link available to bring in
+as many records as possible. We use search to connect records to news
+articles." Rulings 146 and 149 are withdrawn; the use-case templates 02 to
+13 retire once the one report passes on real data. The frozen site stays.
+Plan: docs/plan/step-9.md.
+
+151. Arthur, 9 November: "near links is a follow-on step that can be
+activated after the first report. A kind of 2 stage report." The first
+report follows confirmed links only; near links are followed on request
+from it.
+
+152. Arthur, 9 November: the old estate's news scrapers and their
+documentation are packaged as one archive for the website-crawl provider,
+and its news corpora are brought into the new estate wholesale and
+verbatim. The session lists and copies them and does not read their
+documentation: "I want a fresh start and there were decisions that led
+down wrong paths made back then." Hard limits 1, 2, 8, 17 and 22 hold.
+
+153. Arthur, 9 November, on what a news hit means: an article that
+mentions a name is shown as that, never as a link to the person; it is a
+connection only when it also names something from the subject's own
+records. The registers are made to work so that such contextual
+connections are found through them (his horse farm example).
