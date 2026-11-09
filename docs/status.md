@@ -2,11 +2,11 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-09, 21:25 NZDT. **Process:** ruling 131 (31 Oct) ended
+**Date:** 2026-11-09 21:25 NZDT. **Process:** ruling 131 (31 Oct) ended
 the plan's gate process; work runs on Arthur's word. **Boxes:** two, both
 take every job (ruling 145); node1 primary on 10.0.0.10 since the drill,
 node2 its streaming standby; the voter on 192.168.68.57. **Alarms:** the
-old ntfy address.
+old ntfy.
 
 ## Done
 
@@ -43,8 +43,8 @@ old ntfy address.
 ## Half-done
 
 - Step 9, the one report (rulings 150-157): tranche 1 closed 9 Nov 21:25
-  (templates 02-13 frozen, the tab on diagnostic, live check green); next
-  2, then 5, 6, 8; 3, 4 and 7 wait for Arthur's two-source look.
+  (templates 02-13 frozen, tab on diagnostic, live check green); next
+  2, then 5, 6, 8; 3, 4, 7 wait for the two-source look.
 
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
