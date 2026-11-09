@@ -21,7 +21,7 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 9. History search is a use case, with every search tool.
 10. The capture rules are abandoned. Collection is judged on legality and politeness.
 11. Superseded by 12.
-12. NZME is dropped, every masthead.
+12. Withdrawn by Arthur, 9 November 2026 (ruling 155).
 13. The Papers Past archive is on the boxes. Each ingest catch is identified exactly where it happens.
 
 **11 October**
@@ -1371,7 +1371,7 @@ documentation are packaged as one archive for the website-crawl provider,
 and its news corpora are brought into the new estate wholesale and
 verbatim. The session lists and copies them and does not read their
 documentation: "I want a fresh start and there were decisions that led
-down wrong paths made back then." Hard limits 1, 2, 8, 17 and 22 hold.
+down wrong paths made back then." Hard limits 1, 2, 17 and 22 hold.
 
 153. Arthur, 9 November, on what a news hit means: an article that
 mentions a name is shown as that, never as a link to the person; it is a
@@ -1384,3 +1384,9 @@ may need the context from the registers to make sense of the news." The
 news search runs after the stage-1 records are built and searches with what
 they hold. Two sources are to be looked at from scratch with him before any
 work touches them, past notes on them set aside (docs/plan/step-9.md).
+
+155. Arthur, 9 November: "remove hard limit 8 and ruling 12". Both are
+withdrawn; their numbers are kept so every other limit and ruling keeps
+its number. The two sources they named are to be looked at from scratch
+(ruling 154). Old ruling 321 (fyi.org.nz) is still in the list of old
+rulings this plan relies on.

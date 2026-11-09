@@ -21,7 +21,7 @@ Given by Arthur between 10 and 12 October 2026. Copy them into `docs/decisions/r
 9. History search is a use case, with every search tool.
 10. The capture rules are abandoned. Collection is judged on legality and politeness.
 11. Superseded by 12.
-12. NZME is dropped, every masthead.
+12. Withdrawn by Arthur, 9 November 2026 (ruling 155).
 13. The Papers Past archive is on the boxes. Each ingest catch is identified exactly where it happens.
 
 **11 October**

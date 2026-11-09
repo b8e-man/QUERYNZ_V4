@@ -41,7 +41,6 @@ of the news to connect those records to articles.
 - These are left out, found by file name and pattern search, not by reading:
   - Credentials, `.env` files and keys (limits 1 and 2). If one is found,
     note where it is and tell Arthur.
-  - Anything hard limit 8 names.
 - Output: one archive with a manifest of every file (path and sha256),
   in `/home/user/querynzv4-work/handover/`. Arthur passes it to the provider.
   From then on, the crawls are the provider's.
@@ -53,7 +52,7 @@ of the news to connect those records to articles.
   cleaning and no reshaping.
 - The schema is taken from the database catalogue, not from the old docs.
 - The copy only reads the old estate. It writes nothing there (limit 22).
-- Rows from a source hard limit 8 names are not copied. The old Papers Past
+- The old Papers Past
   items join the existing `papers_past` lane under limit 17: searched, never
   mined.
 - Disk is measured first. The copy goes in bounded batches, off-peak, and
@@ -120,6 +119,6 @@ line and a pushed commit (ruling 244).
   report, or the records with no verdicts. Not yet answered.
 - **The horse farm example,** in his words.
 - **Two sources to be looked at from scratch, with Arthur, before any work
-  touches them.** The recovered news dump held on node1, and the masthead
-  group that hard limit 8 names. Earlier work on both had problems that
+  touches them.** The recovered news dump held on node1, and the news
+  publisher group that the withdrawn hard limit 8 named. Earlier work on both had problems that
   kept coming back. No session relies on past notes about either.

@@ -64,7 +64,7 @@ The vectors stay out of the off-site copy, because they can be regenerated, and 
 
 **7.6 Keyword search over other journalism** (ruling 8).
 
-- News capture keeps running. Every NZME masthead is excluded from the index and from capture; what to do with the NZME copies already held is a question for Arthur.
+- News capture keeps running.
 - Show the headline, masthead, date, a link, and a short extract around the matched words. Never the full text.
 - Paywalled outlets are not captured and are never forged.
 - No meaning index and no people or claims are built from current journalism while the press work is parked.

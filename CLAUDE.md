@@ -64,7 +64,7 @@ These are never traded for convenience, speed or a passing test. If a step in th
 5. **A robots file is no longer a permission decision** (ruling 10: legality and politeness, "not inferred intent"). It is read for one thing, a stated crawl delay, which is honoured. The old fetch gate refuses on a robots file for most hosts; the new estate's copy replaces that refusal with the rules in this section.
 6. **Never solve a challenge or CAPTCHA, never use a login that is not ours, never get around a block.** A headed browser that is shown no challenge may read a page; shown one, it stops. A challenged read is a failed read. Log it and move on.
 7. **Be polite:** slow, low-concurrency, off-peak, cached so nothing is fetched twice. A publisher's direct request to stop is honoured.
-8. **Two sources are out by name:** fyi.org.nz (old ruling 321) and every NZME masthead, the NZ Herald included (ruling 12). Neither is captured, indexed or read.
+8. Withdrawn by Arthur, 9 November 2026 (ruling 155). The number is kept so the other limits keep theirs.
 9. **Every new class of source gets a one-page legal position** from the four questions, written before the product that shows it (ruling 61: before product, not before capture; the capture is judged on the four questions as it goes). A lawyer reviews those pages before anything is sold.
 
 **What may leave the boxes**
