@@ -38,6 +38,10 @@ held registers can support them:
   court-judgments        fired, or blocked: a party in a judgment the courts corpus holds (a part of the courts' judgments)
   disciplinary-findings  blocked: no disciplinary tribunal's findings are held
   comcom-coverage        fired, or clear: a Commerce Commission case or an FMA warning naming the subject
+  insolvency-register    fired, or clear: an Insolvency Register estate of the subject (red), or a namesake's (amber)
+  professional-discipline fired, or blocked: a Real Estate Authority or Building Practitioners Board decision naming the subject
+  sanctions              fired, or clear: a sanctions listing of the subject (red), or under the name only (amber)
+  other-regulators       fired, or clear: a WorkSafe or Overseas Investment Office listing naming the subject
   securities-register    blocked: the Personal Property Securities Register is not held
 
 The builder adds its common rules for every template (group-standing,
@@ -92,10 +96,12 @@ GAZETTE_HELD = "New Zealand Gazette liquidation and company notices (pub.gazette
 NOTICES_HELD = "New Zealand Gazette company notices (pub.gazette_company_notices)"
 COMPANIES_HELD = "Companies register (pub.companies, pub.directors, pub.shareholders)"
 OFFICERS_HELD = "Companies register directors and shareholders (pub.directors, pub.shareholders)"
-NOT_HELD_INSOLVENCY = ("the Insolvency Register (interface awaited since 19 September 2026)", "court judgments (step 5.4)")
+# the Insolvency Register is read since 9 November 2026 (its own check, insolvency-register); a Gazette check still cannot see
+# what the courts corpus does not hold
+NOT_HELD_INSOLVENCY = ("court judgments the courts corpus does not hold",)
 COURTS = ("court judgments: the OpenLaw case-law lane and the courts register (step 5.4)", "tribunal decisions (step 5.4)")
 DISCIPLINARY = ("the Lawyers and Conveyancers Disciplinary Tribunal's decisions", "the other professional disciplinary bodies' findings "
-                "(accountants, real estate agents, health practitioners, builders)")
+                "(accountants, health practitioners; the Real Estate Authority's and the Building Practitioners Board's are read)")
 CLIENT_LIST = ("the firm's own client and matter list, and its opposing parties",)
 SECURITIES = "the Personal Property Securities Register (interface awaited since 19 September 2026)"
 POSSESSIONS = ("a mortgagee's entry into possession (pub.gazette_possessions: published, not in the report's catalogue)",)
@@ -1033,6 +1039,31 @@ def disciplinary_findings(report):
                      DISCIPLINARY[1:])
 
 
+def insolvency_register(report):
+    """The Insolvency Register (read since 9 November 2026): an estate of the entity or of a person the rules confirm is the
+    subject, red; a namesake's, amber; none, clear as the register lists estates today (it removes an estate a period after its end)."""
+    return _listed(report, ("insolvency_people", "insolvency_companies"), "insolvency-register", "red", "the Insolvency Register")
+
+
+def professional_discipline(report):
+    """The Real Estate Authority's and the Building Practitioners Board's decisions (9 November 2026): never a clear, since the
+    lawyers' tribunal beyond the courts corpus and the other professional bodies are not held."""
+    return _listed(report, ("rea_parties", "building_practitioner_decisions"), "professional-discipline", "amber",
+                   "the Real Estate Authority or the Building Practitioners Board", not_held=DISCIPLINARY, clears=False)
+
+
+def sanctions(report):
+    """New Zealand's sanctions lists (9 November 2026): a listing the rules confirm is the subject's, red; one under the name only,
+    amber, a reason to check the list's own identifiers; none, clear as the lists stand today."""
+    return _listed(report, ("sanctions_listings",), "sanctions", "red", "New Zealand's sanctions lists")
+
+
+def other_regulators(report):
+    """WorkSafe's and the Overseas Investment Office's listings (9 November 2026)."""
+    return _listed(report, ("worksafe_parties", "overseas_investment_parties"), "other-regulators", "amber",
+                   "WorkSafe or the Overseas Investment Office")
+
+
 def comcom_coverage(report):
     return _listed(report, ("commerce_commission_parties", "fma_parties"), "comcom-coverage", "amber",
                    "the Commerce Commission or the Financial Markets Authority")
@@ -1041,6 +1072,13 @@ def comcom_coverage(report):
 # ── the regulators' listings (WorkSafe, the Commerce Commission, the FMA; into the report 1 November 2026) ─────────
 
 REG_HELD = {"worksafe_parties": "WorkSafe New Zealand's court summaries and enforceable undertakings as it lists them today (pub.worksafe_parties)",
+            "overseas_investment_parties": "the Overseas Investment Office's decisions as it publishes them (pub.overseas_investment_parties)",
+            "insolvency_people": "the Insolvency Register's personal estates as its API answered (pub.insolvency_people); an annulled name withheld",
+            "insolvency_companies": "the Insolvency Register's company estates as its API answered (pub.insolvency_companies)",
+            "rea_parties": "the Real Estate Authority's decisions and their parties (pub.rea_parties)",
+            "building_practitioner_decisions": "the Building Practitioners Board's decisions in its three-year window, joined to the licence "
+                                               "register by licence number (pub.building_practitioner_decisions)",
+            "sanctions_listings": "New Zealand's sanctions lists as they stand today (pub.sanctions_listings)",
             "commerce_commission_parties": "the Commerce Commission's cases as it lists them today (pub.commerce_commission_parties)",
             "fma_parties": "the Financial Markets Authority's warnings and actions as it lists them today (pub.fma_parties)"}
 REG_EXAMPLES = 3
@@ -1495,4 +1533,5 @@ def _of_beside(report, rule, severity):
 RULES = (client_overlap, conflict_web, shared_boards, officers_of_record, holders_of_record, shared_office, company_status, insolvency_notices,
          repeat_insolvency, amalgamation, register_events, mortgagee_possession, prohibition, bankruptcy, practitioner_roles, young_entity,
          namesake_exposure, walk_coverage, subject_hub, past_roles, charity_officer_roles, charity_integrity_marks, political_money,
-         court_judgments, disciplinary_findings, comcom_coverage, securities_register)
+         court_judgments, disciplinary_findings, comcom_coverage, securities_register,
+         insolvency_register, professional_discipline, sanctions, other_regulators)

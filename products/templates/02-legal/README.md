@@ -6,7 +6,7 @@ shape in `products/report/`) for a law firm before it acts: "who is this
 counterparty, who stands on its register, and does anyone here already act
 for or against them".
 
-- `template.toml`: the 23 pub views it reads, each with its licence,
+- `template.toml`: the 47 pub views it reads (nine added 9 November 2026, ruling 146), each with its licence,
   attribution and refresh; depth 2 (the conflict web: the people on the
   person's companies, near); six sections in the order a conflicts clerk
   reads them (who the party is and its namesakes apart; officers and
@@ -16,7 +16,7 @@ for or against them".
   party's name, near; a company's charity by business number) and political
   money; what is not held, court judgments
   and disciplinary findings named); its limits.
-- `rules.py`: 27 flags, standing for the old estate's legal checks MC-L1 to
+- `rules.py`: 31 flags (four added 9 November 2026: the Insolvency Register, professional discipline, sanctions, other regulators), standing for the old estate's legal checks MC-L1 to
   MC-L5 and its person and company rules where the held registers support
   them, blocked where they do not. The firm's client list is not an input,
   so `client-overlap` is always blocked and no flag says there is no

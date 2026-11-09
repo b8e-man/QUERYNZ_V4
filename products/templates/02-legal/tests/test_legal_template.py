@@ -26,7 +26,8 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "past-roles", "possessions", "courts", "not-held"]
+ORDER = ["identity", "officers", "web", "gazette", "money", "insolvency", "discipline", "sanctions", "regulators", "past-roles", "possessions",
+         "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
@@ -93,9 +94,14 @@ def test_it_names_each_view_once_with_its_licence_and_fewer_than_the_shape():
     views = [r["view"] for r in t["reads"]]
     assert len(views) == len(set(views)) and t["depth"] == 2, "depth 2: the people on the person's companies are the conflict web"
     assert all(r.get("licence") and r.get("attribution") and r.get("refresh") for r in t["reads"])
-    with open(os.path.join(REPO, "products", "report", "templates", "subject", "template.toml"), "rb") as f:
+    # the menu is the diagnostic template's, which reads every catalogued view (9 November 2026); a product chooses from it (ruling 146)
+    with open(os.path.join(REPO, "products", "report", "templates", "diagnostic", "template.toml"), "rb") as f:
         shape = {r["view"] for r in tomllib.load(f)["reads"]}
     assert set(views) < shape, "a use-case template names fewer views than the shape's"
+    # read since 9 November 2026 (Arthur: "add those all too"); the views that are not significant for a conflict check stay out
+    assert {"insolvency_people", "insolvency_companies", "rea_parties", "building_practitioner_decisions", "building_practitioners",
+            "sanctions_listings", "worksafe_parties", "overseas_investment_parties"} <= set(views)
+    assert not {"linz_title_owners", "linz_titles", "minister_diary_attendees", "hansard_people", "beehive_people", "parliament_people"} & set(views)
     assert "gazette_practitioners" not in views, "no link reaches it: reading it would print a blank that is not a clear"
     # the Gazette's appointments are looked up by name since 2 November 2026 (walk.NAME_JOIN_TO): near, a namesake's until confirmed
     walk_src = open(os.path.join(REPO, "products", "report", "walk.py"), encoding="utf-8").read()   # read by path: imports run one way
@@ -121,7 +127,8 @@ def test_its_sections_run_in_the_conflicts_clerks_order():
         assert kind in s["gazette"]["text"].lower(), kind
     assert {"charities", "charity_officers", "charity_returns"} <= set(s["money"]["views"]) and "named" in s["money"]["sources"]
     assert not any("charities" in x.get("not_held", []) for x in t["sections"]), "the Charities Register is published and read"
-    assert {"court_coverage", "insolvency", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
+    assert {"court_coverage", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
+    assert not {"insolvency", "sanctions", "linz"} & set(s["not-held"]["not_held"]), "published since: read, or left out as not significant (9 November 2026)"
     assert "Disciplinary Tribunal" in s["not-held"]["text"] and "client and matter list" in s["not-held"]["text"]
     views = {r["view"] for r in t["reads"]}
     for x in t["sections"]:
@@ -755,3 +762,26 @@ def test_from_a_company_shared_boards_reads_who_sat_beside_the_officers_on_their
     selves = [dict(beside("Jane Mary DOE", GAMMA, "w"), beside=True), dict(beside("Jane Mary DOE", GOING, "v"), beside=True)]
     assert rule("shared_boards")(followed(*two, *selves, buckets=("officers", "beside")))["status"] == "clear", \
         "the company's own officer beside a co-officer elsewhere is the company's own, never a name beside them"
+
+
+def test_the_registers_read_since_9_november_fire_on_the_subject_amber_on_a_namesake_and_clear_or_block_on_none():
+    """Arthur, 9 November 2026: "add those all too". The Insolvency Register and the sanctions lists fire red on the subject; a
+    namesake's is amber, nothing in it the subject's; none clears as the register stands. Professional discipline never clears:
+    the lawyers' tribunal beyond the courts corpus and the other bodies are not held. An annulled or withheld name is not counted."""
+    est = it("insolvency:insolvency/7", "insolvency_people", kind="person", title="Jane DOE", statement="Jane DOE: bankrupt",
+             dates="from 3 March 2024")
+    f = rule("insolvency_register")(report(insolvency=[est]))
+    assert f["status"] == "fired" and f["severity"] == "red" and f["citations"] == (est["ref"],)
+    n = rule("insolvency_register")(report(insolvency=[dict(est, grade="near")]))
+    assert n["status"] == "fired" and n["severity"] == "amber" and "namesake" in n["text"]
+    assert rule("insolvency_register")(report(insolvency=[dict(est, suppressed=True)]))["status"] == "clear"   # annulled: withheld
+    assert rule("insolvency_register")(person())["status"] == "clear"
+    sl = it("sanctions:sanctions/1", "sanctions_listings", kind="person", grade="near", title="Jane DOE", dates="designated 1 May 2022")
+    s = rule("sanctions")(report(sanctions=[sl]))
+    assert s["status"] == "fired" and s["severity"] == "amber" and rule("sanctions")(person())["status"] == "clear"
+    d = rule("professional_discipline")(person())
+    assert d["status"] == "blocked" and any("Disciplinary Tribunal" in x for x in d["sources_not_held"])
+    bpb = it("building_practitioners:bpb/1", "building_practitioner_decisions", kind="person", title="Jane DOE", dates="decided 2 June 2025")
+    assert rule("professional_discipline")(report(discipline=[bpb]))["status"] == "fired"
+    ws = it("worksafe:worksafe/1/party/1", "worksafe_parties", title="ACME TRADING LIMITED", dates="listed 3 March 2024")
+    assert rule("other_regulators")(report(regulators=[ws]))["status"] == "fired" and rule("other_regulators")(person())["status"] == "clear"

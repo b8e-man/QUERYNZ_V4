@@ -18,7 +18,7 @@ depth = 2
 limits = [
   "The firm's own client and matter list is not an input: the report lists the names a conflict search would compare, and the comparison is the firm's. No flag here says there is no conflict.",
   "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is read (2 November 2026): the current directors of each company an officer's own row reaches, to 12 a company with the rest counted, each near, through the officer and then the company; a name on two of those companies is two rows that share a name, never one person.",
-  "Court judgments are read as far as the courts corpus holds them, a part of the courts' judgments, so none found is never a clear; the Real Estate Agents Disciplinary Tribunal's and other tribunals' decisions are read only where that corpus carries them. The professional bodies' disciplinary findings, the Insolvency Register and the Personal Property Securities Register are not held: what is not held is the last section, and nothing in this report says anything about it.",
+  "Court judgments are read as far as the courts corpus holds them, a part of the courts' judgments, so none found is never a clear; tribunals' decisions are read only where that corpus carries them. The Insolvency Register, the Real Estate Authority's and the Building Practitioners Board's decisions, the sanctions lists, WorkSafe and the Overseas Investment Office are read (9 November 2026); a person in them is matched by name, near, unless a rule confirms it. The Lawyers and Conveyancers Disciplinary Tribunal's findings beyond the corpus, the other professional bodies' findings and the Personal Property Securities Register are not held: what is not held is the last section, and nothing in this report says anything about it.",
   "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who stands behind a holding or runs a company; a nominee or trustee holds for others.",
   "The party is the row the report starts from and the rows a rule confirms are the same person. A row that only shares the name is a namesake, listed apart, and is not the party until confirmed.",
   "Two facts are shown side by side with their dates. The report never says one followed from the other.",
@@ -194,6 +194,53 @@ licence = "Register of Promoters, public under the Electoral Act 1993"
 attribution = "Electoral Commission"
 refresh = "as the register is published"
 
+# ── read since 9 November 2026 (Arthur: "add those all too"; ruling 146, product by product) ─────────────────────
+[[reads]]
+view = "insolvency_people"
+licence = "the Insolvency Register's API (MBIE, subscribed in the estate's name), read and cited under the position insolvency-register; an annulled or suppressed name is not shown"
+attribution = "Insolvency and Trustee Service, the Official Assignee"
+refresh = "nightly, the search and each estate's detail; removals and corrections daily"
+[[reads]]
+view = "insolvency_companies"
+licence = "the Insolvency Register's API (MBIE, subscribed in the estate's name), read and cited under the position insolvency-register"
+attribution = "Insolvency and Trustee Service, the Official Assignee"
+refresh = "nightly, the search and each estate's detail; removals and corrections daily"
+[[reads]]
+view = "rea_decisions"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
+[[reads]]
+view = "rea_parties"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
+[[reads]]
+view = "building_practitioner_decisions"
+licence = "Crown copyright, licensed CC BY 4.0; the Board's own three-year window; a name the Board withholds is not shown"
+attribution = "Building Practitioners Board"
+refresh = "as the Board publishes them; re-read on the lane's clock"
+[[reads]]
+view = "building_practitioners"
+licence = "the register of licensed building practitioners, read and cited under the position building-practitioners-register"
+attribution = "Ministry of Business, Innovation and Employment, Licensed Building Practitioners"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "sanctions_listings"
+licence = "Crown copyright, licensed CC BY 4.0 (MFAT); the United Nations' lists under their terms of use; read and cited under the position sanctions-lists"
+attribution = "Ministry of Foreign Affairs and Trade; the United Nations Security Council"
+refresh = "as each list is published; re-read on the lane's clock"
+[[reads]]
+view = "worksafe_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name WorkSafe withheld is not shown"
+attribution = "WorkSafe New Zealand"
+refresh = "as WorkSafe lists them; re-read on the lane's clock"
+[[reads]]
+view = "overseas_investment_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name the Office withheld is not shown"
+attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
+refresh = "as the Office publishes them; re-read on the lane's clock"
+
 # ── sections, in the order a conflicts clerk reads them ─────────────────────
 # A row is listed once, in the first section that names its view and the walk
 # bucket it came from; an entity the walk reached (a company, a return) goes
@@ -261,7 +308,6 @@ name = "gazette"
 heading = "The Gazette on the company and its people"
 views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments"]
 sources = ["members", "confirmed", "near", "pointing", "officers", "named"]
-not_held = ["insolvency"]
 text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, dissolutions and restorations, amalgamations, the Registrar's rectifications and transfers out, each under the company's name with its own date; then on the people, director prohibitions with their term and the person's own insolvency appointments as a practitioner. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, and a mortgagee's entry into possession is not reachable here: neither can show. Started from a company, its people's notices are not read. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
@@ -272,11 +318,32 @@ sources = ["members", "confirmed", "named", "roles", "officers"]
 text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the party's name, near: no link joins the register's officers to any other row yet, and, started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns; then donations, loans and promoters' roles. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's. Grants a funder published to the company by its business number, or to the charity by its registration number, as the funder lists them; never added across funders. A society's earlier states, as an earlier monthly file carried them. A councillor's register of interests that carries the subject's name, near by name; the entries are in the document cited, never here."
 
 [[sections]]
+name = "insolvency"
+heading = "The Insolvency Register"
+views = ["insolvency_people", "insolvency_companies"]
+sources = ["members", "confirmed", "near", "named", "officers", "pointing"]
+text = "A person's bankruptcy, no asset procedure or debt repayment order, and a company's liquidation the Official Assignee administers, as the register lists it, with its dates and status. A company's estate is joined by its business number; a person's only by the name, so near unless a rule confirms it: nothing in a namesake's estate is the subject's. An annulled bankruptcy's name is not shown. The register shows an estate for a period after its end and then removes it, so none listed here is not a finding of none before that window."
+
+[[sections]]
+name = "discipline"
+heading = "Professional disciplinary decisions"
+views = ["rea_decisions", "rea_parties", "building_practitioner_decisions", "building_practitioners"]
+sources = ["members", "confirmed", "near", "named", "officers"]
+text = "A party to a Real Estate Authority decision, and a Building Practitioners Board decision with the practitioner it names, joined to the licence register by the licence number the decision prints: confirmed where the names agree in full, near where they do not, the lack of a full match perhaps another rendering of the name. A decision states what the body decided. The Lawyers and Conveyancers Disciplinary Tribunal's decisions are read only where the courts corpus carries them; the other professional bodies' findings are not held."
+
+[[sections]]
+name = "sanctions"
+heading = "Sanctions lists"
+views = ["sanctions_listings"]
+sources = ["members", "confirmed", "near", "named", "officers"]
+text = "A listing on New Zealand's sanctions lists (the Russia Sanctions Act's register and the United Nations Security Council's lists as New Zealand applies them), as the list stands today, with its regime and dates. A listing is matched by name, so near unless a rule confirms it: a namesake's listing is not the subject's, and a near listing is a reason to check the list's own identifiers, never a finding."
+
+[[sections]]
 name = "regulators"
 heading = "The regulators' listings"
-views = ["commerce_commission_parties", "fma_parties"]
+views = ["commerce_commission_parties", "fma_parties", "worksafe_parties", "overseas_investment_parties"]
 sources = ["named", "members", "confirmed", "near"]
-text = "A party named in a regulator's listing as it stands today: the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
+text = "A party named in a regulator's listing as it stands today: the Commerce Commission's cases, the Financial Markets Authority's warnings and actions, WorkSafe's prosecutions and enforceable undertakings, and the Overseas Investment Office's decisions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
 
 [[sections]]
 name = "past-roles"
@@ -303,5 +370,5 @@ text = "A party to a judgment the courts corpus holds, as the judgment's heading
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["court_coverage", "insolvency", "securities", "fsp", "sanctions", "linz"]
-text = "Registers a conflict check would read that no lane has published: the courts' judgments the courts corpus does not hold, the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal and the other professional bodies, the Insolvency Register, the Personal Property Securities Register, a limited partnership's limited partners (the register publishes its general partners, which are read), financial service providers, sanctions lists and land titles. The firm's own client and matter list is not an input. Nothing in this report says anything about them; ask the source."
+not_held = ["court_coverage", "securities", "fsp"]
+text = "Registers a conflict check would read that no lane has published: the courts' judgments the courts corpus does not hold, the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal (beyond what the corpus carries) and of the other professional bodies (accountants, health practitioners), the Personal Property Securities Register, a limited partnership's limited partners (the register publishes its general partners, which are read) and financial service providers. The firm's own client and matter list is not an input. Land titles, ministers' diaries and the House's and the Beehive's mentions are published and not read here: they are not significant for a conflict check (ruling 146). Nothing in this report says anything about what is not held; ask the source."
