@@ -177,8 +177,14 @@ def _bound(cat, values):
         sql.SQL("{}::{}").format(sql.Literal(v), sql.SQL(t)) for v, t in zip(values, cat["key_types"])))
 
 
+def _kept(cat):
+    """The rows copied: none matching a leave_out pair (a NULL value never matches, so its row is kept)."""
+    return [sql.SQL("NOT COALESCE({} ILIKE {}, false)").format(sql.Identifier(c), sql.Literal(p))
+            for c, p in cat.get("leave_out", ())]
+
+
 def _where(cat, after, through):
-    parts = []
+    parts = _kept(cat)
     if after is not None:
         parts.append(sql.SQL("{} > {}").format(_keyrow(cat), _bound(cat, after)))
     if through is not None:
@@ -239,12 +245,12 @@ def measure_whole(conn, rel, cat) -> tuple:
     """(rows, md5) of a whole keyless table: md5 over each row's md5, the row md5s sorted."""
     r = conn.execute(sql.SQL(
         "SELECT count(*), md5(COALESCE(string_agg(m, '' ORDER BY m), '')) FROM (SELECT md5(s::text) AS m "
-        "FROM (SELECT {} FROM {}) s) h").format(_cols(cat), rel)).fetchone()
+        "FROM (SELECT {} FROM {} WHERE {}) s) h").format(_cols(cat), rel, _where(cat, None, None))).fetchone()
     return int(r[0]), r[1]
 
 
 def _stream_whole(src, dst, src_rel, dst_rel, cat) -> int:
-    out = sql.SQL("COPY (SELECT {} FROM {}) TO STDOUT").format(_cols(cat), src_rel)
+    out = sql.SQL("COPY (SELECT {} FROM {} WHERE {}) TO STDOUT").format(_cols(cat), src_rel, _where(cat, None, None))
     into = sql.SQL("COPY {} ({}) FROM STDIN").format(dst_rel, _cols(cat))
     with src.cursor() as sc, dst.cursor() as dc:
         with sc.copy(out) as cin, dc.copy(into) as cout:
@@ -317,6 +323,10 @@ def copy_table(src, dst, spec, *, schema: str = None, ledger: str = LEDGER, rows
     schema = schema or dest_schema(spec.database)
     try:
         cat = catalogue(src, spec.schema, spec.table, spec.key)
+        cat["leave_out"] = tuple(spec.leave_out)
+        for c, _ in spec.leave_out:
+            if c not in {x["name"] for x in cat["columns"]}:
+                raise Refused(f"leave_out names {c}, not a column of the table")
         check_types(dst, cat)
         table = dest_table(spec.schema, spec.table)
         ensure_dest(dst, cat, schema, table)
@@ -380,6 +390,7 @@ def dry_run(src, spec, *, rows: int = BATCH_ROWS, max_batches: int = 10_000, typ
     column gives the same figure for a copy made with the same batch size). `types_in`, a read connection to the new
     database, checks every column's type is there (Refused if not)."""
     cat = catalogue(src, spec.schema, spec.table, spec.key)
+    cat["leave_out"] = tuple(spec.leave_out)
     if types_in is not None:
         check_types(types_in, cat)
     rel = _ident(spec.schema, spec.table)

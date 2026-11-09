@@ -18,6 +18,7 @@ class Table:
     status: str
     key: tuple = ()                 # the inventory's key columns, or () for the catalogue's
     ranges: tuple = ((None, None),)  # (after, through) per range, each a list of key text or None
+    leave_out: tuple = ()           # (column, ILIKE pattern) pairs: rows matching any are not copied (held elsewhere)
 
     @property
     def piece(self) -> str:
@@ -90,6 +91,10 @@ def tables(inv: dict, databases=None) -> tuple:
         if any(not _NAME.match(str(k)) for k in key):
             skipped.append((name, st, "the inventory's key is not a list of column names"))
             continue
+        leave_out = tuple((str(r.get("column")), str(r.get("like"))) for r in (e.get("leave_out") or []))
+        if any(not _NAME.match(c) or not p for c, p in leave_out):
+            skipped.append((name, st, "the inventory's leave_out is not a list of {column, like}"))
+            continue
         if st == "PARTLY":
             missing = e.get("missing") or e.get("missing_ranges") or []
             if not missing:
@@ -98,7 +103,7 @@ def tables(inv: dict, databases=None) -> tuple:
             ranges = tuple((_bound(r.get("after")), _bound(r.get("through"))) for r in missing)
         else:
             ranges = ((None, None),)
-        out.append(Table(db_, sch, tab, st, key, ranges))
+        out.append(Table(db_, sch, tab, st, key, ranges, leave_out))
     return out, skipped
 
 

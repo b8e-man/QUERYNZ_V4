@@ -354,3 +354,37 @@ def test_old_files_land_by_their_bytes_and_the_walk_resumes(env, tmp_path):
         assert again["counts"] == {"held-by-path": 4, "not-wanted": 2}
     finally:
         e["dst"].rollback()
+
+
+def test_rows_held_elsewhere_are_left_out_by_the_inventory_and_a_null_is_kept(env):
+    e = env
+    s, d = e["src_s"], e["dst"]
+    spec = inventory.Table("querynz_v4_sample", s, "t", "NEW", (), ((None, None),), (("label", "%tab%"),))
+    out = _copy(e, spec, rows=100)
+    assert out["rows"] == 1234 - 1234 // 7 and out["caught_up"]
+    rel = f"{e['dst_s']}.{s}__t"
+    assert d.execute(f"SELECT count(*) FROM {rel} WHERE label ILIKE '%tab%'").fetchone()[0] == 0
+    want = e["src"].execute(f"SELECT count(*), md5(string_agg(md5(x::text), '' ORDER BY id)) FROM "
+                            f"(SELECT * FROM {s}.t WHERE label NOT ILIKE '%tab%') x").fetchone()
+    e["src"].rollback()
+    assert _whole(d, rel) == tuple(want)
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as c:
+        c.execute(f"INSERT INTO {s}.nokey VALUES (2, 'gone'), (3, NULL), (4, 'kept')")
+        c.commit()
+    whole = inventory.Table("querynz_v4_sample", s, "nokey", "NEW", (), ((None, None),), (("b", "gone"),))
+    assert _copy(e, whole)["rows"] == 3                          # (1,'x'), (3,NULL), (4,'kept')
+    assert d.execute(f"SELECT count(*) FROM {e['dst_s']}.{s}__nokey WHERE b IS NULL").fetchone()[0] == 1
+    with pytest.raises(T.Refused, match="not a column"):
+        _copy(e, inventory.Table("querynz_v4_sample", s, "pair", "NEW", (), ((None, None),), (("nope", "x"),)))
+    d.rollback()
+
+
+def test_the_inventory_reads_leave_out_and_refuses_a_malformed_one():
+    inv = {"tables": [
+        {"database": "incoming_news", "schema": "public", "table": "a", "status": "NEW",
+         "leave_out": [{"column": "news_url", "like": "%paperspast.natlib.govt.nz%"}]},
+        {"database": "incoming_news", "schema": "public", "table": "b", "status": "NEW",
+         "leave_out": [{"column": "x; drop", "like": "%"}]}]}
+    todo, skipped = inventory.tables(inv)
+    assert [t.leave_out for t in todo] == [(("news_url", "%paperspast.natlib.govt.nz%"),)]
+    assert any("leave_out" in w for _, _, w in skipped)

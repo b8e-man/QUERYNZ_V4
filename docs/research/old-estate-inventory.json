@@ -99,7 +99,14 @@
    "note": "7.51 M rows. NEW for every outlet but three: Papers Past 4,648,837 rows matched by upstream_id (papers_past.items.held_in_old, all 4,648,837; titles 5/5 equal, text lengths differ: the old text is another rendering); beehive.govt.nz 55,347 (15/15 urls in beehive.releases); gazette.govt.nz 208,914 (gazette.notices.article). These overlaps are not cut on the key (id is a uuid), so the table is copied whole; the overlap is about 4.9 M rows, 10 GB of text. NZME mastheads in (ruling 161): nzherald.co.nz 779,702, businessdesk.co.nz 2,885",
    "date_range": "post_date 1848-04-25 to 2026-11-09; fetched to 2026-11-10",
    "dest": "querynz_v4.old_incoming_news_private.articles",
-   "where_to": "/home (the database's own disk)"
+   "where_to": "/home (the database's own disk)",
+   "leave_out": [
+    {
+     "column": "news_url",
+     "like": "%paperspast.natlib.govt.nz%",
+     "why": "Arthur, 10 November (ruling 163): all 4,648,837 Papers Past rows are held in papers_past.items (held_in_old, checked by the integrator), so the old copies are not needed"
+    }
+   ]
   },
   {
    "database": "incoming_news",

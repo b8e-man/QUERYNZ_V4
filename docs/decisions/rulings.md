@@ -1435,3 +1435,12 @@ the recovered news dump held on node1 is left out.
 the copies of the old estate's tables in querynz_v4 among them; the old estate's own
 databases and trees go on being backed up until the new estate is proven to hold
 everything in them, and only then stop. Nothing is lost in between.
+
+163. Arthur, 10 November, on stream I's three questions: (a) the old press graph
+(extractions, 257 GB with the candidate register) and the article vectors (38 GB) are
+not kept; when the old estate's off-site copy stops (ruling 162) they are gone, and the
+proof that the new estate holds everything counts them as let go. (b) The fyi.org.nz
+articles (32,584) and OIA requests (302) inside the copied tables are copied anyway.
+(c) The old estate's Papers Past rows are not copied, because the new estate holds all
+of them: every one of the 4,648,837 is matched in papers_past.items (held_in_old),
+checked by the integrator on 10 November; the inventory leaves them out of `articles`.
