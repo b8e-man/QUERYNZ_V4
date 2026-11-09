@@ -58,7 +58,11 @@ def memo(ref: str) -> dict:
     for name in COMMON:
         assert len(re.findall(rf"^  (?:FIRED|CLEAR|BLOCKED)\s+\w+\s+{name}@", text, re.M)) == 1, name
     assert flags["client-overlap"]["status"] == "blocked", "the firm's list is not an input: no overlap is ever cleared"
-    assert flags["court-judgments"]["status"] == "blocked" and "not held: Court judgments" in text
+    # the courts corpus is read since the courts lane, a part of the courts' judgments (9 November 2026): blocked where no party
+    # names the subject, amber only where the rules confirm the subject is a party, info for an officer's or a namesake's case
+    court = flags["court-judgments"]
+    assert court["status"] == "blocked" or (court["severity"] == "amber") == ("name the subject or a person the rules confirm" in court["text"]), court
+    assert court["severity"] in ("amber", "info") and "not held: Court judgments the corpus held does not carry" in text
     return {"text": text, "flags": flags, "sections": sections}
 
 

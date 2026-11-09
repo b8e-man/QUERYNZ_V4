@@ -24,7 +24,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.d
 FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.]+: (.*)$")
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 CARE = r"'(rest home|lifecare|healthcare|retirement|village)'"
-NOT_HELD = ("hdc-decisions", "certification-audits", "provider-registers", "aged-care-commissioner", "court-judgments",
+NOT_HELD = ("hdc-decisions", "certification-audits", "provider-registers", "aged-care-commissioner",
             "past-roles", "charity-arm", "charity-returns", "charity-audit-opinion", "charity-return-filed")
 #: a care-named company with two to six current directors, one of whom has a confirmed row as director of another care-named company
 OVERLAP = f"""
@@ -67,6 +67,11 @@ def memo(ref: str) -> dict:
     assert "could not run" not in text, "a rule broke on real rows"
     for name in NOT_HELD:
         assert flags[name]["status"] == "blocked", name
+    # the courts corpus is read since the courts lane (a part of the courts' judgments): blocked where no party names the subject,
+    # amber only where the rules confirm the subject is a party, info for an officer's or a namesake's case (9 November 2026)
+    court = flags["court-judgments"]
+    assert court["status"] == "blocked" or (court["severity"] == "amber") == ("name the subject or a person the rules confirm" in court["text"]), court
+    assert court["severity"] in ("amber", "info"), court
     # the retirement villages file is read since 2 November 2026: from a company, fired or clear, never blocked
     assert flags["retirement-villages"]["status"] in ("fired", "clear") and flags["retirement-villages"]["severity"] == "info"
     line = [x for x in text.splitlines() if x.startswith("  not held: Health and Disability Commissioner decisions") and "Court judgments" in x]

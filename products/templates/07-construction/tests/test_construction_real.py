@@ -113,4 +113,8 @@ def test_a_company_that_only_shares_a_failed_companys_name_is_never_red():
     m = memo(row(SAME_NAME)[0])
     f = m["flags"]["same-name-failed"]
     assert f["status"] == "fired" and f["severity"] in ("info", "amber") and "never one firm or one person" in f["text"]
-    assert not (m["flags"]["phoenix-signature"]["status"] == "fired" and "share" not in m["flags"]["phoenix-signature"]["text"])
+    # the phoenix signature fires on a shared office, or (2 November 2026) on a failure at another company a director of the entity
+    # sits on, by the director's own confirmed rows: never on the shared name alone, and never red from a company
+    p = m["flags"]["phoenix-signature"]
+    assert not (p["status"] == "fired" and "share" not in p["text"] and "a director of the entity sits on" not in p["text"]), p
+    assert not (p["status"] == "fired" and p["severity"] == "red"), p
