@@ -97,3 +97,26 @@ def test_an_annulled_bankruptcy_says_it_was_annulled_and_never_no_end_filed():
     assert "annulled; the date is in the estate's detail, not yet read" in said({"status": "Annulled"})
     assert "no end filed" in said({"status": "Currently Bankrupt/NAP"})
     assert "no end filed" not in said({"status": "Annulled"})
+
+
+def test_a_body_in_a_table_of_people_and_bodies_is_a_body_and_every_kind_column_is_real():
+    """Finding 16 (9 November 2026): the tables that say each row's kind are read by it; a value they do not name stays the view's."""
+    v = cat.BY_NAME["court_people"]
+    assert cat.kind_of(v, {"kind": "body"}) == "organisation" and cat.kind_of(v, {"kind": "person"}) == "person"
+    assert cat.kind_of(cat.BY_NAME["linz_title_owners"], {"kind": "corporate"}) == "organisation"
+    assert cat.kind_of(cat.BY_NAME["linz_title_owners"], {"kind": "individual"}) == "person"
+    assert cat.kind_of(cat.BY_NAME["beehive_people"], {"kind": "place"}) == "place"
+    assert cat.kind_of(cat.BY_NAME["hansard_people"], {"kind": "other"}) == "person"       # left to the view
+    assert cat.kind_of(cat.BY_NAME["directors"], {"kind": "body"}) == "person"             # a table not listed keeps its kind
+    assert set(cat.ROW_KIND) <= set(cat.BY_NAME)
+
+
+def test_a_ref_with_a_person_s_part_after_a_hash_opens_its_row(monkeypatch):
+    """Finding 7 (9 November 2026): `parliament:<key>#minister` is the written question <key>, linked once per person."""
+    from products.report import rows
+    asked = []
+    monkeypatch.setattr(rows.db, "has_relation", lambda *a: False)
+    monkeypatch.setattr(rows, "row", lambda conn, view, key: asked.append((view, key)) or ({"key": key} if view == "parliament_written_questions" else None))
+    v, r = rows.locate(None, "parliament:wq/2024/123#minister")
+    assert v.name == "parliament_written_questions" and r == {"key": "wq/2024/123"}
+    assert all(k == "wq/2024/123" for _, k in asked)

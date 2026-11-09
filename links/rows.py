@@ -387,6 +387,10 @@ DONATION_VIEWS = {"party_return_donors", "candidate_return_donors", "disclosures
 #: graph?" ... "do those things"): never a name form for the name pass (links.sightings), so one model mistake is not
 #: copied into every document that prints the same string
 MODEL_VIEWS = frozenset({"beehive_people", "hansard_people", "parliament_people", "court_people"})
+#: the views every row of which is a body, whatever its name's words (9 November 2026, the diagnostic report's finding 17:
+#: 2,545 of the iwi directory's 2,697 iwi, hapū, marae and governance entities were read as people, a name with no
+#: organisation word in English)
+BODY_VIEWS = frozenset({"iwi_directory_entities"})
 _DASHES = (" – ", " — ", " - ")
 _TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
 _BRACKETED = re.compile(r"\s*\([^()]*\)")
@@ -541,7 +545,7 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
         read = read_name(bare)
         return (ref, register, view, key, "person", name, read["given"], read["middle"], read["family"], read["name_key"], read["fl_key"],
                 read["full_key"], read["has_middle"], entity, started, ended, election, electorate, True, document, None, suppressed)
-    kind = kn.name_kind(name)
+    kind = "organisation" if view in BODY_VIEWS else kn.name_kind(name)
     if kind == "person" and view in DONATION_VIEWS and kn.is_joint_name(name) is True:
         # one donor, two people: read as nobody alone; its part rows carry the people (part_records)
         read = {"given": None, "middle": None, "family": None, "name_key": kn.person_key(name),

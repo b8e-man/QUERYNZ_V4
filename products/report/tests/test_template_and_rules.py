@@ -125,6 +125,13 @@ def test_a_registers_own_words_are_not_the_reports_and_a_planted_fault_still_is(
     assert any("rule 4" in p for p in rules.problems(report([item(ref="x:1", statement="Jane DOE: owner of ACME LIMITED", entity_title="ACME LIMITED")])))
     because = {"rule": "r", "status": "fired", "severity": "red", "text": "fired because of x", "citations": ("a:b",), "sources_held": ()}
     assert any("rule 3" in p for p in rules.problems(report([item(ref="x:1")], flags=[because])))
+    # a fired flag quoting a register's name is not the report joining facts (9 November 2026); its own "because" still is
+    quoting = {**because, "text": "officer of NZ PEST CONTROL SOCIETY INCORPORATED (from 2010)"}
+    society = item(ref="societies:s/1/officer/a", statement="Jane DOE: officer of NZ PEST CONTROL SOCIETY INCORPORATED",
+                   entity_title="NZ PEST CONTROL SOCIETY INCORPORATED")
+    assert not [p for p in rules.problems(report([society], flags=[quoting])) if "rule 3" in p]
+    both = {**quoting, "text": quoting["text"] + ", because the names match"}
+    assert any("rule 3" in p for p in rules.problems(report([society], flags=[both])))
     assert rules.address_shaped("2020 Great North Road, Avondale") and not rules.address_shaped("Terrace Investments 2000 Limited")
 
 

@@ -372,3 +372,11 @@ def test_two_of_the_name_for_the_party_in_one_election_and_no_pair_confirms():
     assert out[0][2]["evidence"]["elections_with_two_of_this_name"] == ["ge-2023"]
     # two in one election and never another: still near, still said
     assert [j["grade"] for *_, j in rules.same_party_candidates(rows_[1:])] == ["near"]
+
+
+def test_an_iwi_hapu_or_marae_is_a_body_whatever_its_name_s_words():
+    """Finding 17 (9 November 2026): the iwi directory's rows read as people by their names' words; every one is a body."""
+    rec = rows.row_record("iwi_directory", "iwi_directory_entities",
+                          ("iwi/hapu/x", "Ngāti Example", None, None, None, None, None, "doc", False, None, None, None))
+    assert rec[4] == "organisation" and rec[10] is None and rec[11] is None
+    assert rows.row_record("house", "candidates", ("k", "Ngāti Example", None, None, None, None, None, "doc", False, None, None, None))[4] == "person"

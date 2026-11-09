@@ -468,6 +468,27 @@ LINKS_VIEWS = frozenset({"links", "groups", "decisions", "names", "old_decisions
 #: every other table a lane's publish.sql defines, and why the report reads no row of it (the diagnostic report's
 #: inventory, 9 November 2026). A table neither here nor in VIEWS fails tests/test_catalogue.py: a new table is placed
 #: before it is published, so a register that names people is never silently left out of every report
+#: the tables that mix people and bodies and say each row's kind in a column (finding 16, 9 November 2026): a body there is
+#: walked as a body, never as a person. A value read as a person, a place, or (`other`) left to the view's own kind.
+ROW_KIND = {"charity_officers": "kind", "rea_parties": "kind", "limited_partnership_partners": "kind", "court_people": "kind",
+            "linz_title_owners": "kind", "sanctions_listings": "kind", "hansard_people": "kind", "beehive_people": "kind",
+            "parliament_people": "kind", "minister_diary_attendees": "kind"}
+ROW_KIND_PERSON = ("person", "individual")
+ROW_KIND_PLACE = ("place",)
+ROW_KIND_OPEN = ("other", "")
+
+
+def kind_of(v: "View", r: dict) -> str:
+    """A row's kind: its own column's where its table mixes people and bodies (ROW_KIND), else its view's."""
+    col = ROW_KIND.get(v.name)
+    if not col or r is None:
+        return v.kind
+    value = str(r.get(col) or "").strip().lower()
+    if value in ROW_KIND_OPEN:
+        return v.kind
+    return "person" if value in ROW_KIND_PERSON else "place" if value in ROW_KIND_PLACE else "organisation"
+
+
 NOT_READ = {
     "agency_contract_costs": "an agency's contract totals by year: a figure on an agency, no person or body is a party",
     "beehive_release_annotations": "a model's notes on a release; the people it names are in beehive_people",

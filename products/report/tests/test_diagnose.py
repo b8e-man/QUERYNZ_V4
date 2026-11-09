@@ -13,7 +13,7 @@ class Names:
 def _fake_rows(names):
     def rows(conn, sql, params=()):
         if "limit 1" in sql:
-            return [{"full_key": r[3], "fl_key": None} for r in names.rows if r[0] == params[0]][:1]
+            return [{"full_key": r[3], "fl_key": r[3]} for r in names.rows if r[0] == params[0]][:1]
         return [{"register": r[1], "view": r[2], "ref": r[0]} for r in names.rows if r[3] == params[0]]
     return rows
 
@@ -64,3 +64,9 @@ def test_the_diagnostic_template_reads_every_catalogued_table_and_is_as_make_wri
     assert set(t.buckets) >= {"members", "confirmed", "near", "officers", "office", "chain"}
     with open(os.path.join(make.HERE, "template.toml"), encoding="utf-8") as f:
         assert f.read() == make.render(), "run make.py: the catalogue changed"
+
+
+def test_a_surname_alone_is_looked_for_nowhere(monkeypatch):
+    """Finding 8 (9 November 2026): a Board decision's "Mr Smith" is filed in every register; no rule joins on it."""
+    monkeypatch.setattr(D.db, "rows", lambda conn, sql, params=(): [{"full_key": "smith", "fl_key": ""}])
+    assert D.where_else(None, {"found": True, "ref": "x:1", "sections": []}) == []

@@ -190,6 +190,7 @@ def problems(report: dict) -> list:
         m = CAUSE.search(h.get("text") or "")
         if m:
             out.append(f"hub {h.get('ref')}: a word of cause in its text: {m.group(0)!r} (rule 3)")
+    flag_values = None
     for f in report.get("flags", []):
         if f["status"] == "fired" and not f["citations"]:
             out.append(f"flag {f['rule']}: fired without citations (rule 9)")
@@ -197,6 +198,15 @@ def problems(report: dict) -> list:
             out.append(f"flag {f['rule']}: clear without the sources held (rule 9)")
         if f["status"] == "blocked" and not f["text"]:
             out.append(f"flag {f['rule']}: blocked without a reason (rule 9)")
-        if CAUSE.search(f["text"]) and f["status"] == "fired":
+        if f["status"] == "fired" and CAUSE.search(f["text"]):
+            # the registers' own words a flag quotes (a society named "... Pest Control ...") are masked as an item's are: rule 3
+            # judges the report's wording (9 November 2026: a construction report refused on a society's registered name)
+            if flag_values is None:
+                flag_values = sorted({v for it in _items(report) for v in register_values(it)}, key=len, reverse=True)
+            text = " ".join(f["text"].split())
+            for v in flag_values:
+                text = text.replace(v, " ")
+            if not CAUSE.search(text):
+                continue
             out.append(f"flag {f['rule']}: a word of cause in a fired flag (rule 3)")
     return out

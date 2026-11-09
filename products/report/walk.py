@@ -210,7 +210,7 @@ def item(v: cat.View, r: dict, entity_title: str = None, **extra) -> dict:
     """One row as the report carries it: ref, title, statement, dates,
     citation, grade and reason, flags. The row itself is kept for the
     template's rules; the memo never prints it whole."""
-    it = {"ref": rows.ref_of(v, str(r.get(v.key_col))), "view": v.name, "register": v.register, "kind": v.kind,
+    it = {"ref": rows.ref_of(v, str(r.get(v.key_col))), "view": v.name, "register": v.register, "kind": cat.kind_of(v, r),
           "title": rows.title(v, r), "statement": rows.statement(v, r, entity_title), "dates": rows.dates(v, r),
           "citation": rows.citation(v, r), "suppressed": rows.is_suppressed(v, r),
           "note": (r.get(v.row_note) if v.row_note and r.get(v.row_note) else
@@ -1164,15 +1164,16 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
     if sv.name not in allowed:
         out["start_outside_template"] = True
     # 1. the group: a person's own; a filed row takes the group of the person row a confirmed link names; an organisation needs none
-    if sv.kind == "person":
+    sk = cat.kind_of(sv, sr)   # a body in a table of people and bodies is walked as a body (finding 16)
+    if sk == "person":
         g = group_of(conn, ref)
-    elif sv.kind == "figure" and links_built(conn):
+    elif sk == "figure" and links_built(conn):
         g = adopted_group(conn, ref, sv, cache)
     else:
         g = {"built": links_built(conn), "why": "an organisation needs no group: its official number is the link",
              "rows": [ref], "size": 1, "contested": False, "omitted": 0, "group_id": None, "settings": None}
     out["group"] = {k: g.get(k) for k in ("built", "why", "group_id", "contested", "settings", "size", "omitted", "via", "via_groups")}
-    subject_person = sv.kind == "person" or bool(g.get("via"))   # a filed row walking a person's group is graded as a person's walk
+    subject_person = sk == "person" or bool(g.get("via"))   # a filed row walking a person's group is graded as a person's walk
     member_refs = [ref] + [r for r in g["rows"] if r != ref]      # the start first: its own entity is confirmed whatever other member reaches it
     members = set(member_refs)
     for mref in member_refs:
@@ -1244,7 +1245,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
     # the rows of other registers that are the same entity by an official number (a company's charity row): entities too, with the parent's grade
     out["entities"] += number_joined(conn, out["entities"], allowed, skipped)
     # an organisation start's own name among the rows that name a body by name only: near (2 November 2026)
-    if sv.kind == "organisation":
+    if sk == "organisation":
         out["named"] += organisation_named(conn, sv, sr, allowed, skipped)
     # the rows of views no link reaches yet that carry a member's name (a charity officer): near by name, listed with the member's grade
     joined, joined_omitted = name_joined(conn, [m for m in out["members"] if m["kind"] == "person"], allowed, skipped)

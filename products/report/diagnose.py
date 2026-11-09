@@ -42,7 +42,7 @@ def where_else(conn, report: dict) -> list:
     if not me:
         return []
     col, key = ("full_key", me[0]["full_key"]) if me[0]["full_key"] else ("fl_key", me[0]["fl_key"])
-    if not key:
+    if not key or not me[0]["fl_key"]:   # a surname alone ("Mr Smith"): every register files it, and no rule should join on it
         return []
     reached = {it["ref"] for it in _items(report)} | {ref}
     got = db.rows(conn, f"select register, view, ref from pub.names where {col} = %s limit 5000", (key,))
@@ -50,7 +50,7 @@ def where_else(conn, report: dict) -> list:
     for r in got:
         e = out.setdefault((r["register"], r["view"]), {"register": r["register"], "view": r["view"], "rows": 0, "reached": 0})
         e["rows"] += 1
-        e["reached"] += r["ref"] in reached
+        e["reached"] += r["ref"].split("#", 1)[0] in reached     # a written question is linked once per person, "#asker"
     return sorted(out.values(), key=lambda e: (e["reached"] > 0, e["register"], e["view"]))
 
 
@@ -114,11 +114,11 @@ CASES = (
     ("a person in the Insolvency Register", "select ref from pub.names where view = 'insolvency_people' order by ref limit 1"),
     ("a licensed building practitioner confirmed to a company", "select row_a from pub.links where row_a like 'building_practitioners:%%/lbp/%%' "
                                                                 "and row_b like 'companies:%%' and grade = 'confirmed' order by row_a limit 1"),
-    ("a person named in a Building Practitioners Board decision", "select ref from pub.names where view = 'building_practitioner_decisions' order by ref limit 1"),
+    ("a person named in a Building Practitioners Board decision", "select ref from pub.names where view = 'building_practitioner_decisions' and kind = 'person' and fl_key <> '' order by ref limit 1"),
     ("a body on a sanctions list", "select ref from pub.names where view = 'sanctions_listings' and kind = 'organisation' order by ref limit 1"),
     ("a grant recipient", "select ref from pub.names where view = 'grant_recipients' order by ref limit 1"),
     ("an iwi entity", "select ref from pub.names where view = 'iwi_directory_entities' and ref like '%%/iwi/%%' order by ref limit 1"),
-    ("a person on a ministerial diary", "select ref from pub.names where view = 'minister_diary_attendees' and kind = 'person' order by ref limit 1"),
+    ("a person on a ministerial diary", "select ref from pub.names where view = 'minister_diary_attendees' and kind = 'person' and fl_key <> '' order by ref limit 1"),
     ("a party board member", "select ref from pub.names where view = 'party_board_roles' order by ref limit 1"),
     ("a Māori name with a macron", "select ref from pub.names where view = 'linz_title_owners' and kind = 'person' and name_filed ~ '[āēīōūĀĒĪŌŪ]' "
                                    "order by ref limit 1"),   # no director's name carries a macron (9 November 2026)

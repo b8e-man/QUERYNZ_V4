@@ -260,6 +260,9 @@ def locate(conn, ref: str) -> tuple:
     row it does not carry (a company, a return, a notice) is looked for in
     each view of its register."""
     register, key = split_ref(ref)
+    # a row naming two people (a written question's asker and minister) is linked once per person, its ref carrying the
+    # person's part after "#": the row is the key's (finding 7, 9 November 2026: every written question's link was dropped)
+    key = key.split("#", 1)[0]
     if not register or not key:
         return None, None
     if db.has_relation(conn, "pub", "names"):
