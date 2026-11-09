@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-10 05:00 NZDT. **Process:** ruling 131 (31 Oct) ended
+**Date:** 2026-11-10 05:45 NZDT. **Process:** ruling 131 (31 Oct) ended
 the plan's gate process; work runs on Arthur's word. **Boxes:** two, both
 take every job (ruling 145); node1 primary on 10.0.0.10 since the drill,
 node2 its streaming standby; the voter on 192.168.68.57. **Alarms:** the
@@ -42,9 +42,9 @@ old ntfy.
 
 ## Half-done
 
-- Step 9 (150-158), night of 9 Nov: 1, 2, 6 (3 hops, 158), 8 built;
-  7's code ahead of the corpus; 5: 3 reds cleared, 6 lanes on the
-  MCP's copy, worksafe waits on the pull. Next: connections pane.
+- Step 9 (150-159), 10 Nov: 1, 2, 6 (3 hops), 8, connections pane
+  built; 7's code ahead of the corpus; 5: reds cleared, 6 lanes on the
+  MCP; its freshness lit, handover/mcp-stale.md for the provider.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
