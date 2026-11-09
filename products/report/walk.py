@@ -48,7 +48,8 @@ LIMITS = {"members": 300, "links": 400, "star": 400, "related_people": 20, "role
           "beside": 12}   # the people beside a followed officer on each of the officer's other companies (2 November 2026)
 SETTINGS = {"hub_roles": 50, "hub_holdings": 50, "busy_address": 50, "thousand_address": 1000,
             "through_people": "near"}   # design: a connection through more than one person is near, never confirmed
-BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside")
+BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside",
+           "stage1")   # stage1: the confirmed web the one report's first stage adds (products/report/stage1.py)
 #: the third grade of `pub.links` (ruling 106 (2)): two entities and what the one is to the other. Never an identity and never
 #: near: the other company is listed as itself under its own heading (build.RELATED_SECTION), never walked, never an entity of the walk
 RELATED = "related"
@@ -791,7 +792,8 @@ def current_role(r: dict) -> bool:
     return bool(r.get("in_latest", True)) and not r.get("ended_on")
 
 
-def follow_officers(conn, ref: str, officers: list, allowed: set, skipped: list, cache: dict) -> tuple:
+def follow_officers(conn, ref: str, officers: list, allowed: set, skipped: list, cache: dict, near_links: bool = True,
+                    aside: list | None = None) -> tuple:
     """From an organisation start, each officer on it one step: the rows of
     the officer's group (confirmed links) the template allows, and beside
     them the rows the officer's near links reach (a namesake's companies,
@@ -802,7 +804,9 @@ def follow_officers(conn, ref: str, officers: list, allowed: set, skipped: list,
     rule and, after the officer's reason, the link's (NEAR_OFFICER_LINK), so
     a reader sees a namesake's companies set apart rather than nothing.
     Both under the same officer limits. Returns (items, officers followed,
-    officers past the limit, near links past the limit)."""
+    officers past the limit, near links past the limit). With `near_links`
+    off (the first stage, ruling 157), an officer's near links are counted into
+    `aside` and never listed or followed."""
     out, seen = [], set()
     followed = [o for o in officers if not o["suppressed"]][:LIMITS["officers"]]
     links_omitted = 0
@@ -817,6 +821,10 @@ def follow_officers(conn, ref: str, officers: list, allowed: set, skipped: list,
                 _officer_row(conn, ref, o, mref, reason, "through-officer", None, allowed, skipped, cache, seen, count, out)
         L = links_of(conn, [o["ref"]])
         links_omitted += L["omitted"]
+        if not near_links:
+            if aside is not None:
+                aside.append(len(L["near"]))
+            L["near"] = []
         for l in L["near"]:
             if l["other"] in g["rows"] or l["other"] == o["ref"]:
                 continue
@@ -1142,14 +1150,20 @@ def above_company(conn, cv: cat.View, crow: dict, it: dict, d: int, allowed: set
     return out
 
 
-def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth: int = 0) -> dict:
+def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth: int = 0, near_links: bool = True) -> dict:
     """The walk from one row. `allowed`: the published views the template
     names. `depth`: 1 = the group and the entities it sits on; 2 = also the
     other rows on those entities (near). `buckets`: the walk's buckets some
     section of the template draws on (all when None); the officers, office
     and chain reaches run only when asked for. `chain_depth`: how many
-    company holders up the chain is followed from a company start."""
+    company holders up the chain is followed from a company start.
+    `near_links`: False for the one report's first stage (ruling 157): no
+    near link is listed or followed, no row is matched by a name or an
+    office, and no holder is resolved by name; each near link met is
+    counted into `near_set_aside` (and `name_reads_skipped` says the name
+    searches did not run), so the report can say what waits for stage 2."""
     cache = {}
+    aside = []
     wanted = set(BUCKETS if buckets is None else buckets)
     hit = resolve(conn, ref, cache)
     if not hit:
@@ -1203,7 +1217,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
                 near(eit, it["reason"])
             out["entities"].append(eit)
         # rows that carry this person's printed name and no key (the expense releases): by name, near
-        for nit in named_rows(conn, mv, mr, allowed, skipped, mref):
+        for nit in (named_rows(conn, mv, mr, allowed, skipped, mref) if near_links else ()):
             if "omitted" in nit:
                 out["roles"].append(nit)
             elif it["grade"] == "near":
@@ -1212,6 +1226,9 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
                 out["named"].append(nit)
     # 2. the links, confirmed and near
     L = links_of(conn, member_refs)
+    if not near_links:
+        aside.append(len(L["near"]))
+        L["near"] = []
     out["links_built"] = L["built"]
     out["links_omitted"] = L["omitted"]
     for l in L["confirmed"]:
@@ -1245,10 +1262,10 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
     # the rows of other registers that are the same entity by an official number (a company's charity row): entities too, with the parent's grade
     out["entities"] += number_joined(conn, out["entities"], allowed, skipped)
     # an organisation start's own name among the rows that name a body by name only: near (2 November 2026)
-    if sk == "organisation":
+    if sk == "organisation" and near_links:
         out["named"] += organisation_named(conn, sv, sr, allowed, skipped)
     # the rows of views no link reaches yet that carry a member's name (a charity officer): near by name, listed with the member's grade
-    joined, joined_omitted = name_joined(conn, [m for m in out["members"] if m["kind"] == "person"], allowed, skipped)
+    joined, joined_omitted = name_joined(conn, [m for m in out["members"] if m["kind"] == "person"], allowed, skipped) if near_links else ({}, 0)
     for m in out["members"]:
         for nit in joined.get(m["ref"], ()):
             if m["grade"] == "near":
@@ -1316,6 +1333,9 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
                     out["roles"].append(pit)
         if eit["ref"] != ref and ev.kind == "organisation":
             EL = links_of(conn, [eit["ref"]])
+            if not near_links:
+                aside.append(len(EL["near"]))
+                EL["near"] = []
             for l in EL["confirmed"] + EL["near"]:
                 if l["other"] in members or l["other"] == ref:
                     continue
@@ -1335,15 +1355,21 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
     if sv.kind == "organisation" and "officers" in wanted:
         officers = [it for it in out["roles"] if "omitted" not in it and it["view"] in OFFICER_VIEWS and it["via"] == ref and it["kind"] == "person"]
         out["officers_listed"], out["officers_suppressed"] = len(officers), sum(1 for o in officers if o["suppressed"])   # 2 November 2026
-        out["officers"], out["officers_followed"], out["officers_omitted"], more = follow_officers(conn, ref, officers, allowed, skipped, cache)
+        out["officers"], out["officers_followed"], out["officers_omitted"], more = follow_officers(conn, ref, officers, allowed, skipped, cache,
+                                                                                                    near_links, aside)
         out["links_omitted"] += more
-        out["officers"] += officers_named(conn, officers, allowed, skipped)
+        if near_links:
+            out["officers"] += officers_named(conn, officers, allowed, skipped)
         if "beside" in wanted:
             out["beside"] = beside_officers(conn, ref, out["officers"], allowed, skipped)
-    if sv.name == "companies" and "office" in wanted and start_office is not None:
+    if sv.name == "companies" and "office" in wanted and start_office is not None and near_links:
         out["office"], out["office_companies"], out["office_listed"] = office_companies(conn, ref, start_office, allowed, skipped)
     if sv.name == "companies" and "chain" in wanted and chain_depth:
         out["chain"], out["chain_stats"] = chain(conn, ref, sr, allowed, skipped, chain_depth)
+        if not near_links:   # a holder resolved by name, and everything read above it, waits for the second stage
+            held = [it for it in out["chain"] if "omitted" in it or it.get("grade") != "near"]
+            out["chain_stats"]["by_name_set_aside"] = sum(1 for it in out["chain"] if it.get("grade") == "near" and "omitted" not in it)
+            out["chain"] = held
     # 4. hubs on every person met
     people = [it for k in ("members", "confirmed", "near", "second", "roles", "named", "officers", "chain") for it in out[k]
               if it.get("kind") == "person" and "omitted" not in it and "chain_note" not in it]
@@ -1358,5 +1384,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
                   [{"ref": it["ref"], "title": it["title"], **f} for k in ("members", "entities", "confirmed", "near", "roles", "second", "named", "officers", "office", "chain")
                    for it in out[k] if "omitted" not in it and "chain_note" not in it for f in it["flags"]]
     out["skipped"] = sorted(set(skipped))
+    out["near_links"] = near_links
+    out["near_set_aside"] = sum(aside)
     out["entities_not_expanded"] = sum(1 for e in out["entities"] if e.get("not_expanded"))
     return out

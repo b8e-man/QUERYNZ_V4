@@ -15,7 +15,7 @@ import datetime as dt
 import time
 
 from products.report import catalogue as cat
-from products.report import contract, rules, template as tpl, walk
+from products.report import contract, rules, stage1, template as tpl, walk
 
 SECTION_ORDER_GRADE = {"confirmed": 0, "near": 1}
 #: the shape's own section for the links lane's third grade (ruling 106 (2)), added to every template's report when the walk
@@ -160,7 +160,8 @@ def _keeps(s: tpl.Section, it: dict, ref: str, members: set, files: tuple) -> bo
     return True
 
 
-def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | str | None = None, params: dict | None = None) -> dict:
+def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | str | None = None, params: dict | None = None,
+          walker=None) -> dict:
     """The report. `held`: the pub views present (for the blanks); read from
     the connection when not given. `since`: a date; every item dated on or
     after it is marked new, one that cannot say is marked so, and a rule may
@@ -169,7 +170,9 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
     undeclared name is refused with KeyError before anything is read): every
     declared parameter is put in `report["params"]` and under its own name
     on the report, read as its kind, or as the text given when that does
-    not read (the rule says so), or its default."""
+    not read (the rule says so), or its default. `walker`: the walk to run
+    (walk.walk's signature); by default stage1.walk1 for a template with
+    `stage = 1`, else walk.walk."""
     from products.report import db
     values, declared = tpl.params_for(t, params)
     held = held if held is not None else db.pub_views(conn)
@@ -187,7 +190,8 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
               "superseded_not_held": [f"{cat.REGISTER_NAME[reg]} (named {key!r} in the template; published as "
                                       f"{', '.join('pub.' + v.name for v in cat.views_of(reg))})" for key, reg in t.superseded_not_held],
               "views_not_published": sorted(t.views - held), "problems": []}
-    w = walk.walk(conn, ref, allowed, depth=t.depth, buckets=t.buckets, chain_depth=t.chain_depth)
+    walker = walker or (stage1.walk1 if t.stage == 1 else walk.walk)
+    w = walker(conn, ref, allowed, depth=t.depth, buckets=t.buckets, chain_depth=t.chain_depth)
     if not w.get("found"):
         report["why"] = w.get("why", "not found")
         return report
@@ -204,6 +208,8 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
                       "office_companies": w.get("office_companies", 0), "office_listed": w.get("office_listed", 0),
                       "chain_depth": t.chain_depth, "chain": w.get("chain_stats") or {},
                       "chain_notes": [{"text": x["chain_note"], "via": x["via"], "depth": x["depth"]} for x in w.get("chain", []) if "chain_note" in x]}
+    if w.get("stage1_stats"):
+        report["walk"]["stage1"] = w["stage1_stats"]
     if w.get("start_outside_template"):
         report["problems"].append(f"the subject's view pub.{w['start']['view']} is not one the template {t.name} reads")
     # sections

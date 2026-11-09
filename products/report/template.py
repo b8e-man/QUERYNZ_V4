@@ -52,7 +52,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SHAPE_TEMPLATES = os.path.join(HERE, "templates")
 USE_CASE_TEMPLATES = os.path.join(os.path.dirname(HERE), "templates")   # products/templates/<nn>-<name>/ (step 5.2)
 STATUSES, SEVERITIES = contract.STATUSES, contract.SEVERITIES
-BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside")   # walk.BUCKETS, held by a test
+BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1")   # walk.BUCKETS, held by a test
 CHAIN_MAX = 4   # walk.LIMITS["chain"], held by a test
 PARAM_KINDS = ("integer", "text", "date")   # what a declared parameter's value is read as
 #: names a parameter may not take: the report's own keys, and the page's and the command line's own arguments
@@ -107,6 +107,7 @@ class Template:
     chain_depth: int = 0          # company holders of record followed up the chain from a company start (0: none; the walk caps it)
     params: tuple = ()            # the reader's settings the template's rules read, declared so a surface can offer and refuse them
     superseded_not_held: tuple = ()   # (key, register) for each not-held key the template cites that a lane has since published
+    stage: int = 0                # 1: the one report's first stage (products/report/stage1.py): no near link followed, the confirmed web added
 
     @property
     def param_names(self) -> tuple:
@@ -179,6 +180,9 @@ def load(folder: str) -> Template:
     if not sections:
         raise ValueError(f"{folder}: a template has sections")
     chain_depth = int(t.get("chain_depth", 0))
+    stage = int(t.get("stage", 0))
+    if stage not in (0, 1):
+        raise ValueError(f"{folder}: stage is 0 (the walk as it is) or 1 (the one report's first stage)")
     if chain_depth < 0 or chain_depth > CHAIN_MAX:
         raise ValueError(f"{folder}: chain_depth is 0 to {CHAIN_MAX}")
     params = []
@@ -197,7 +201,8 @@ def load(folder: str) -> Template:
             raise ValueError(f"{folder}: the parameter {name}'s default {default!r} is not a {p['kind']}")
         params.append(Param(name, p["kind"], default, str(p["means"])))
     return Template(t["name"], t["title"], str(t["version"]), t["owner"], folder, reads, tuple(sections), tuple(t.get("limits", [])),
-                    int(t.get("depth", 2)), _load_rules(folder), bool(t.get("common_rules", True)), chain_depth, tuple(params), tuple(superseded))
+                    int(t.get("depth", 2)), _load_rules(folder), bool(t.get("common_rules", True)), chain_depth, tuple(params), tuple(superseded),
+                    stage)
 
 
 def read_param(kind: str, value):

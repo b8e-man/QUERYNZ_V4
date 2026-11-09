@@ -86,11 +86,13 @@ def render(ref: str, template_name: str = "subject", fmt: str = "html", message:
         return "text/plain; charset=utf-8", memo.text(report)
     if fmt == "json":
         return "application/json", json.dumps(build.public(report), default=state._json, indent=1)
-    return "text/html; charset=utf-8", memo.page(memo.html_body(report), ref, template_name, templates(), message, saved, BOARD_URL,
+    from products.report import near_server   # stage 2 on request (ruling 151): the one line offering it
+    return "text/html; charset=utf-8", memo.page(near_server.offer(report, template_name, since, params)
+                                                 + memo.html_body(report), ref, template_name, templates(), message, saved, BOARD_URL,
                                                  since=since, params=declared_params(template_name, params))
 
 
-QUERY_OWN = frozenset({"ref", "template", "format", "m", "saved", "since", "q"})   # the page's own query names; the rest are a template's parameters
+QUERY_OWN = frozenset({"ref", "template", "format", "m", "saved", "since", "q", "near"})   # the page's own query names; the rest are a template's parameters
 
 
 def query_params(qs: dict) -> dict:
@@ -152,8 +154,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if url.path == "/report" or url.path.startswith("/report/"):
                 ref = (urllib.parse.unquote(url.path[len("/report/"):]) if url.path.startswith("/report/") else get("ref"))[:MAX_REF]
                 try:
-                    ctype, body = render(ref, get("template", "subject"), get("format", "html"), get("m")[:100], get("saved") == "1", since=get("since")[:10],
-                                         params=query_params(qs))
+                    from products.report import near_server
+                    ctype, body = (near_server.render if near_server.asked(qs) else render)(
+                        ref, get("template", "subject"), get("format", "html"), get("m")[:100], get("saved") == "1", since=get("since")[:10],
+                        params=query_params(qs))
                 except KeyError as exc:
                     if "declares no parameter" not in str(exc):
                         raise

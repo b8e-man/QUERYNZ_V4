@@ -1,0 +1,686 @@
+# The one report (step 9, ruling 157), first stage: every table the catalogue knows, the confirmed links followed to the
+# depth the first stage measured, no near link followed (the second stage, on request, adds them), and the combined
+# checks of the retired templates and the diagnostic. Written by make.py from the diagnostic template: do not edit by hand.
+name = "one"
+title = "The one report, first stage"
+version = "0.1"
+owner = "products/report, the one report (step 9)"
+depth = 2
+chain_depth = 2
+stage = 1
+
+limits = [
+  "The first stage follows confirmed links only: a name match, a shared office and a holder matched by name wait for the second stage, counted, never shown.",
+  "A connection through more than one person is near.",
+  "The web stops at the depth and the hub limits printed in the memo; what it left out is counted, never silent.",
+]
+
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "on the lane's clock"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "on the lane's clock"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+refresh = "on the lane's clock"
+[[reads]]
+view = "company_states"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the earlier state a later monthly file changed"
+attribution = "Companies Office"
+refresh = "on the lane's clock"
+[[reads]]
+view = "societies"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "on the lane's clock"
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "on the lane's clock"
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "on the lane's clock"
+[[reads]]
+view = "charity_returns"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "on the lane's clock"
+[[reads]]
+view = "party_return_totals"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "party_return_donors"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_loans"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "disclosures"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "disclosure_items"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "candidate_return_totals"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "candidate_return_donors"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "on the lane's clock"
+[[reads]]
+view = "gazette_possessions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person's name and the property are never published"
+attribution = "New Zealand Gazette"
+refresh = "on the lane's clock"
+[[reads]]
+view = "gazette_liquidators"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "on the lane's clock"
+[[reads]]
+view = "gazette_practitioners"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "on the lane's clock"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+refresh = "on the lane's clock"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+refresh = "on the lane's clock"
+[[reads]]
+view = "gazette_appointments"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "on the lane's clock"
+[[reads]]
+view = "candidates"
+licence = "Electoral Commission results and nominations, public"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "members"
+licence = "Electoral Commission results and the House's own lists, public"
+attribution = "Electoral Commission; New Zealand Parliament"
+refresh = "on the lane's clock"
+[[reads]]
+view = "mp_interest_returns"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+refresh = "on the lane's clock"
+[[reads]]
+view = "mp_interests"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+refresh = "on the lane's clock"
+[[reads]]
+view = "mp_expenses"
+licence = "Parliamentary Service quarterly expense releases, Crown copyright, Creative Commons Attribution 4.0 (data.govt.nz)"
+attribution = "Parliamentary Service"
+refresh = "quarterly releases"
+[[reads]]
+view = "minister_expenses"
+licence = "Internal Affairs ministerial expense releases, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "Department of Internal Affairs"
+refresh = "quarterly releases"
+[[reads]]
+view = "parties"
+licence = "Register of Political Parties, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "promoters"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "promoter_people"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "on the lane's clock"
+[[reads]]
+view = "worksafe_actions"
+licence = "Crown copyright, licensed CC BY 4.0; a name WorkSafe withheld is not shown"
+attribution = "WorkSafe New Zealand"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "worksafe_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name WorkSafe withheld is not shown"
+attribution = "WorkSafe New Zealand"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "commerce_commission_cases"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "commerce_commission_parties"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_actions"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_parties"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "building_practitioner_decisions"
+licence = "Crown copyright, licensed CC BY 4.0; the Board's own three-year window; a name the Board withholds is not shown"
+attribution = "Building Practitioners Board"
+refresh = "as the Board publishes them; re-read on the lane's clock"
+[[reads]]
+view = "rea_decisions"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
+[[reads]]
+view = "rea_parties"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
+[[reads]]
+view = "grants"
+licence = "Grants as published: the Department of Internal Affairs class 4 grants data (CC BY 4.0) and each society's own list (facts read and cited under the position class-4-society-grant-publications); the licence of each row is on the row"
+attribution = "each row's own attribution (pub.grants.attribution)"
+refresh = "as each funder publishes; the national file quarterly"
+[[reads]]
+view = "society_states"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "councillor_interests"
+licence = "each council's own published summary of its register of members' pecuniary interests (Local Government Act 2002, Part 4 subpart 3), read and cited under the position councillors-registers-of-interests"
+attribution = "the council that publishes the register"
+refresh = "each landing page monthly; a new register document once"
+[[reads]]
+view = "limited_partnerships"
+licence = "the business-number register, Creative Commons Attribution 4.0; the registered office is a company's, shown"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "as the lane re-asks each partnership, stalest first"
+[[reads]]
+view = "limited_partnership_partners"
+licence = "the business-number register, Creative Commons Attribution 4.0; general partners only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "as the lane re-asks each partnership, stalest first"
+[[reads]]
+view = "overseas_investment_decisions"
+licence = "Crown copyright, licensed CC BY 4.0; decision summaries as the Office publishes them, street addresses not in the view"
+attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
+refresh = "as the Office publishes them; re-read on the lane's clock"
+[[reads]]
+view = "overseas_investment_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name the Office withheld is not shown"
+attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
+refresh = "as the Office publishes them; re-read on the lane's clock"
+[[reads]]
+view = "company_lookup_roles"
+licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "retirement_villages"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "company_lookup_holdings"
+licence = "the business-number register, Creative Commons Attribution 4.0; a holder's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
+[[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "award_notices"
+licence = "CC BY 3.0 NZ"
+attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
+refresh = "as GETS publishes its award notices; read on the lane's clock"
+[[reads]]
+view = "award_suppliers"
+licence = "CC BY 3.0 NZ"
+attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
+refresh = "as GETS publishes its award notices; read on the lane's clock"
+[[reads]]
+view = "insolvency_people"
+licence = "the Insolvency Register, published by the Ministry of Business, Innovation and Employment for search"
+attribution = "Insolvency and Trustee Service"
+refresh = "as the lane's walk reads it"
+[[reads]]
+view = "insolvency_companies"
+licence = "the Insolvency Register, published by the Ministry of Business, Innovation and Employment for search"
+attribution = "Insolvency and Trustee Service"
+refresh = "as the lane's walk reads it"
+[[reads]]
+view = "linz_titles"
+licence = "LINZ data, Creative Commons Attribution 4.0"
+attribution = "Toitū Te Whenua Land Information New Zealand"
+refresh = "as LINZ publishes changes"
+[[reads]]
+view = "linz_title_owners"
+licence = "LINZ data, Creative Commons Attribution 4.0"
+attribution = "Toitū Te Whenua Land Information New Zealand"
+refresh = "as LINZ publishes changes"
+[[reads]]
+view = "sanctions_listings"
+licence = "each list as its publisher releases it for use"
+attribution = "the lists' publishers"
+refresh = "as each list changes"
+[[reads]]
+view = "building_practitioners"
+licence = "the Licensed Building Practitioners register, published for search"
+attribution = "Ministry of Business, Innovation and Employment"
+refresh = "as the register changes"
+[[reads]]
+view = "company_lookups"
+licence = "Companies Office bulk data and the business-number register, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file, and company by company"
+[[reads]]
+view = "company_changes"
+licence = "Companies Office bulk data and the business-number register, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file, and company by company"
+[[reads]]
+view = "grant_recipients"
+licence = "as each funder publishes its grants"
+attribution = "the funders"
+refresh = "as each funder publishes"
+[[reads]]
+view = "council_meetings"
+licence = "council minutes, published under the Local Government Official Information and Meetings Act 1987"
+attribution = "each council"
+refresh = "as each council publishes its minutes"
+[[reads]]
+view = "council_meeting_attendance"
+licence = "council minutes, published under the Local Government Official Information and Meetings Act 1987"
+attribution = "each council"
+refresh = "as each council publishes its minutes"
+[[reads]]
+view = "council_meeting_declarations"
+licence = "council minutes, published under the Local Government Official Information and Meetings Act 1987"
+attribution = "each council"
+refresh = "as each council publishes its minutes"
+[[reads]]
+view = "council_resolutions"
+licence = "council minutes, published under the Local Government Official Information and Meetings Act 1987"
+attribution = "each council"
+refresh = "as each council publishes its minutes"
+[[reads]]
+view = "court_cases"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand"
+refresh = "as the courts corpus lands"
+[[reads]]
+view = "gazette_celebrants"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_board_interventions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "hansard_speeches"
+licence = "Hansard, Parliamentary copyright, published for reuse"
+attribution = "New Zealand Parliament"
+refresh = "as the House sits"
+[[reads]]
+view = "hansard_people"
+licence = "Hansard, Parliamentary copyright, published for reuse"
+attribution = "New Zealand Parliament"
+refresh = "as the House sits"
+[[reads]]
+view = "beehive_people"
+licence = "Beehive releases, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "the New Zealand Government"
+refresh = "as releases are made"
+[[reads]]
+view = "beehive_release_ministers"
+licence = "Beehive releases, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "the New Zealand Government"
+refresh = "as releases are made"
+[[reads]]
+view = "parliament_people"
+licence = "Parliament's pages, Parliamentary copyright, published for reuse"
+attribution = "New Zealand Parliament"
+refresh = "as Parliament publishes"
+[[reads]]
+view = "parliament_written_questions"
+licence = "Parliament's pages, Parliamentary copyright, published for reuse"
+attribution = "New Zealand Parliament"
+refresh = "as Parliament publishes"
+[[reads]]
+view = "minister_diary_attendees"
+licence = "proactively released ministerial diaries, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "the ministers' offices"
+refresh = "monthly, as released"
+[[reads]]
+view = "minister_diary_entries"
+licence = "proactively released ministerial diaries, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "the ministers' offices"
+refresh = "monthly, as released"
+[[reads]]
+view = "iwi_directory_entities"
+licence = "Te Kāhui Māngai, published for public reference"
+attribution = "Te Puni Kōkiri"
+refresh = "weekly"
+[[reads]]
+view = "iwi_directory_settlements"
+licence = "Te Kāhui Māngai, published for public reference"
+attribution = "Te Puni Kōkiri"
+refresh = "weekly"
+[[reads]]
+view = "local_election_returns"
+licence = "candidate returns each council publishes under the Local Electoral Act 2001"
+attribution = "each council"
+refresh = "after each election"
+[[reads]]
+view = "party_board_roles"
+licence = "each party's own site, read whole from its homepage"
+attribution = "each registered party"
+refresh = "as each site changes"
+[[reads]]
+view = "party_names"
+licence = "the Electoral Commission's register of parties"
+attribution = "Electoral Commission"
+refresh = "as the Gazette notices changes"
+[[reads]]
+view = "party_events"
+licence = "the Electoral Commission's register of parties"
+attribution = "Electoral Commission"
+refresh = "as the Gazette notices changes"
+[[reads]]
+view = "party_expenses"
+licence = "the Electoral Commission's published returns and statements"
+attribution = "Electoral Commission"
+refresh = "as the Commission publishes"
+[[reads]]
+view = "party_financial_statements"
+licence = "the Electoral Commission's published returns and statements"
+attribution = "Electoral Commission"
+refresh = "as the Commission publishes"
+[[reads]]
+view = "broadcasting_allocations"
+licence = "the Electoral Commission's published returns and statements"
+attribution = "Electoral Commission"
+refresh = "as the Commission publishes"
+[[reads]]
+view = "promoter_expenses"
+licence = "the Electoral Commission's published returns and statements"
+attribution = "Electoral Commission"
+refresh = "as the Commission publishes"
+
+[[sections]]
+name = "party_returns"
+heading = "Party donation and loan returns"
+views = ["party_return_totals", "party_return_donors", "party_return_loans"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "disclosures"
+heading = "Large-donation disclosures"
+views = ["disclosures", "disclosure_items"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "candidate_returns"
+heading = "Candidate donation and expense returns"
+views = ["candidate_return_totals", "candidate_return_donors"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "companies"
+heading = "Companies, directors and shareholders"
+views = ["companies", "directors", "shareholders", "company_addresses", "company_states", "company_lookup_roles", "company_insolvencies", "retirement_villages", "company_lookup_holdings", "company_lookups", "company_changes"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "societies"
+heading = "Incorporated societies and their officers"
+views = ["societies", "society_officers", "society_states"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "charities"
+heading = "Charities register, officers and annual returns"
+views = ["charities", "charity_officers", "charity_returns"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "gazette"
+heading = "Gazette notices"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_possessions", "gazette_liquidators", "gazette_practitioners", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments", "gazette_celebrants", "gazette_board_interventions"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "house"
+heading = "Candidates and the House"
+views = ["candidates", "members"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "mp_interests"
+heading = "MPs' declared interests"
+views = ["mp_interest_returns", "mp_interests"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "expenses"
+heading = "MPs' and ministers' expenses"
+views = ["mp_expenses", "minister_expenses"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "parties"
+heading = "Registered political parties"
+views = ["parties", "party_names", "party_events"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "party_finance"
+heading = "Registered promoters"
+views = ["promoters", "promoter_people", "party_expenses", "party_financial_statements", "broadcasting_allocations", "promoter_expenses"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "worksafe"
+heading = "WorkSafe prosecutions and enforceable undertakings"
+views = ["worksafe_actions", "worksafe_parties"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "commerce_commission"
+heading = "Commerce Commission cases"
+views = ["commerce_commission_cases", "commerce_commission_parties"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "fma"
+heading = "Financial Markets Authority warnings and cases"
+views = ["fma_actions", "fma_parties"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "building_practitioners"
+heading = "Building practitioners: the licence register and the Board's decisions"
+views = ["building_practitioner_decisions", "building_practitioners"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "limited_partnerships"
+heading = "Limited partnerships and their general partners"
+views = ["limited_partnerships", "limited_partnership_partners"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "overseas_investment"
+heading = "Overseas Investment Office decision summaries"
+views = ["overseas_investment_decisions", "overseas_investment_parties"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "courts"
+heading = "Court judgments (the courts corpus held)"
+views = ["court_judgments", "court_judgment_parties", "court_people", "court_cases"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "tenders"
+heading = "Government contract award notices (GETS)"
+views = ["award_notices", "award_suppliers"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "real_estate_authority"
+heading = "Real Estate Authority decisions (the Authority's decisions database)"
+views = ["rea_decisions", "rea_parties"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "grants"
+heading = "Grants as their funders publish them"
+views = ["grants", "grant_recipients"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "councillor_interests"
+heading = "Councillors' registers of interests"
+views = ["councillor_interests"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "insolvency"
+heading = "The Insolvency Register: personal bankruptcies, no-asset procedures and company estates"
+views = ["insolvency_people", "insolvency_companies"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "linz"
+heading = "LINZ land titles and their registered owners"
+views = ["linz_titles", "linz_title_owners"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "sanctions"
+heading = "Sanctions lists"
+views = ["sanctions_listings"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "council_minutes"
+heading = "Council meetings: attendance, declarations of interest and resolutions"
+views = ["council_meetings", "council_meeting_attendance", "council_meeting_declarations", "council_resolutions"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "hansard"
+heading = "Hansard: speeches and the people the House names"
+views = ["hansard_speeches", "hansard_people"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "beehive"
+heading = "Ministerial releases (Beehive): the people and bodies they name"
+views = ["beehive_people", "beehive_release_ministers"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "parliament"
+heading = "Parliament's pages and written questions: the people and bodies they name"
+views = ["parliament_people", "parliament_written_questions"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "ministers_diaries"
+heading = "Ministers' diaries: meetings and attendees"
+views = ["minister_diary_attendees", "minister_diary_entries"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "iwi_directory"
+heading = "Te Kāhui Māngai: iwi, hapū, marae and their settlements"
+views = ["iwi_directory_entities", "iwi_directory_settlements"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "local_elections"
+heading = "Local election candidate returns"
+views = ["local_election_returns"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
+
+[[sections]]
+name = "party_boards"
+heading = "Party boards as each party's site states them"
+views = ["party_board_roles"]
+sources = ["members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside", "stage1"]
