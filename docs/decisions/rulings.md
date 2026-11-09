@@ -1378,3 +1378,9 @@ mentions a name is shown as that, never as a link to the person; it is a
 connection only when it also names something from the subject's own
 records. The registers are made to work so that such contextual
 connections are found through them (his horse farm example).
+
+154. Arthur, 9 November: "we read the registers first, then the news as we
+may need the context from the registers to make sense of the news." The
+news search runs after the stage-1 records are built and searches with what
+they hold. Two sources are to be looked at from scratch with him before any
+work touches them, past notes on them set aside (docs/plan/step-9.md).

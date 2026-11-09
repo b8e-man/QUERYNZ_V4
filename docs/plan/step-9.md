@@ -41,7 +41,7 @@ of the news to connect those records to articles.
 - These are left out, found by file name and pattern search, not by reading:
   - Credentials, `.env` files and keys (limits 1 and 2). If one is found,
     note where it is and tell Arthur.
-  - NZME mastheads, the NZ Herald included, and fyi.org.nz (limit 8).
+  - Anything hard limit 8 names.
 - Output: one archive with a manifest of every file (path and sha256),
   in `/home/user/querynzv4-work/handover/`. Arthur passes it to the provider.
   From then on, the crawls are the provider's.
@@ -50,11 +50,10 @@ of the news to connect those records to articles.
 
 - Every news table of the old estate, copied **wholesale and verbatim** into
   a new lane `news`. Its columns and rows are as they stand, with no
-  cleaning and no reshaping. This includes the recovered Hetzner news dump on
-  node1.
+  cleaning and no reshaping.
 - The schema is taken from the database catalogue, not from the old docs.
 - The copy only reads the old estate. It writes nothing there (limit 22).
-- NZME and fyi.org.nz rows are not copied (limit 8). The old Papers Past
+- Rows from a source hard limit 8 names are not copied. The old Papers Past
   items join the existing `papers_past` lane under limit 17: searched, never
   mined.
 - Disk is measured first. The copy goes in bounded batches, off-peak, and
@@ -62,12 +61,15 @@ of the news to connect those records to articles.
 - A one-page legal position for news as a class is written before the
   report shows an article (limit 9).
 
-### 9.3 The search
+### 9.3 The search: registers first, then the news
 
 - The corpus gets a local search index. Any model used runs on the boxes
   (limit 10).
-- At report time, the subject's names and the names in its stage-1 records
-  are searched.
+- **The registers are read first, the news after** (Arthur, 9 November).
+  The context from the registers is what makes sense of the news. The
+  search runs only once the stage-1 records are built, and it searches with
+  what they hold: the subject's names, its companies, trading names, bodies,
+  roles and co-officers. Each hit is judged against those records.
 
 ### 9.4 What a hit means (Arthur: "4 is right")
 
@@ -117,3 +119,7 @@ line and a pushed commit (ruling 244).
 - **The checks.** One combined set of red, amber and clear on the one
   report, or the records with no verdicts. Not yet answered.
 - **The horse farm example,** in his words.
+- **Two sources to be looked at from scratch, with Arthur, before any work
+  touches them.** The recovered news dump held on node1, and the masthead
+  group that hard limit 8 names. Earlier work on both had problems that
+  kept coming back. No session relies on past notes about either.
