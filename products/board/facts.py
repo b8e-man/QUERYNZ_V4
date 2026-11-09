@@ -50,6 +50,7 @@ class Says:
     flags: tuple = ()               # (column, words): said in the small text where any folded row's column is true
     what: str = ""                  # a column saying what one row is about, for a line of its own (a speech's subject)
     card: str = ""                  # the entity card's word ("charity {role}"); empty: the noun
+    name: str = ""                  # the column naming the person, where the view declares no name field (a diary's attendee)
 
 
 ROLE_HELD = dict(held=True, end="ended_on")
@@ -104,6 +105,26 @@ SAYS = {
     "court_judgment_parties": Says("", role="role", where=("court",), event=("", {}, ""), counted=("judgment", "judgments"), what="citation"),
     "local_election_returns": Says("local election candidate", where=("council", "election_year"), body=False, counted=("return", "returns")),
     "councillor_interests": Says("councillor's interests declared", where=("council",), event=("", {}, ""), counted=("register", "registers")),
+    # the people registers published since (9 November 2026): without a line a near entry read "name · key"
+    "rea_parties": Says("named in a Real Estate Authority decision", by=(("role", r"licensee", "licensee in a Real Estate Authority decision"),
+                                                                       ("role", r"defendant", "defendant in a Real Estate Authority decision")),
+                        body=False, event=("", {}, ""), counted=("decision", "decisions"),
+                        detail=(("licence {}", "licence_number"), ("by {}", "decided_by"))),
+    "minister_diary_attendees": Says("on a minister's diary", card="on a minister's diary", name="attendee", where=("minister",), to="with", body=False,
+                                     event=("", {}, ""), counted=("diary entry", "diary entries"), detail=(("{}", "portfolio"),)),
+    "linz_title_owners": Says("registered proprietor of a land title", card="registered proprietor", where=("land_district",), body=False,
+                              event=("", {}, ""), counted=("title", "titles"), detail=(("title {}", "title_no"), ("share {}", "estate_share"))),
+    "insolvency_people": Says("bankrupt", by=(("insolvency_type", r"no asset", "in the No Asset Procedure"),
+                                              ("insolvency_type", r"debt repayment", "under a debt repayment order"),
+                                              ("insolvency_type", r"summary instalment", "under a summary instalment order")),
+                              body=False, held=True, start="adjudicated_on", end="discharged_on", counted=("estate", "estates"),
+                              detail=(("{}", "status"), ("annulled {}", "annulled_on"), ("estate {}", "estate_number"))),
+    "building_practitioners": Says("licensed building practitioner", where=("region",), body=False, held=True, start="first_granted_on",
+                                   counted=("licence", "licences"), detail=(("{}", "licence_classes"), ("{}", "status"), ("licence {}", "licence_number"))),
+    "sanctions_listings": Says("on a sanctions list", where=("regime",), body=False, held=True, start="designated_on", end="ended_on",
+                               counted=("listing", "listings"), detail=(("{}", "status"),)),
+    "court_people": Says("named in a court document", role="role_text", body=False, event=("", {}, ""),
+                         counted=("court document", "court documents"), what="citation"),
 }
 
 #: a `where` column that names another view's row by key: (far view, its key column, the column read as its name)
@@ -494,6 +515,9 @@ def name_of(v: cat.View, r: dict) -> str:
             return s
     if v.title and v.title[0] in v.names and r.get(v.title[0]) not in (None, ""):
         return str(r[v.title[0]])
+    s = says_of(v)
+    if s and s.name and str(r.get(s.name) or "").strip():     # the line names the column: not the title with its day after it
+        return str(r[s.name]).strip()
     return panes.title_of(v, r)
 
 

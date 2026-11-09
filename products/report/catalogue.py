@@ -565,6 +565,14 @@ RULE_WORDS = {
     "organisation-one-live-company": "a row's organisation name and the one of several bodies of the name live on the row's own date",   # rulings 107, 114, 125
     "refiled-name": "a company removed and another of its name registered within twelve months, a person on both",   # ruling 109, related
     "member-on-the-day": "a member's printed name, titles off, and the one member of that name sitting in the House on the row's day",   # ruling 116
+    "judgment-number": "a court document prints the NZBN or company number of the company named as its party",         # ruling 1 (3 Nov)
+    "shared-contact": "one email or phone number printed in two court documents, beside the same name",               # ruling 2 (4 Nov)
+    "judgment-address-office": "a street address a court document prints and a company's registered office",          # ruling 3 (4 Nov)
+    "judgment-address-judgment": "one street address printed in two court documents",                                 # ruling 142
+    "judgment-address-insolvency": "a street address a court document prints and a bankrupt's address at adjudication",   # ruling 142
+    "judgment-address-title": "a street address a court document prints and a land title's address, a registered proprietor of the title",   # ruling 142
+    "owner-full-name": "a land title's registered proprietor and another row of the same first, middle and last name",   # 4 Nov
+    "licence-number": "two rows of the Real Estate Authority's decisions printing one licence number",                 # 3 Nov
 }
 
 

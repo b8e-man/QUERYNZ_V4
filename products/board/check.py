@@ -1622,6 +1622,8 @@ def field_problems(conn, held: set, columns: dict, types: dict) -> list:
     address_views = {x for x, _ in cat.ADDRESS_COLUMNS}
     for w in RESIDENCE_WORDS:
         for v, r in _hits(search.search(conn, w, limit=search.RESULTS_LIMIT)):
+            if r.get("kind") == "body":   # a view mixing people and bodies files each row's kind: a body's name is no home
+                continue
             for n in _names(v, r):
                 if carries_residence(n) and not panes.is_suppressed(v, r):
                     out.append(f"{v.name}:{r['key']}: a person's name in a result carries a residence word (hard limit 15)")

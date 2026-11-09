@@ -3,6 +3,7 @@ the outside check is green, a search is quick, a four-pane walk renders,
 the search tab marks a macron-folded word in the registers checked only,
 and the graph tab draws a busy row quickly with every far end real."""
 import re
+import urllib.parse
 import time
 from html import unescape
 
@@ -382,11 +383,18 @@ def test_lloyd_budd_s_rows_pub_names_does_not_hold_fold_with_his_entity_by_name(
     """The fix of 28 October: with "a shared first and last name" ticked, a row the links lane's name table lacks is
     keyed from its own Name columns, so the charity officer and the five celebrants (filed surname, given names) fold
     into one entry with the links lane's entity. Since ruling 114 the lane reads both views, so the
-    rows may arrive already in the entity's group; either way the page shows one Lloyd Budd and no stray row."""
+    rows may arrive already in the entity's group; either way each tab that lists him shows one Lloyd Budd and no stray row.
+    The fold is a tab's own (9 November 2026): rows filing the name whole in no order (land titles, the Real Estate
+    Authority's decisions, a minister's diary) are listed under "other", where his entity is not, and fold there apart."""
     with db.read_connect() as conn:
         page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST._replace(collapse=("name",)))
-        entries = {unescape(d) for d in re.findall(r'class="hit entity(?: folded)?"[^>]* data-dossier="([^"]*)"', page)}
-        assert len(entries) == 1, entries
+    tabs = re.findall(r'<div class="ftab" id="ftab-([a-z]+)">(.*?)(?=<div class="ftab" id=|</div>\s*</section>|\Z)', page, re.S)
+    his = {t: {unescape(d) for d in re.findall(r'class="hit entity(?: folded)?"[^>]* data-dossier="([^"]*)"', seg)}
+           for t, seg in tabs}
+    with_him = {t: es for t, es in his.items() if any(people.entity_id(LLOYD) in urllib.parse.unquote(e) for e in es)}
+    assert {"first", "last"} <= set(with_him), sorted(his)
+    for t, es in with_him.items():
+        assert len(es) == 1, (t, es)
 
 
 def test_a_board_made_name_key_equals_pub_names_key_for_the_rows_pub_names_holds():
@@ -412,7 +420,9 @@ LLOYD = "charities:charities/officers/1684473"
 
 def test_lloyd_budd_s_dossier_reads_as_facts_folded_by_what_the_rows_say():
     """Ruling 117 (1) and (2), live: his three rows are two facts, the five celebrant lists one near entry,
-    the candidacy another; no entry names a register, a view or a row count."""
+    the candidacy another; no entry names a register, a view or a row count. Registers published since add near
+    entries of the name (a land title, a Real Estate Authority decision, a minister's diary, 9 November 2026): each
+    is near, never a fact, and each says what its row says, never the row's title ("name · key")."""
     from products.board import dossier
     with db.read_connect() as conn:
         t = time.time()
@@ -424,8 +434,11 @@ def test_lloyd_budd_s_dossier_reads_as_facts_folded_by_what_the_rows_say():
     assert "Trustee of Keystone New Zealand Property Education Trust since 11 March 2025" in says
     assert "Lloyd Budd: marriage celebrant, listed 2020 to 2025" in says
     assert any(s.startswith("Lloyd Sam BUDD: candidate, Whangārei, 2026") for s in says)
-    assert page.count('<li class="fact"') == 2 and page.count('<li class="fact near"') == 2
+    assert page.count('<li class="fact"') == 2 and page.count('<li class="fact near"') >= 2
     assert "five Gazette lists" in page and took < 2.0
+    near_says = [unescape(re.sub(r"<[^>]+>", "", s)) for li in re.findall(r'<li class="fact near">(.*?)</li>', page, re.S)
+                 for s in re.findall(r'<div class="say">(.*?)</div>', li)]
+    assert near_says and not [s for s in near_says if " · " in s], near_says        # every near entry has its register's line
     for s in says:
         assert not re.search(r"\b\d+ rows?\b|registers?\b|single-row|gazette_celebrants|charity_officers|directors\b", s), s
 
@@ -498,7 +511,12 @@ def test_rank_group_folds_by_hand_into_one_entry_and_one_node_and_the_rest_stay_
         fold = (group, *holders, *comcom)
         companies = sorted(set(ticks) - set(fold))         # the other Rank Group organisations: 14 on 29 October
         assert len(holders) == 5 and len(comcom) >= 1 and len(companies) >= 10, (len(holders), len(comcom), len(companies))   # comcom: 1 on 29 Oct, 2 on 30 Oct (the lane's data moves)
-        assert not [t for t in ticks if t.startswith(("directors:", "minister_diary_entries:", "gazette_notices:", "beehive_"))]
+        assert not [t for t in ticks if t.startswith(("directors:", "minister_diary_entries:", "gazette_notices:", "beehive_releases:",
+                                                      "beehive_release_ministers:", "beehive_release_annotations:"))]
+        mentions = [t for t in ticks if t.startswith("beehive_people:")]    # a release's mentions mix people and bodies: a body only
+        kinds = {r["ref"]: r["kind"] for r in db.rows(conn, "select ref, kind from pub.names where ref = any(%s)",
+                                                       ([links_view.ref(cat.BY_NAME["beehive_people"], t.split(":", 1)[1]) for t in mentions],))}
+        assert all(kinds.get(links_view.ref(cat.BY_NAME["beehive_people"], t.split(":", 1)[1])) == "organisation" for t in mentions), kinds
         boxes = search.boxes_of(urllib.parse.parse_qs("all=1&" + urllib.parse.urlencode([("hk", m) for m in fold])))
         t = time.time()
         page = server.render("Rank Group", [], conn=conn, boxes=boxes, graph_open=True)
