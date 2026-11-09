@@ -2,7 +2,7 @@
 files on /mnt/hdd2 from a catalogue: the 1-million sample's, to size it, and then the whole archive's (qv4-papers-past-index).
 
 Arthur, 2 November 2026: tantivy is the engine ("for papers past use tantivity and go"); FTS5 stays as the measured
-alternative. tantivy (its Python wheel, pinned in requirements.txt; text not stored, so a hit is the item's upstream id,
+alternative. tantivy (its Python wheel; the writer is support/textindex/write.py since 10 November 2026, pinned in requirements.txt; text not stored, so a hit is the item's upstream id,
 read back through the catalogue; beside the words a fast `day`, `paper` and `chars` for order and filters, 5 November 2026) and SQLite FTS5 (Python's own sqlite3, contentless). The documents stream from the store's
 files in file and frame order, each frame decompressed once, nothing held; built at low priority into the store's folder:
 
@@ -26,6 +26,7 @@ import sys
 import time
 
 from registers.papers_past import store
+from support import textindex
 
 #: the queries each engine is timed on: a common word, a rarer one, a phrase, a prefix, a conjunction, a Māori word
 QUERIES = {
@@ -131,9 +132,12 @@ def memory_mb(pid: str = "self") -> dict:
     return out
 
 
-HEAP = 1_500_000_000        # tantivy's indexing memory, across its threads
-THREADS = 2
-COMMIT_EVERY = 5_000_000    # documents between commits: each commit closes segments and frees the heap
+HEAP = textindex.write.HEAP            # tantivy's indexing memory, across its threads
+THREADS = textindex.write.THREADS
+COMMIT_EVERY = textindex.write.COMMIT_EVERY    # documents between commits: each commit closes segments and frees the heap
+#: the index's fields, as built since 5 November 2026 (the writer is support/textindex/write.py since 10 November 2026)
+SPEC = textindex.write.Spec(key="id", key_kind="int", texts=("title", "text"),
+                            extra=(("day", "int", True), ("paper", "exact", False), ("chars", "int", False)))
 
 
 def tantivy_index(docs, path: str, threads: int = THREADS, heap: int = HEAP, commit_every: int = COMMIT_EVERY,
@@ -148,47 +152,20 @@ def tantivy_index(docs, path: str, threads: int = THREADS, heap: int = HEAP, com
     (tests/test_papers_past_search.py), so the absence is the sentinel, and a year range never matches it. A stream of
     (upstream id, title, text) alone still builds, with no value in the three."""
     import tantivy
-    work = path + ".new"
-    shutil.rmtree(work, ignore_errors=True)
-    os.makedirs(work)
-    t0 = time.monotonic()
-    sb = tantivy.SchemaBuilder()
-    sb.add_integer_field("id", stored=True, indexed=True, fast=True)
-    sb.add_text_field("title", stored=False, tokenizer_name="default", index_option="position")
-    sb.add_text_field("text", stored=False, tokenizer_name="default", index_option="position")
-    sb.add_integer_field("day", stored=False, indexed=True, fast=True)
-    sb.add_text_field("paper", stored=False, fast=True, tokenizer_name="raw", index_option="basic")
-    sb.add_integer_field("chars", stored=False, indexed=False, fast=True)
-    ix = tantivy.Index(sb.build(), path=work)
-    w = ix.writer(heap_size=heap, num_threads=threads)
-    n = 0
-    for uid, title, text, *more in docs:
-        paper, day, chars = (list(more) + [None, None, None])[:3]
-        doc = tantivy.Document(id=uid, title=title, text=text)
-        if paper:
-            doc.add_text("paper", paper)
-        if day is not None:
-            doc.add_integer("day", int(day))
-        if chars is not None:
-            doc.add_integer("chars", int(chars))
-        w.add_document(doc)
-        n += 1
-        if n % commit_every == 0:
-            w.commit()
-            if log:
-                m = memory_mb()
-                log(f"papers_past index: {n} documents committed, {round(time.monotonic() - t0)} s, memory MB "
-                    f"pss {m.get('Pss')} anon {m.get('Pss_Anon')} file {m.get('Pss_File')}")
-    w.commit()
-    w.wait_merging_threads()
-    built = round(time.monotonic() - t0)
-    del w
-    old = path + ".old"
-    shutil.rmtree(old, ignore_errors=True)
-    if os.path.exists(path):
-        os.rename(path, old)
-    os.rename(work, path)
-    shutil.rmtree(old, ignore_errors=True)
+
+    def values():
+        for uid, title, text, *more in docs:
+            paper, day, chars = (list(more) + [None, None, None])[:3]
+            yield {"id": uid, "title": title, "text": text, "paper": paper, "day": day, "chars": chars}
+
+    def progress(n, seconds):
+        if log:
+            m = memory_mb()
+            log(f"papers_past index: {n} documents committed, {seconds} s, memory MB "
+                f"pss {m.get('Pss')} anon {m.get('Pss_Anon')} file {m.get('Pss_File')}")
+    made = textindex.write.build(values(), path, SPEC, threads=threads, heap=heap, commit_every=commit_every,
+                                 progress=progress)
+    n, built = made["items"], made["build seconds"]
     ix = tantivy.Index.open(path)
     ix.reload()
     s = ix.searcher()

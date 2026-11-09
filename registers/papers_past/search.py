@@ -20,21 +20,14 @@ from __future__ import annotations
 
 import os
 import re
-import threading
 import time
 
 from registers.papers_past import store
+from support import textindex
+#: the reader is support/textindex/read.py since 10 November 2026 (moved from here, behaviour unchanged)
+from support.textindex.read import LIMIT, OFFSET, PAPERS_UPTO, SKIP, SNIPPET, SORTS, fields_of, opened, snippet, words  # noqa: F401
 
 FIELDS = ["title", "text"]
-LIMIT = 100                 # hits on one page, at most
-OFFSET = 10_000             # how deep a page may start
-SNIPPET = 320               # characters of text around the first word asked
-_LOCK = threading.Lock()    # one open at a time, and one search at a time: the index is on a spinning disk
-_OPEN = {}                  # index path -> tantivy.Index
-SKIP = {"and", "or", "not"}
-SORTS = ("relevance", "oldest", "newest")
-PAPERS_UPTO = 2_000_000     # hits counted by paper only up to this many (an aggregation over all of them)
-_FIELDS = {}                # index path -> the order and filter fields it has
 
 
 def index_path(store_dir: str) -> str:
@@ -49,66 +42,12 @@ def store_dir(conn) -> str:
     return row[0]
 
 
-def opened(path: str):
-    """The index at `path`, opened once per process."""
-    import tantivy
-    ix = _OPEN.get(path)
-    if ix is None:
-        if not os.path.isdir(path):
-            raise FileNotFoundError(f"no keyword index at {path}")
-        ix = _OPEN[path] = tantivy.Index.open(path)
-    return ix
-
-
-def fields_of(ix, path: str) -> set:
-    """Which of day, paper, chars the index at `path` was built with (asked of its schema once)."""
-    if path not in _FIELDS:
-        import tantivy
-        have = set()
-        for f in ("day", "chars"):
-            try:
-                tantivy.Query.range_query(ix.schema, f, tantivy.FieldType.Integer, 1, None)
-                have.add(f)
-            except ValueError:
-                pass
-        try:
-            tantivy.Query.term_query(ix.schema, "paper", "x")
-            have.add("paper")
-        except ValueError:
-            pass
-        _FIELDS[path] = have
-    return _FIELDS[path]
-
-
 def _year(y):
     try:
         y = int(y)
     except (TypeError, ValueError):
         return None
     return y if 1000 <= y <= 2999 else None
-
-
-def words(query: str) -> list:
-    """The plain words of a query, lower case, for the snippet's window and its marks (no operator, no field name)."""
-    out = []
-    for w in re.findall(r"[^\W_]+", re.sub(r"\b\w+:", " ", query or "")):
-        w = w.lower()
-        if w not in SKIP and w not in out:
-            out.append(w)
-    return out
-
-
-def snippet(text: str, ws: list, n: int = SNIPPET) -> str:
-    """About `n` characters of `text` around the first place a word asked begins a word; the text's start if none does."""
-    text = text or ""
-    at = None
-    for w in ws:
-        m = re.search(r"(?<!\w)" + re.escape(w), text, re.I)
-        if m and (at is None or m.start() < at):
-            at = m.start()
-    start = 0 if at is None else max(0, at - n // 3)
-    piece = re.sub(r"\s+", " ", text[start:start + n]).strip()
-    return ("… " if start else "") + piece + (" …" if start + n < len(text) else "")
 
 
 def _rows(conn, ids: list) -> dict:
@@ -129,7 +68,6 @@ def search(conn, query: str, limit: int = 20, offset: int = 0, sdir: str = None,
     """One page of hits in `sort` order, the whole count, and the seconds the index and the reading took. A query the
     parser cannot read whole is read as far as it can, and `error` says what it dropped; an order or filter the index
     cannot serve is listed in `unavailable` and not applied."""
-    import tantivy
     query = (query or "").strip()[:500]
     limit, offset = max(1, min(int(limit), LIMIT)), max(0, min(int(offset), OFFSET))
     sort = sort if sort in SORTS else "relevance"
@@ -145,45 +83,39 @@ def search(conn, query: str, limit: int = 20, offset: int = 0, sdir: str = None,
         return out
     t0 = time.perf_counter()
     sdir = sdir or store_dir(conn)
-    with _LOCK:
-        path = index_path(sdir)
-        ix = opened(path)
-        have = fields_of(ix, path)
-        parsed, errors = ix.parse_query_lenient(query, FIELDS, conjunction_by_default=True)
-        must, schema = [], ix.schema
-        if paper:
-            if "paper" in have:
-                must.append(tantivy.Query.term_query(schema, "paper", paper))
-            else:
-                out["unavailable"].append("the paper filter")
-        if year_from or year_to:
-            if "day" in have:
-                lo = year_from * 10_000 + 101 if year_from else None
-                hi = year_to * 10_000 + 1231 if year_to else None
-                must.append(tantivy.Query.range_query(schema, "day", tantivy.FieldType.Integer, lo, hi))
-            else:
-                out["unavailable"].append("the year range")
-        if min_chars:
-            if "chars" in have:
-                must.append(tantivy.Query.range_query(schema, "chars", tantivy.FieldType.Integer, min_chars, None))
-            else:
-                out["unavailable"].append("the minimum length")
-        if must:
-            parsed = tantivy.Query.boolean_query([(tantivy.Occur.Must, parsed)] + [(tantivy.Occur.Must, m) for m in must])
-        order = {}
-        if sort != "relevance":
-            if "day" in have:
-                order = {"order_by_field": "day", "order": tantivy.Order.Asc if sort == "oldest" else tantivy.Order.Desc}
-            else:
-                out["unavailable"].append(f"{sort} first")
-                out["sort"] = "relevance"
-        s = ix.searcher()
-        found = s.search(parsed, limit, count=True, offset=offset, **order)
-        ids = [s.doc(addr)["id"][0] for _, addr in found.hits]
-        if "paper" in have and found.count and found.count <= PAPERS_UPTO:
-            agg = s.aggregate(parsed, {"papers": {"terms": {"field": "paper", "size": 10}}})
-            out["papers"] = [(b["key"], b["doc_count"]) for b in agg["papers"]["buckets"]]
-    out["count"] = found.count or 0
+    path = index_path(sdir)
+    have = textindex.read.have(path)
+    terms, ranges = [], []
+    if paper:
+        if "paper" in have:
+            terms.append(("paper", paper))
+        else:
+            out["unavailable"].append("the paper filter")
+    if year_from or year_to:
+        if "day" in have:
+            lo = year_from * 10_000 + 101 if year_from else None
+            hi = year_to * 10_000 + 1231 if year_to else None
+            ranges.append(("day", lo, hi))
+        else:
+            out["unavailable"].append("the year range")
+    if min_chars:
+        if "chars" in have:
+            ranges.append(("chars", min_chars, None))
+        else:
+            out["unavailable"].append("the minimum length")
+    order_by = None
+    if sort != "relevance":
+        if "day" in have:
+            order_by = "day"
+        else:
+            out["unavailable"].append(f"{sort} first")
+            out["sort"] = "relevance"
+    found = textindex.read.search(path, query, FIELDS, limit, offset, key="id", terms=terms, ranges=ranges,
+                                  order_by=order_by, descending=sort == "newest",
+                                  facet="paper" if "paper" in have else None, facet_upto=PAPERS_UPTO)
+    ids, errors = found["keys"], found["errors"]
+    out["papers"] = found["facets"]
+    out["count"] = found["count"]
     out["error"] = "; ".join(str(e) for e in errors)[:300]
     out["index seconds"] = round(time.perf_counter() - t0, 3)
     rows = _rows(conn, ids) if ids else {}
