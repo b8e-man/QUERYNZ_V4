@@ -105,21 +105,23 @@ CASES = (
                            "and full_key is not null group by 1 order by count(*) desc limit 1) limit 1"),
     ("a company with a holding chain", "select 'companies:' || s.entity_key from pub.shareholders s join pub.companies c on c.name = s.name "
                                        "where s.name ~* '(limited|ltd)$' order by s.entity_key limit 1"),
-    ("a company named in a court judgment", "select row_b from pub.links where row_a like 'courts:%%' and row_b like 'companies:%%' and grade = 'confirmed' limit 1"),
+    ("a company named in a court judgment", "select row_a from pub.links where row_a like 'companies:%%' and row_b like 'courts:%%' and grade = 'confirmed' limit 1"),
     ("a supplier on a GETS award", "select n.ref from pub.names n where n.view = 'award_suppliers' order by n.ref limit 1"),
     ("a charity with officers", "select 'charities:' || o.charity_key from pub.charity_officers o order by o.charity_key limit 1"),
     ("an incorporated society", "select 'societies:' || o.society_key from pub.society_officers o order by o.society_key limit 1"),
     ("a councillor", "select ref from pub.names where view = 'councillor_interests' order by ref limit 1"),
     ("a council meeting attendee", "select ref from pub.names where view = 'council_meeting_attendance' order by ref limit 1"),
     ("a person in the Insolvency Register", "select ref from pub.names where view = 'insolvency_people' order by ref limit 1"),
-    ("a building practitioner with a Board decision", "select row_a from pub.links where row_a like 'building_practitioners:%%/lbp/%%' "
-                                                      "and row_b like 'building_practitioners:%%/decision/%%' limit 1"),
+    ("a licensed building practitioner confirmed to a company", "select row_a from pub.links where row_a like 'building_practitioners:%%/lbp/%%' "
+                                                                "and row_b like 'companies:%%' and grade = 'confirmed' order by row_a limit 1"),
+    ("a person named in a Building Practitioners Board decision", "select ref from pub.names where view = 'building_practitioner_decisions' order by ref limit 1"),
     ("a body on a sanctions list", "select ref from pub.names where view = 'sanctions_listings' and kind = 'organisation' order by ref limit 1"),
     ("a grant recipient", "select ref from pub.names where view = 'grant_recipients' order by ref limit 1"),
     ("an iwi entity", "select ref from pub.names where view = 'iwi_directory_entities' and ref like '%%/iwi/%%' order by ref limit 1"),
     ("a person on a ministerial diary", "select ref from pub.names where view = 'minister_diary_attendees' and kind = 'person' order by ref limit 1"),
     ("a party board member", "select ref from pub.names where view = 'party_board_roles' order by ref limit 1"),
-    ("a Māori name with a macron", "select ref from pub.names where view = 'directors' and name_filed ~ '[āēīōūĀĒĪŌŪ]' order by ref limit 1"),
+    ("a Māori name with a macron", "select ref from pub.names where view = 'linz_title_owners' and kind = 'person' and name_filed ~ '[āēīōūĀĒĪŌŪ]' "
+                                   "order by ref limit 1"),   # no director's name carries a macron (9 November 2026)
     ("a land title owner who is a company director", "select o.ref from pub.names o where o.view = 'linz_title_owners' and o.full_key in "
                                                     "(select full_key from pub.names where view = 'directors' and full_key is not null limit 2000) limit 1"),
 )
