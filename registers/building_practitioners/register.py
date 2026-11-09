@@ -387,6 +387,8 @@ def main(argv=None) -> int:
     ap.add_argument("--budget-s", type=float, default=27000)
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=capture.SCHEMA)
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the searches and pages from the ingest MCP's copies, never the web (9 November 2026)")
     a = ap.parse_args(argv)
     try:
         capture.register()
@@ -402,11 +404,13 @@ def main(argv=None) -> int:
         if not conn.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (JOB,)).fetchone()[0]:
             print(f"{capture.SOURCE}: another run holds the register; this one asks for nothing")
             return 0
-        out = Run(t, land_fn=capture.landing(conn), anytime=a.anytime, max_details=a.max_details,
-                  budget_s=a.budget_s).run()
+        mcp = capture.from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; nothing leaves the boxes
+        out = Run(t, land_fn=capture.landing(conn), anytime=mcp.pop("anytime", a.anytime), max_details=a.max_details,
+                  budget_s=a.budget_s, **mcp).run()
     ok = not out["stopped"].startswith("stopped:")
     detail = (f"{out['requests']} requests, {out['searches']} searches ({out['listed']} rows), {out['due']} pages due, "
-              f"{out['details']} fetched, {out['adopted']} already held, {out['new']} new, {out['set_aside']} set aside; "
+              f"{out['details']} fetched, {out['adopted']} already held, {out['new']} new, {out['set_aside']} set aside "
+              f"({out['not_held']} not in the MCP's copy yet); "
               f"{out['stopped'] or 'done'}")
     print(f"{capture.SOURCE}: register: {detail}")
     if a.database == "querynz_v4" and a.schema == capture.SCHEMA:

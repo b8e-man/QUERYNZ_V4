@@ -27,6 +27,10 @@ followed unless the position names it (the gate judges each hop).
     python -m registers.local_elections.capture files [--anytime] [--budget-s N] [--max-files N]
     python -m registers.local_elections.capture adopt <capture-list.jsonl>   # the integrator: land from the store, no fetch
     python -m registers.local_elections.capture list > capture-list.jsonl    # what this database holds
+    ... listings|files --from-mcp                                             # the nightly jobs from 10 November 2026
+
+From 9 November 2026 the crawl is the ingest MCP provider's: `--from-mcp` answers every address of either pass
+from the newest copy in `estate-local_elections` (taken by qv4-mcp-pull) and asks the web for nothing.
 """
 import argparse
 import datetime as dt
@@ -177,10 +181,37 @@ def fetch(url: str, max_bytes: int = None):
     return r, "landed", None
 
 
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
+MCP_CORPORA = ("estate-local_elections",)
+#: the state of an address the MCP's copy does not hold yet: the page or file stays wanted, asked again next run
+NOT_HELD = "not held"
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's fetch when the crawl is the MCP provider's (the 5 November split; Arthur, 9 November 2026): every
+    address answered with the newest copy the MCP holds, and no request leaving the boxes, so no gate and no
+    off-peak hours (the listings' week guard still binds). An address the copy does not hold yet is `NOT_HELD`:
+    it holds no host and spends no wanted file. A copy that is a challenge page is blocked, as it would be from
+    the web (hard limit 6)."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def fetch_copy(url: str, max_bytes: int = None):
+        try:
+            f = open_copy(url, 60)
+        except replay.NotHeld as e:
+            return None, NOT_HELD, str(e)[:300]
+        why = fg.looks_challenged(f.status, f.body)
+        return (f, "blocked", why) if why else (f, "landed", None)
+    return {"fetch_fn": fetch_copy, "hours": False}
+
+
 class Run:
     def __init__(self, tables: Tables, land_fn, anytime=False, budget_s=DEFAULT_BUDGET_S, max_files=None,
-                 fetch_fn=fetch, clock=None, log=print, seed_list=None, held_fn=None):
+                 fetch_fn=fetch, clock=None, log=print, seed_list=None, held_fn=None, hours=True):
         self.t, self.land, self.anytime, self.budget_s = tables, land_fn, anytime, budget_s
+        #: hours: the off-peak hours bind (they guard a host; from the MCP's copy no host is asked)
+        self.hours = hours
         # the gate's hold on a host (ruling 141); an injected fetch is a test's site, never the live ledger's host
         self.held = held_fn or (fg.refused_by if fetch_fn is fetch else (lambda host: None))
         self.max_files, self.fetch, self.log = max_files, fetch_fn, log
@@ -220,7 +251,7 @@ class Run:
 
     def listings(self) -> dict:
         if not self.anytime:
-            if not off_peak(self.clock()):
+            if self.hours and not off_peak(self.clock()):
                 self.log(f"{SOURCE}: outside 22:00 to 06:00 NZ time; no listing asked")
                 return {"requests": 0, "landed": 0, "failed": 0, "stopped": "daytime"}
             since = self.t.days_since_listings() if hasattr(self.t, "days_since_listings") else None
@@ -261,7 +292,7 @@ class Run:
         return {"pass": pid, "requests": self.requests, "landed": self.landed, "failed": self.failed, "returns_new": rows}
 
     def files(self) -> dict:
-        if not self.anytime and not off_peak(self.clock()):
+        if not self.anytime and self.hours and not off_peak(self.clock()):
             self.log(f"{SOURCE}: outside 22:00 to 06:00 NZ time; no file asked")
             return {"requests": 0, "landed": 0, "failed": 0, "stopped": "daytime"}
         pid = self.t.new_pass("files")
@@ -273,11 +304,11 @@ class Run:
             if self._out_of_time():
                 stopped = "budget spent"
                 break
-            if not self.anytime and not off_peak(self.clock()):
+            if not self.anytime and self.hours and not off_peak(self.clock()):
                 stopped = "06:00: off-peak ended"
                 break
             r, state, why = self._ask(url, MAX_FILE_BYTES)
-            if state == "skipped":
+            if state in ("skipped", NOT_HELD):      # stays wanted: asked again next run
                 continue
             if state == "landed" and len(r.body) >= MAX_FILE_BYTES:
                 state, why = "too large", f"{MAX_FILE_BYTES >> 20} MB or more: not landed cut short"
@@ -352,6 +383,8 @@ def main(argv=None) -> int:
     ap.add_argument("--max-files", type=int)
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-local_elections), never the web")
     a = ap.parse_args(argv)
     from support import db, jobrun
     started = jobrun.now()
@@ -369,7 +402,8 @@ def main(argv=None) -> int:
         if not t.try_lock():
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             return 0
-        run = Run(t, land_fn=landing(conn), anytime=a.anytime, budget_s=a.budget_s, max_files=a.max_files)
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; no request leaves the boxes
+        run = Run(t, land_fn=landing(conn), anytime=a.anytime, budget_s=a.budget_s, max_files=a.max_files, **mcp)
         out = run.listings() if a.mode == "listings" else run.files()
     detail = ", ".join(f"{k} {v}" for k, v in out.items())
     print(f"{SOURCE}: {a.mode}: {detail}")

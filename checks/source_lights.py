@@ -372,7 +372,9 @@ def held_hosts(c: Ctx) -> tuple:
     register names (its reason says it). A hold stops the lane when the host is one the lane names as its own, or when
     every host the lane reads is held; a hold on one of the many hosts its positions name (a council's site among 78)
     leaves the rest asked: the corpus is not whole, the updates still work."""
-    if not c.update or (c.lane.asks and not [j for j in c.lane.asks if j in c.update]):
+    registry = c.facts["registry"]
+    asking = [j for j in c.lane.asks if j in c.update and "--from-mcp" not in tuple(getattr(registry.get(j), "command", ()) or ())]
+    if not c.update or (c.lane.asks and not asking):   # a capture reading the MCP's copy asks no host (10 November 2026)
         return [], []
     hosts = lane_hosts(c.lane, c.facts["positions"])
     own = {_bare(h) for h in c.lane.hosts}

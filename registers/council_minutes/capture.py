@@ -38,6 +38,10 @@ infocouncil.md` (the integrator moves it to docs/legal/positions/).
 
     python -m registers.council_minutes.capture [--anytime] [--budget-s N] [--max-docs N]
     python -m registers.council_minutes.capture --copy-old      land what the old estate's files hold, by hash
+    python -m registers.council_minutes.capture --from-mcp      the nightly job from 10 November 2026
+
+From 9 November 2026 the crawl is the ingest MCP provider's: `--from-mcp` answers every address of the walk from
+the newest copy in `estate-council_minutes` (taken by qv4-mcp-pull) and asks the web for nothing.
 """
 import argparse
 import datetime as dt
@@ -265,6 +269,28 @@ class Tables:
 
 # ── a run ─────────────────────────────────────────────────────────────────────
 
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
+MCP_CORPORA = ("estate-council_minutes",)
+#: the start of `ask`'s line for an address the MCP's copy does not hold (support.mcpsource.replay.NotHeld)
+NOT_HELD = "transport: NotHeld"
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's opener when the crawl is the MCP provider's (the 5 November split; Arthur, 9 November 2026): every
+    address answered with the newest copy the MCP holds, and no request leaving the boxes, so no pacing and no
+    off-peak hours. An address the copy does not hold yet holds no instance and fails no document: it is asked again
+    at the next run, when the pull may have brought it. A copy that is a challenge page is a block, as it would be
+    from the web (hard limit 6)."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def opener(url, timeout=None, **_):
+        f = open_copy(url, timeout)
+        why = fg.looks_challenged(f.status, f.body)
+        return fg.Fetched(url=f.url, status=f.status, body=f.body, final_url=f.final_url, blocked=why) if why else f
+    return {"opener": opener, "sleep": lambda s: None, "anytime": True}
+
+
 class Run:
     def __init__(self, tables, *, land_fn, old: dict, read_fn, opener=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_docs: int = 100000, anytime: bool = False,
@@ -281,7 +307,8 @@ class Run:
         self.instances = instances if instances is not None else INSTANCES
         self.started = self.clock()
         self.counts = {"requests": 0, "listings": 0, "landed": 0, "already_held": 0, "old_estate": 0, "failed": 0,
-                       "held_hosts": 0, "set_aside": 0, "old_copied": 0, "old_fetched": 0, "old_fetched_differs": 0}
+                       "held_hosts": 0, "set_aside": 0, "old_copied": 0, "old_fetched": 0, "old_fetched_differs": 0,
+                       "not_held": 0}
         self.stopped = ""
 
     def time_left(self) -> bool:
@@ -319,6 +346,9 @@ class Run:
                 continue
             url = base + "/"
             f, why = self.ask(url)
+            if f is None and why.startswith(NOT_HELD):        # the MCP's copy lacks it (yet): no hold, asked next run
+                self.counts["not_held"] += 1
+                continue
             if f is None:
                 self.t.listing(host, url, None, None, None, why)
                 self.t.hold(host, f"the listing: {why}")
@@ -374,6 +404,9 @@ class Run:
                 break
             asked += 1
             f, why = self.ask(url)
+            if f is None and why.startswith(NOT_HELD):        # the MCP's copy lacks it (yet): not failed, asked next run
+                self.counts["not_held"] += 1
+                continue
             if f is None:
                 self.t.document(url, host, file, "failed", None, listed_in,
                                 why + (f"; the old estate listed {old_sha}, its file not on this box" if old_sha else ""))
@@ -483,6 +516,8 @@ def main(argv=None) -> int:
     ap.add_argument("--budget-s", type=float, default=DEFAULT_BUDGET_S)
     ap.add_argument("--max-docs", type=int, default=100000)
     ap.add_argument("--copy-old", action="store_true", help="land the old estate's files present on this box")
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-council_minutes), never the web")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
     ap.add_argument("--adopt", metavar="SCRATCH_SCHEMA", help="the integrator, once: carry a session's capture record "
@@ -506,14 +541,17 @@ def main(argv=None) -> int:
             got, aside = copy_all(conn, entries)
             print(f"{SOURCE}: {len(entries)} listed by the old estate, {len(got)} landed by hash, {len(aside)} not here")
             return 0
-        out = Run(t, land_fn=landing(conn), old=old_held(entries), read_fn=read.recognise, anytime=a.anytime,
-                  budget_s=a.budget_s, max_docs=a.max_docs, copy_old=copier(conn, entries)).run()
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; no request leaves the boxes
+        out = Run(t, land_fn=landing(conn), old=old_held(entries), read_fn=read.recognise,
+                  anytime=mcp.pop("anytime", a.anytime), budget_s=a.budget_s, max_docs=a.max_docs,
+                  copy_old=copier(conn, entries), **mcp).run()
     ok, last = outcome(out)
     detail = (f"{out['requests']} requests, {out['listings']} listings, {out['landed']} minutes landed, "
               f"{out['already_held']} already held, {out['old_copied']} copied from the old estate's files, "
               f"{out['old_fetched']} of the old estate's fetched from the council ({out['old_fetched_differs']} not its "
               f"bytes), {out['old_estate']} held by the old estate, {out['failed']} failed, "
-              f"{out['held_hosts']} instances held, {out['set_aside']} set aside; {last}")
+              f"{out['held_hosts']} instances held, {out['set_aside']} set aside, {out['not_held']} not in the MCP's copy yet; "
+              f"{last}")
     print(f"{SOURCE}: {detail}")
     if a.database == "querynz_v4":
         jobrun.record(JOB, ok, detail, started, out)

@@ -492,10 +492,13 @@ def test_the_nine_stopped_sources_on_the_real_lanes(monkeypatch):
         for j in lane.update + lane.read:
             f["last_done"][j] = f["last_finished"][j] = done(2)
     f["refusals"] = {"www.fndc.govt.nz": {"host": "www.fndc.govt.nz", "state": "held", "why": "HTTP 403", "at": None}}
-    stopped = ("commerce_commission", "worksafe", "building_practitioners", "council_minutes", "councillor_interests",
-               "local_elections", "courts")
+    stopped = ("worksafe",)   # 10 November 2026: the other six read the MCP's copy (--from-mcp) and are on again
     for r in stopped:
         x = sl.light_of(r, True, f, NOW)
         assert x["light"] == "orange" and "switched off in the catalogue" in x["reason"], (r, x)
         assert not any("fndc" in w for w in x["reasons"]), (r, x)
-    assert sl.light_of("fma", True, f, NOW)["light"] == "green"
+    for r in ("fma", "commerce_commission", "building_practitioners", "council_minutes", "councillor_interests",
+              "local_elections"):
+        x = sl.light_of(r, True, f, NOW)
+        assert x["light"] == "green", (r, x)
+        assert not any("fndc" in w for w in x["reasons"]), (r, x)

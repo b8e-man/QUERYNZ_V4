@@ -30,6 +30,10 @@ printed is a count.
 
     python -m registers.building_practitioners.capture [--anytime] [--max-pages N]
     python -m registers.building_practitioners.capture --register [--anytime]   # the register (register.py)
+    ... [--from-mcp]       the nightly jobs from 10 November 2026
+
+From 9 November 2026 the crawl is the ingest MCP provider's: `--from-mcp` answers every address of either walk
+from the newest copy in `estate-building_practitioners` (taken by qv4-mcp-pull) and asks the web for nothing.
 """
 import argparse
 import datetime as dt
@@ -40,6 +44,7 @@ import time
 from zoneinfo import ZoneInfo
 
 import support.fetchgate as fg
+from support.mcpsource.replay import NotHeld
 
 SOURCE = SCHEMA = "building_practitioners"
 JOB = "qv4-building-practitioners-capture"
@@ -175,6 +180,26 @@ class Tables:
 
 # ── a run ─────────────────────────────────────────────────────────────────────
 
+#: the ingest MCP's copy of this lane's crawl (the decisions and the register), which `--from-mcp` answers from
+MCP_CORPORA = ("estate-building_practitioners",)
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's opener when the crawl is the MCP provider's (the 5 November split; Arthur, 9 November 2026): every
+    address answered with the newest copy the MCP holds, and no request leaving the boxes, so no pacing and no
+    off-peak hours. An address the copy does not hold yet is set aside and asked again next run, never counted
+    toward the failures that stop a run. A copy that is a challenge page is a block, as it would be from the web
+    (hard limit 6)."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def opener(url, timeout=None, **_):
+        f = open_copy(url, timeout)
+        why = fg.looks_challenged(f.status, f.body)
+        return fg.Fetched(url=f.url, status=f.status, body=f.body, final_url=f.final_url, blocked=why) if why else f
+    return {"opener": opener, "sleep": lambda s: None, "anytime": True}
+
+
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_pages: int = 1000, anytime: bool = False, log=print):
@@ -188,7 +213,7 @@ class Run:
         self.last_end = None
         self.failures = 0
         self.counts = {"requests": 0, "pages": 0, "items": 0, "new": 0, "already_held": 0, "set_aside": 0,
-                       "passes_finished": 0}
+                       "passes_finished": 0, "not_held": 0}
         self.stopped = ""
 
     def time_left(self) -> bool:
@@ -212,6 +237,11 @@ class Run:
             f = self.opener(url, timeout)
         except fg.Refused:
             raise
+        except NotHeld as exc:        # the MCP's copy lacks it (yet): asked again next run, not a failure of the host
+            self.last_end = self.clock()
+            self.counts["not_held"] += 1
+            self._aside(pass_id, url, "fetch", f"not in the MCP's copy yet: {str(exc)[:200]}")
+            return None
         except Exception as exc:  # noqa: BLE001
             self.last_end = self.clock()
             self.failures += 1
@@ -321,11 +351,13 @@ def main(argv=None) -> int:
     ap.add_argument("--budget-s", type=float, default=DEFAULT_BUDGET_S)
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-building_practitioners), never the web")
     a = ap.parse_args(argv)
     if a.register:
         from registers.building_practitioners import register as reg
-        return reg.main((["--anytime"] if a.anytime else []) + ["--budget-s", str(a.budget_s), "--database", a.database,
-                                                                "--schema", a.schema])
+        return reg.main((["--anytime"] if a.anytime else []) + (["--from-mcp"] if a.from_mcp else [])
+                        + ["--budget-s", str(a.budget_s), "--database", a.database, "--schema", a.schema])
     from support import db, jobrun
     started = jobrun.now()
     with db.connect(db.OWNER_KEY, a.database, autocommit=True) as conn:
@@ -335,11 +367,13 @@ def main(argv=None) -> int:
         if not t.try_lock():
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             return 0
-        out = Run(t, land_fn=landing(conn), anytime=a.anytime, max_pages=a.max_pages, budget_s=a.budget_s).run()
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; no request leaves the boxes
+        out = Run(t, land_fn=landing(conn), anytime=mcp.pop("anytime", a.anytime), max_pages=a.max_pages,
+                  budget_s=a.budget_s, **mcp).run()
     ok = not out["stopped"].startswith("stopped:")
     detail = (f"{out['requests']} requests, {out['pages']} list pages ({out['items']} decisions), {out['new']} new, "
-              f"{out['already_held']} already held, {out['set_aside']} set aside, {out['passes_finished']} passes "
-              f"finished; {out['stopped'] or 'done'}")
+              f"{out['already_held']} already held, {out['set_aside']} set aside ({out['not_held']} not in the MCP's copy "
+              f"yet), {out['passes_finished']} passes finished; {out['stopped'] or 'done'}")
     print(f"{SOURCE}: {detail}")
     if a.database == "querynz_v4":
         jobrun.record(JOB, ok, detail, started, out)

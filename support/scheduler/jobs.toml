@@ -841,9 +841,10 @@ priority = 32   # 85 was taken (integrator); the retired capture job's slot
 command = ["python", "-m", "registers.courts.load", "--publish"]
 at_utc = "15:40"
 nice = 10
-# the load's readers follow it with no hand on them (31 October); qv4-courts-pages joins this list when the courts
-# lane prints its page-reader waits (`python -m registers.courts.read --pages --pieces`, named in fix-support-scheduler-6)
-then = ["qv4-names-courts"]   # its names into pub.names (1 November)
+# the load's readers follow it with no hand on them (31 October). The page reader since 10 November 2026: the load
+# leaves a scan "waiting: page reader", and the row it queues lists them (`--pages --pieces`); queued in the morning,
+# it waits for the night window (22:00 to 05:45 NZDT, ruling 129), the only time the page-reader profile may load
+then = ["qv4-names-courts", "qv4-courts-pages"]   # its names into pub.names (1 November); its scans to the page reader (10 November)
 
 [jobs.qv4-courts-read]
 description = "Courts: the text reader's reading of one document (piece key sha256) through the text-reader profile: every person and body named with its role, counsel for each party, a one-line summary; stored by hash, replayed by the next load. Keys from python -m registers.courts.model_read --pieces."
@@ -870,6 +871,7 @@ query_timeout_s = 300
 class = "whenever"
 priority = 27   # 22 was taken (integrator)
 command = ["python", "-m", "registers.courts.read", "--pages"]
+pieces_command = ["python", "-m", "registers.courts.read", "--pages", "--pieces"]   # the documents the last load left waiting on the page reader (217 on 10 November 2026; last run 30 October, nothing queued it)
 requires = ["pdftoppm"]
 pieces = true
 can_share = false
@@ -903,28 +905,26 @@ nice = 10
 then = ["qv4-names-limited-partnerships"]   # its names into pub.names (1 November)
 
 [jobs.qv4-building-practitioners-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-building_practitioners: 4,002 arrivals in the last 24 h, its newest 20 records fetched by the provider); the boxes stop (the 5 November split)
-description = "Step 5.3: the Building Practitioners Board's published decisions list (about 80 pages) and its documents, through the fetch gate 5 s apart, each fetched once. The spec asks for Sunday 23:00 NZDT weekly; the catalogue has no weekday, so it runs nightly at 23:00 NZDT (about 7 minutes) until the lane or the scheduler carries the day."
+description = "Step 5.3: the Building Practitioners Board's published decisions list (about 80 pages) and its documents, each taken once; from 10 November 2026 answered from the ingest MCP's copy (estate-building_practitioners, taken by qv4-mcp-pull), never the web. The spec asks for Sunday 23:00 NZDT weekly; the catalogue has no weekday, so it runs nightly at 23:00 NZDT (about 7 minutes) until the lane or the scheduler carries the day."
 needs = "processor"
 memory_gb = 0.2
 deadline_s = 2700
 query_timeout_s = 60
 class = "due"
 priority = 55
-command = ["python", "-m", "registers.building_practitioners.capture"]
+command = ["python", "-m", "registers.building_practitioners.capture", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's; proven that night (docs/research/step-9-mcp-lanes.md: 81 of 81 list pages held, 788 of 789 decisions read the same)
 at_utc = "10:00"
 nice = 10
 
 [jobs.qv4-building-practitioners-register-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-building_practitioners: 4,002 arrivals in the last 24 h, its newest 20 records fetched by the provider); the boxes stop (the 5 November split)
-description = "Step 5.3, ruling 132: the register of licensed building practitioners through its own public search, the fetch gate 5 s apart, off-peak: its 26 searches (7 licence classes, 19 areas of practice) weekly, then each listed practitioner's page once and again after 90 days, up to about 4,000 a night until all are held. Stops at 06:00 NZDT (off-peak's end) or on a block."
+description = "Step 5.3, ruling 132: the register of licensed building practitioners through its own public search; from 10 November 2026 answered from the ingest MCP's copy (estate-building_practitioners), never the web, a page the copy lacks yet asked again the next night. Before that, the fetch gate 5 s apart, off-peak: its 26 searches (7 licence classes, 19 areas of practice) weekly, then each listed practitioner's page once and again after 90 days, up to about 4,000 a night until all are held. Stops at 06:00 NZDT (off-peak's end) or on a block."
 needs = "processor"
 memory_gb = 0.3
 deadline_s = 28800
 query_timeout_s = 60
 class = "due"
 priority = 151
-command = ["python", "-m", "registers.building_practitioners.register"]
+command = ["python", "-m", "registers.building_practitioners.register", "--from-mcp"]   # 10 November 2026: proven that night (docs/research/step-9-mcp-lanes.md: 26 of 26 searches held, 26,712 of our 26,978 practitioners listed, 198 of 200 sampled pages read the same)
 at_utc = "09:05"
 nice = 10
 
@@ -1025,15 +1025,14 @@ nice = 10
 # ── step 5.3, the regulator actions (regulators-1; card the-regulator-lanes-jobs-into-the-catalogue). The clock is NZDT (UTC+13) until 5 April 2027. ──
 
 [jobs.qv4-commerce-commission-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-commerce_commission: 3,007 records, newest 8 Nov, its newest 20 fetched by the provider); the boxes stop (the 5 November split)
-description = "Step 5.3: the Commerce Commission's case register (listing and each case's details), through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 22:30 NZDT, at most 4 hours."
+description = "Step 5.3: the Commerce Commission's case register (listing and each case's details). From 10 November 2026 the walk is answered from the ingest MCP's copy (estate-commerce_commission, taken by qv4-mcp-pull), never the web; a full pass of the listing weekly, then the changed items only. Nightly at 22:30 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.3
 deadline_s = 18000
 query_timeout_s = 60
 class = "due"
 priority = 61
-command = ["python", "-m", "registers.commerce_commission.capture"]
+command = ["python", "-m", "registers.commerce_commission.capture", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's; proven that night (docs/research/step-9-mcp-lanes.md: 200 of 200 sampled entries read the same, 1,210 of 1,210 cards the same, 0 entries to fetch)
 at_utc = "09:30"
 nice = 10
 
@@ -1076,7 +1075,7 @@ nice = 10
 then = ["qv4-names-fma"]   # its names into pub.names (1 November)
 
 [jobs.qv4-worksafe-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-worksafe: 1,439 records (ours 772), newest 8 Nov, fetched by the provider); the boxes stop (the 5 November split)
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-worksafe: 1,439 records (ours 772), newest 8 Nov, fetched by the provider); the boxes stop (the 5 November split). 10 November: `--from-mcp` is built; on again with it once qv4-mcp-pull has landed estate-worksafe's files (all 1,439 waiting that night) and the readings are proven the same (docs/research/step-9-mcp-lanes.md)
 description = "Step 5.3: WorkSafe New Zealand's court summaries and enforceable undertakings, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:30 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.3
@@ -1233,14 +1232,13 @@ enabled = false   # ruling 136 (3 November 2026): the councils' own award lists 
 
 # ── step 6.3, the councils lanes (councils-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-council-minutes-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-council_minutes: newest 8 Nov 22:49, 40 of its newest 40 fetched by the provider (19 we never held)); the boxes stop (the 5 November split)
-description = "Step 6.3: the InfoCouncil councils' meeting listings (each at most weekly) and every minutes PDF they name, once, 5 s apart, off-peak; the old estate's 347 held PDFs copied by hash where its file is on this box, else the council's own copy fetched once (2 November 2026: none of the old files is here; about 30 minutes at 5 s apart on the next night). About 600 PDFs the first nights, then tens a week. Stops at 06:00 NZDT or its budget."
+description = "Step 6.3: the InfoCouncil councils' meeting listings (each at most weekly) and every minutes PDF they name, once. From 10 November 2026 every address is answered from the ingest MCP's copy (estate-council_minutes, taken by qv4-mcp-pull), never the web; an address the copy lacks yet is asked again the next night. Before that, 5 s apart, off-peak; the old estate's 347 held PDFs copied by hash where its file is on this box, else the council's own copy fetched once (2 November 2026: none of the old files is here; about 30 minutes at 5 s apart on the next night). About 600 PDFs the first nights, then tens a week. Stops at 06:00 NZDT or its budget."
 needs = "processor"
 memory_gb = 0.3
 deadline_s = 10800
 query_timeout_s = 60
 class = "due"
-command = ["python", "-m", "registers.council_minutes.capture", "--budget-s", "7200"]
+command = ["python", "-m", "registers.council_minutes.capture", "--budget-s", "7200", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's; proven that night (docs/research/step-9-mcp-lanes.md: 986 of our 990 minutes held, 965 the same bytes; the copy's 21 listings name 987 minutes, every one already ours)
 at_utc = "09:15"
 nice = 10
 priority = 77
@@ -1257,14 +1255,13 @@ priority = 78
 deadline_s = 2700   # 2 November 2026: the load reads every landed minutes PDF's text layer (616, about 10 minutes)
 
 [jobs.qv4-councillor-interests-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-councillor_interests: 563 records (ours 447), newest 8 Nov, its newest 20 fetched by the provider); the boxes stop (the 5 November split)
-description = "Step 6.3: each council's register landing page monthly and every register document it links once, 5 s apart (or the site's crawl delay), off-peak; three councils held on their terms, blocked sites held. About 400 requests the first night, a few a night after."
+description = "Step 6.3: each council's register landing page monthly and every register document it links once; three councils held on their terms, blocked sites held. From 10 November 2026 every address is answered from the ingest MCP's copy (estate-councillor_interests, taken by qv4-mcp-pull), never the web."
 needs = "processor"
 memory_gb = 0.3
 deadline_s = 7200
 query_timeout_s = 60
 class = "due"
-command = ["python", "-m", "registers.councillor_interests.capture", "--budget-s", "3600"]
+command = ["python", "-m", "registers.councillor_interests.capture", "--budget-s", "3600", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's; proven that night (docs/research/step-9-mcp-lanes.md: 391 of 391 documents the same bytes, 26 of 26 changed pages read the same)
 at_utc = "11:30"
 nice = 10
 priority = 79
@@ -1330,28 +1327,26 @@ concurrency = 4
 
 # ── step 6.3, local election candidate returns (local-elections-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-local-elections-listings]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-local_elections: 4,680 records (ours 2,261), 78 arrivals in the last 24 h); the boxes stop (the 5 November split)
-description = "Step 6.3: every council returns page listings.tsv seeds (66 pages, 43 councils on 22 October 2026, and their sub-listings two deep), asked once each, 5 s apart or each robots file's crawl delay, landed by hash and read for the returns they link (each new one recorded as wanted). Due daily at 22:10 NZDT; the pass itself refuses to start under a week after the last finished one and outside 22:00 to 06:00, so it runs weekly, off-peak, and the other days cost no request. About 150 requests, about 20 minutes."
+description = "From 10 November 2026 answered from the ingest MCP's copy (estate-local_elections, taken by qv4-mcp-pull), never the web; a page the copy lacks yet is asked again the next pass. Step 6.3: every council returns page listings.tsv seeds (66 pages, 43 councils on 22 October 2026, and their sub-listings two deep), asked once each, 5 s apart or each robots file's crawl delay, landed by hash and read for the returns they link (each new one recorded as wanted). Due daily at 22:10 NZDT; the pass itself refuses to start under a week after the last finished one and outside 22:00 to 06:00, so it runs weekly, off-peak, and the other days cost no request. About 150 requests, about 20 minutes."
 needs = "processor"
 memory_gb = 0.3
 deadline_s = 7200
 query_timeout_s = 60
 class = "due"
 priority = 81
-command = ["python", "-m", "registers.local_elections.capture", "listings", "--budget-s", "3600"]
+command = ["python", "-m", "registers.local_elections.capture", "listings", "--budget-s", "3600", "--from-mcp"]   # 10 November 2026: proven that night (docs/research/step-9-mcp-lanes.md: 87 of our 89 listing pages held, all 87 read the same: 2,339 returns, 29 sub-listings)
 at_utc = "09:10"
 nice = 10
 
 [jobs.qv4-local-elections-files]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-local_elections: 4,680 records (ours 2,261), 78 arrivals in the last 24 h); the boxes stop (the 5 November split)
-description = "Step 6.3: each wanted return (a council's candidate return of electoral donations and expenses, PDF, Word or a scan) asked once ever, oldest election first, 5 s apart or the crawl delay, landed by hash and HELD, not read (ruling 79). Daily at 22:20 NZDT; it stops at 06:00 and resumes the next night; a host that blocks or challenges is not asked again that night. About 2,000 files at the first runs (about four nights), then only what the weekly listings add."
+description = "From 10 November 2026 answered from the ingest MCP's copy (estate-local_elections), never the web; a file the copy lacks yet stays wanted. Step 6.3: each wanted return (a council's candidate return of electoral donations and expenses, PDF, Word or a scan) asked once ever, oldest election first, 5 s apart or the crawl delay, landed by hash and HELD, not read (ruling 79). Daily at 22:20 NZDT; it stops at 06:00 and resumes the next night; a host that blocks or challenges is not asked again that night. About 2,000 files at the first runs (about four nights), then only what the weekly listings add."
 needs = "processor"
 memory_gb = 0.5
 deadline_s = 27000
 query_timeout_s = 60
 class = "due"
 priority = 82
-command = ["python", "-m", "registers.local_elections.capture", "files", "--budget-s", "25200"]
+command = ["python", "-m", "registers.local_elections.capture", "files", "--budget-s", "25200", "--from-mcp"]   # 10 November 2026: proven that night (docs/research/step-9-mcp-lanes.md: 2,004 of our 2,005 returns held under the same address with the same sha256)
 at_utc = "09:20"
 nice = 10
 
@@ -1916,27 +1911,33 @@ requires = ["ionice"]
 nice = 15
 
 [jobs.qv4-courts-jdo-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-courts-jdo: 3,796 arrivals in the last 24 h, its newest 40 fetched by the provider at other times than ours); the boxes stop (the 5 November split)
-description = "Courts, the estate's own capture of what the MCP lacks (ruling 140, tranche 1): Judicial Decisions Online's JSON listing at www.justice.govt.nz, every court the taxonomy names, one year at a time (the listing's 10,000 cap), each decision's PDF landed by hash (source courts-jdo) unless the MCP already landed its address; the ledger courts.own_files and the cursor courts.own_cursor are never wiped. One gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 47,000 decisions) takes about nine nights; then each night the current and last year's newest pages. Once JDO's walk reaches its end for the night, the same run walks the Ministry's decisions finder on the same host with what is left of the budget (tranche 2: 22 jurisdictions, 25 a page, source courts-finder, about 15,000 decisions over about three nights; then each night each jurisdiction's newest page). The 04:40 courts load reads what has landed by then (a job with a clock of its own is not queued by another)."
+# 9 November 2026 (Arthur): the ingest MCP gathers this source itself (estate-courts-jdo: 3,796 arrivals in the last 24 h, its
+# newest 40 fetched by the provider at other times than ours); the boxes stopped walking it (the 5 November split). Back on
+# 10 November 2026, answered from the MCP's copy (--from-mcp, own.take_from_mcp), never the web: proven that day on the
+# 5,943 addresses both hold, every one the same sha256; 243 decisions taken that the boxes never held (High Court 2025 and 2026).
+description = "Courts: the ledger of Judicial Decisions Online's decisions (ruling 140, tranche 1), from 10 November 2026 taken from the ingest MCP's copy of the walk (estate-courts-jdo, copied by qv4-mcp-pull), never the web: each PDF the copy holds that the MCP's courts corpus and the ledger lack becomes a courts.own_files row (source courts-jdo, its court and year from the copy's listing page that names it) with its line in courts.own_from_mcp; the check reads the tables back and fails when a file of the copy is unaccounted for or a row taken holds other bytes. Nightly at 04:10 NZDT, after the 01:00 pull and before the 04:40 courts load; a few minutes. The finder (tranche 2) has no copy and is not walked. Until 9 November: the boxes' own walk of www.justice.govt.nz (`own.Walk`, the command without --from-mcp), kept in the code, never run: Judicial Decisions Online's JSON listing at www.justice.govt.nz, every court the taxonomy names, one year at a time (the listing's 10,000 cap), each decision's PDF landed by hash (source courts-jdo) unless the MCP already landed its address; the ledger courts.own_files and the cursor courts.own_cursor are never wiped. One gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 47,000 decisions) takes about nine nights; then each night the current and last year's newest pages. Once JDO's walk reaches its end for the night, the same run walks the Ministry's decisions finder on the same host with what is left of the budget (tranche 2: 22 jurisdictions, 25 a page, source courts-finder, about 15,000 decisions over about three nights; then each night each jurisdiction's newest page). The 04:40 courts load reads what has landed by then (a job with a clock of its own is not queued by another)."
 needs = "processor"
-memory_gb = 0.3   # measured 3 November 2026: 47 MB peak RSS on the daytime trial (10 requests; the MCP's courts addresses held in a set, one PDF at a time)
-deadline_s = 27900
+memory_gb = 0.5   # 10 November 2026: 73 MB peak RSS for both takes read-only on the live tables (was 0.3, the walk's: 47 MB on 3 November)
+deadline_s = 1800   # 10 November 2026: the two takes read-only together took 102 s on the live tables
 query_timeout_s = 300
 class = "due"
 priority = 143   # unique (3 November 2026)
-command = ["python", "-m", "registers.courts.own", "--jdo", "--budget-s", "27600"]
-at_utc = "09:00"
+command = ["python", "-m", "registers.courts.own", "--jdo", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's
+at_utc = "15:10"
 nice = 10
 
 [jobs.qv4-courts-era-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-courts-era: 6,406 arrivals in the last 24 h (ours 4,141 documents), its newest 40 never held by us); the boxes stop (the 5 November split)
-description = "Courts, the estate's own capture of what the MCP lacks (ruling 140, tranche 3): the Employment Relations Authority's determinations at determinations.era.govt.nz, its own search form a year at a time (10 a page, newest first, 2000 to now), each determination's PDF landed by hash (source courts-era) unless the MCP already landed its address; the same ledger and cursor as the JDO capture, never wiped. Its own host, so it runs the same nights beside the JDO capture: one gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset, a page that is not the Authority's results, or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 21,700 determinations, about 23,000 requests) takes about four nights; then each night this year's and last year's newest pages. The 04:40 courts load reads what has landed by then."
+# 9 November 2026 (Arthur): the ingest MCP gathers this source itself (estate-courts-era: 6,406 arrivals in the last 24 h (ours
+# 4,141 documents), its newest 40 never held by us); the boxes stopped walking it (the 5 November split). Back on 10 November
+# 2026, answered from the MCP's copy (--from-mcp), never the web: proven that day on the 3,709 addresses both hold, every one
+# the same sha256; 3,919 determinations taken that the boxes never held (mostly 2015 to 2019).
+description = "Courts: the ledger of the Employment Relations Authority's determinations (ruling 140, tranche 3), from 10 November 2026 taken from the ingest MCP's copy of the walk (estate-courts-era, copied by qv4-mcp-pull), never the web, as qv4-courts-jdo-capture takes JDO's (source courts-era, the year from the copy's search page that names it). Nightly at 04:20 NZDT, before the 04:40 courts load; a few minutes. Until 9 November: the boxes' own walk (`own.EraWalk`), kept in the code, never run: the Employment Relations Authority's determinations at determinations.era.govt.nz, its own search form a year at a time (10 a page, newest first, 2000 to now), each determination's PDF landed by hash (source courts-era) unless the MCP already landed its address; the same ledger and cursor as the JDO capture, never wiped. Its own host, so it runs the same nights beside the JDO capture: one gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset, a page that is not the Authority's results, or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 21,700 determinations, about 23,000 requests) takes about four nights; then each night this year's and last year's newest pages. The 04:40 courts load reads what has landed by then."
 needs = "processor"
-memory_gb = 0.3   # unmeasured on its own: the JDO capture's figure (47 MB peak on its trial); measured on the trial below
-deadline_s = 27900
+memory_gb = 0.5   # as qv4-courts-jdo-capture's take
+deadline_s = 1800
 query_timeout_s = 300
 class = "due"
 priority = 144   # unique (3 November 2026)
-command = ["python", "-m", "registers.courts.own", "--era", "--budget-s", "27600"]
-at_utc = "09:00"
+command = ["python", "-m", "registers.courts.own", "--era", "--from-mcp"]   # 10 November 2026: the crawl is the MCP provider's
+at_utc = "15:20"
 nice = 10
