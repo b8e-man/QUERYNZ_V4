@@ -137,6 +137,7 @@ RULE_WORDS = {
     "judgment-address-title": "a street address a court document prints and a land title's address, a registered proprietor of the title",   # ruling 142
     "owner-full-name": "a land title's registered proprietor and another row of the same first, middle and last name",   # 4 Nov
     "licence-number": "two rows of the Real Estate Authority's decisions printing one licence number",                 # 3 Nov
+    "lbp-number": "a Building Practitioners Board decision printing a licensed practitioner's licence number",          # 9 Nov
 }
 
 
@@ -1473,7 +1474,7 @@ VIEWS: tuple[View, ...] = (
                  ("office", "office"), ("alternate names", "alternate_names"), ("partnered estates", "partnered_estates"),
                  ("source", "source_note")),
          dates=(("adjudicated on", "adjudicated_on"), ("discharged on", "discharged_on"), ("shown until", "shown_until")),
-         names=("name",),
+         names=("name",), hide_names=("status", "^annulled$"),   # an annulment withholds the name, as the Gazette's does (Arthur, 9 November 2026)
          default_order="adjudicated_on",
          note=INSOLVENCY_NOTE),
     View("insolvency_companies", "insolvency", "event", ("name", "insolvency_type"),

@@ -1333,3 +1333,23 @@ significant for its use: which registers, which of their fields, and which
 links may be followed. A report carries only those, and a link it does not
 name is never followed into it. The estate still keeps every source whole
 (ruling 142); the choice is made at the product, one product at a time.
+
+147. Arthur, 9 November, on the diagnostic report's finding 13: yes, the
+Insolvency Register's annulled cases are treated as the Gazette's
+annulments. A person whose bankruptcy the register lists as annulled has
+the name withheld on every surface, as a Gazette row an annulment names
+does; the row, its dates and its estate number stay (ruling 142).
+
+148. Arthur, 9 November, on finding 9: "do the near matches and let's make
+a point that the lack of a full match may indicate another rendering of the
+name." `lbp-number@1` joins a Building Practitioners Board decision to the
+licence register by the licence number it prints: confirmed on a full
+match (the first and last name agree), near otherwise, the decision's
+surname alone or names that differ, each near link saying that the lack of
+a full match may be another rendering of the name.
+
+149. Arthur, 9 November, on finding 20 (the use-case templates still call
+the Insolvency Register and the courts not held): "let's work on this
+product by product". Each template's registers, fields and links are
+settled one product at a time (ruling 146), the template's stale lines
+with them.

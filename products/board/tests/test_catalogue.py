@@ -109,3 +109,8 @@ def test_a_links_rule_reads_in_words_and_its_id_only_in_a_reference():
     assert {"full-name", "name-and-address", "name-only", "company-name", "seat-and-window", "official-number",
             "organisation-name", "declared-directorship", "candidate-name-form", "filed-name", "source-identifier",
             "member-and-party-donor"} <= set(cat.RULE_WORDS)
+
+
+def test_an_annulled_bankruptcy_s_name_is_withheld_as_the_gazette_s_is():
+    """Arthur, 9 November 2026: the Insolvency Register's annulled cases are treated as the Gazette's annulments."""
+    assert cat.BY_NAME["insolvency_people"].hide_names == ("status", "^annulled$")

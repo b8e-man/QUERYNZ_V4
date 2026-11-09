@@ -120,3 +120,11 @@ def test_a_ref_with_a_person_s_part_after_a_hash_opens_its_row(monkeypatch):
     v, r = rows.locate(None, "parliament:wq/2024/123#minister")
     assert v.name == "parliament_written_questions" and r == {"key": "wq/2024/123"}
     assert all(k == "wq/2024/123" for _, k in asked)
+
+
+def test_an_annulled_bankruptcy_s_name_is_withheld_on_both_surfaces_as_the_gazette_s_is():
+    """Arthur, 9 November 2026: the Insolvency Register's annulled cases are treated as the Gazette's annulments."""
+    from products.report import rows
+    v = cat.BY_NAME["insolvency_people"]
+    assert v.hide_names == ("status", "^annulled$")
+    assert rows.is_suppressed(v, {"status": "Annulled"}) and not rows.is_suppressed(v, {"status": "Currently Bankrupt/NAP"})

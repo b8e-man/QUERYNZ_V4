@@ -271,6 +271,9 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # a Real Estate Authority licence number printed on two decisions (3 November 2026)
     out[rules.RULE_LICENCE] = licence_links(conn, s)
     log(f"links.build: {rules.RULE_LICENCE}: {out[rules.RULE_LICENCE]} ({time.monotonic() - t0:.0f} s)")
+    # a Building Practitioners Board decision and the licence register, by the licence number (9 November 2026)
+    out[rules.RULE_LBP] = lbp_links(conn, s)
+    log(f"links.build: {rules.RULE_LBP}: {out[rules.RULE_LBP]} ({time.monotonic() - t0:.0f} s)")
     # ruling 1 (3 November 2026): a court party and the company whose number its judgment prints, tied by the party's name
     out[rules.RULE_JUDGMENT_NUMBER] = judgment_number_links(conn, s)
     log(f"links.build: {rules.RULE_JUDGMENT_NUMBER}: {out[rules.RULE_JUDGMENT_NUMBER]} ({time.monotonic() - t0:.0f} s)")
@@ -379,6 +382,46 @@ def licence_links(conn, s: str) -> dict:
                            FROM {s}.links WHERE rule = %s""", (rules.RULE_LICENCE,)).fetchone()
     conn.commit()
     return {"links": int(row[0]), "confirmed": int(row[1]), "names_differ": int(row[2])}
+
+
+def lbp_links(conn, s: str) -> dict:
+    """`lbp-number@1` (Arthur, 9 November 2026): a Building Practitioners Board decision's row and the licence register's row
+    of the licence number it prints (spaces out, case folded; a number the register holds more than once makes no link):
+    confirmed on a full match, the first and last name key equal; near with `rules.NEAR_LBP_SURNAME` where the decision
+    prints the surname alone and it is the licensee's, and with `rules.NEAR_LBP_NAMES` otherwise. The evidence says which.
+    Returns the counts; either view not published makes no link."""
+    if conn.execute("SELECT to_regclass('pub.building_practitioner_decisions')").fetchone()[0] is None:
+        return {"view": "building_practitioner_decisions not published"}
+    if conn.execute("SELECT to_regclass('pub.building_practitioners')").fetchone()[0] is None:
+        return {"view": "building_practitioners not published"}
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        WITH dec AS (SELECT r.ref, coalesce(r.fl_key, '') AS fl, lower(coalesce(r.family, '')) AS fam, r.name_filed,
+                            upper(regexp_replace(d.lbp_number, '\\s', '', 'g')) AS number
+                     FROM pub.building_practitioner_decisions d JOIN {s}.rows r ON r.ref = 'building_practitioners:' || d.key
+                     WHERE coalesce(btrim(d.lbp_number), '') <> '' AND r.kind = 'person'),
+             lic AS (SELECT min(r.ref COLLATE "C") COLLATE "default" AS ref, min(coalesce(r.fl_key, '')) AS fl,
+                            min(lower(coalesce(r.family, ''))) AS fam, min(r.name_filed) AS name_filed,
+                            upper(regexp_replace(p.licence_number, '\\s', '', 'g')) AS number
+                     FROM pub.building_practitioners p JOIN {s}.rows r ON r.ref = 'building_practitioners:' || p.key
+                     WHERE coalesce(btrim(p.licence_number), '') <> ''
+                     GROUP BY 5 HAVING count(*) = 1),
+             m AS (SELECT d.ref AS a, l.ref AS b, d.number, d.name_filed AS da, l.name_filed AS lb,
+                          CASE WHEN d.fl <> '' AND d.fl = l.fl THEN 'full'
+                               WHEN d.fl = '' AND d.fam <> '' AND d.fam = l.fam THEN 'surname' ELSE 'differ' END AS how
+                   FROM dec d JOIN lic l ON l.number = d.number)
+        SELECT least(a COLLATE "C", b), greatest(a COLLATE "C", b), %(rule)s,
+               jsonb_build_object('number', 'licence number', 'value', number, 'names', how, 'as_filed', jsonb_build_array(da, lb),
+                                  'registers', jsonb_build_array('building_practitioners', 'building_practitioners')),
+               CASE WHEN how = 'full' THEN 'confirmed' ELSE 'near' END,
+               CASE how WHEN 'surname' THEN %(surname)s WHEN 'differ' THEN %(names)s END
+        FROM m
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_LBP, "surname": rules.NEAR_LBP_SURNAME, "names": rules.NEAR_LBP_NAMES})
+    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE grade = 'confirmed'), count(*) FILTER (WHERE evidence->>'names' = 'surname'),
+                                  count(*) FILTER (WHERE evidence->>'names' = 'differ')
+                           FROM {s}.links WHERE rule = %s""", (rules.RULE_LBP,)).fetchone()
+    conn.commit()
+    return {"links": int(row[0]), "confirmed": int(row[1]), "surname_only": int(row[2]), "names_differ": int(row[3])}
 
 
 def number_over_name(conn, s: str) -> int:

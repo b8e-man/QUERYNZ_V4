@@ -281,7 +281,8 @@ VIEWS: tuple = (
     V("insolvency_people", "insolvency", "person", ("name",), names=("name",), suppressed="suppressed",
       start="adjudicated_on", end="discharged_on", role="insolvency_type",
       statement="{title}: {role} in the Insolvency Register, {status}; estate {estate_number}",
-      note="a person's bankruptcy or no-asset procedure as the Insolvency Register lists it; an annulled one says so; no address is held in the view"),
+      hide_names=("status", "^annulled$"),   # an annulment withholds the name, as the Gazette's does (Arthur, 9 November 2026)
+      note="a person's bankruptcy or no-asset procedure as the Insolvency Register lists it; an annulled one's name is withheld, as the Gazette's is; no address is held in the view"),
     V("insolvency_companies", "insolvency", "organisation", ("name",), names=("name", "organisation_name"), suppressed="suppressed",
       start="liquidated_on", end="completed_on", entity=("companies", "entity_key"), role="insolvency_type",
       statement="{title}: {role} in the Insolvency Register, {status}; estate {estate_number}",
@@ -594,6 +595,7 @@ RULE_WORDS = {
     "judgment-address-title": "a street address a court document prints and a land title's address, a registered proprietor of the title",   # ruling 142
     "owner-full-name": "a land title's registered proprietor and another row of the same first, middle and last name",   # 4 Nov
     "licence-number": "two rows of the Real Estate Authority's decisions printing one licence number",                 # 3 Nov
+    "lbp-number": "a Building Practitioners Board decision printing a licensed practitioner's licence number",          # 9 Nov
 }
 
 

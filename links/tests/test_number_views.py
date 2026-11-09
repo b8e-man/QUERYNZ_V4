@@ -72,6 +72,8 @@ PUB_STUBS = {
     "party_return_donors": "key text, party text, year int",
     "disclosures": "key text, party text, given_on date",
     "rea_parties": "key text, licence_number text",
+    "building_practitioner_decisions": "key text, lbp_number text",
+    "building_practitioners": "key text, licence_number text",
 }
 
 
@@ -186,5 +188,53 @@ def test_a_licence_number_confirms_two_rows_only_of_one_kind_and_agreeing_names(
                            ("real_estate_authority:a/1", "real_estate_authority:a/3", "near", rules.NEAR_LICENCE_NAMES),
                            ("real_estate_authority:a/4", "real_estate_authority:a/5", "near", rules.NEAR_LICENCE_KINDS)]
             assert out == {"links": 3, "confirmed": 1, "names_differ": 2}
+        finally:
+            raw.rollback()
+
+
+def _surname(ref, view, family):
+    return (ref, ref.split(":", 1)[0], view, ref.split(":", 1)[1], "person", f"Mr {family}", None, None, family, family.lower(), None,
+            family.lower(), False)
+
+
+@pytest.mark.slow
+def test_a_board_decision_confirms_to_its_licensee_only_on_a_full_match_and_is_near_otherwise():
+    """Arthur, 9 November 2026: the licence number joins a decision to the licence register; less than a full match is near,
+    the lack of one perhaps another rendering of the name."""
+    import support.db as db
+    if not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
+        pytest.skip("no credential file on this box")
+    s, p = "scratch_links_lbp_test", "scratch_links_lbp_test_pub"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as raw:
+        try:
+            raw.execute(f"CREATE SCHEMA {s}")
+            raw.execute(f"CREATE SCHEMA {p}")
+            raw.execute(__import__("links").ddl(s))
+            raw.execute(f"CREATE TABLE {p}.building_practitioner_decisions (key text, lbp_number text)")
+            raw.execute(f"CREATE TABLE {p}.building_practitioners (key text, licence_number text)")
+            raw.execute(f"""INSERT INTO {p}.building_practitioner_decisions VALUES ('d/1', 'BP100001'), ('d/2', 'BP 100002'),
+                            ('d/3', 'bp100003'), ('d/4', 'BP100004'), ('d/5', ''), ('d/6', 'BP999999')""")
+            raw.execute(f"""INSERT INTO {p}.building_practitioners VALUES ('l/1', 'BP100001'), ('l/2', 'BP100002'), ('l/3', 'BP100003'),
+                            ('l/4', 'BP100004'), ('l/4b', 'BP100004'), ('l/5', 'BP100005')""")
+            B = "building_practitioners"
+            with raw.cursor() as w:
+                w.executemany(f"""INSERT INTO {s}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key, fl_key,
+                                  full_key, has_middle) VALUES ({', '.join(['%s'] * 13)})""",
+                              [_person(f"{B}:d/1", "building_practitioner_decisions", "Hemi", "Tane"),
+                               _surname(f"{B}:d/2", "building_practitioner_decisions", "Kauri"),
+                               _person(f"{B}:d/3", "building_practitioner_decisions", "Mere", "Kauri"),
+                               _person(f"{B}:d/4", "building_practitioner_decisions", "Hemi", "Tane"),
+                               _person(f"{B}:d/5", "building_practitioner_decisions", "Hemi", "Tane"),
+                               _person(f"{B}:d/6", "building_practitioner_decisions", "Hemi", "Tane"),
+                               _person(f"{B}:l/1", B, "Hemi", "Tane"), _person(f"{B}:l/2", B, "Aroha", "Kauri"),
+                               _person(f"{B}:l/3", B, "Merenia", "Kauri"), _person(f"{B}:l/4", B, "Hemi", "Tane"),
+                               _person(f"{B}:l/4b", B, "Hemi", "Tane"), _person(f"{B}:l/5", B, "Hemi", "Tane")])
+            out = build.lbp_links(_Pub(raw, p), s)
+            got = sorted(raw.execute(f"SELECT row_a, row_b, grade, reason FROM {s}.links").fetchall())
+            assert got == [(f"{B}:d/1", f"{B}:l/1", "confirmed", None),
+                           (f"{B}:d/2", f"{B}:l/2", "near", rules.NEAR_LBP_SURNAME),        # the surname alone, the licensee's
+                           (f"{B}:d/3", f"{B}:l/3", "near", rules.NEAR_LBP_NAMES)]          # Mere and Merenia: perhaps one name rendered two ways
+            assert out == {"links": 3, "confirmed": 1, "surname_only": 1, "names_differ": 1}
+            assert "another rendering" in rules.NEAR_LBP_NAMES and "another rendering" in rules.NEAR_LBP_SURNAME
         finally:
             raw.rollback()

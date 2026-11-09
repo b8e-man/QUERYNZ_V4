@@ -821,6 +821,16 @@ RULE_LICENCE = "licence-number@1"
 NEAR_LICENCE_KINDS = "one licence number printed beside a person on one decision and an agency on another; the number is not one licensee's here"
 NEAR_LICENCE_NAMES = ("one licence number printed beside two names that do not agree (first and last name, or the agency's name); a number read from a decision's text is not trusted over the names")
 
+# Arthur, 9 November 2026 (the diagnostic report's finding 9): "do the near matches and let's make a point that the lack of a
+# full match may indicate another rendering of the name". A Building Practitioners Board decision prints the practitioner's
+# licence number (787 of 794, "BP123456"); the licence register holds the number once. Confirmed only on a full match (the
+# first and last name agree); the number with less than a full match is near, and says why
+RULE_LBP = "lbp-number@1"
+NEAR_LBP_SURNAME = ("the licence number matches and the decision prints the surname alone, the licensee's; without the given name it "
+                    "is not a full match, and the lack of one may only be another rendering of the name")
+NEAR_LBP_NAMES = ("the licence number matches but the names are not a full match; the lack of one may indicate another rendering "
+                  "of the same name (a second given name used, a spelling, a former surname)")
+
 
 # --- ruling 142 (Arthur, 4 November 2026: "go ahead with your recommendations"): the rules that read a private value -----
 # measured at links/measurements.md §15 and §16 (rulings 2 and 3), built without the sample pairs. A judgment's street
