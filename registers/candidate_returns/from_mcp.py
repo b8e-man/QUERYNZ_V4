@@ -69,14 +69,26 @@ def _take(sha: str, read_bytes):
     return lambda: (sha, read_bytes(sha))
 
 
-def listings(held: list, read_bytes) -> dict:
+def listings(held: list, read_bytes, rows_of=None) -> dict:
+    """The newest copy of each listing page, in page order, up to the last page with table rows. The MCP walks
+    `start=N` on past the list's end (on 9 November 2026: 168 empty pages after each election's last), which the old
+    browser never kept; a page past the end is not a page the lane could not read, so it is left out. An empty page
+    before the last full one stays, and is a catch line as it always was."""
+    if rows_of is None:
+        from registers.candidate_returns import commission
+        rows_of = lambda data: commission.listing_rows(data.decode("utf-8", errors="replace"))
     out = {}
     for url, sha in _newest(held).items():
         for year, rx in LISTING.items():
             m = rx.search(url)
             if m:
                 out.setdefault(year, []).append((int(m.group(1)), url, sha))
-    return {y: [(url, _take(sha, read_bytes)) for _, url, sha in sorted(ps)] for y, ps in out.items()}
+    kept = {}
+    for y, ps in out.items():
+        ps = sorted(ps)
+        full = [i for i, (_, _, sha) in enumerate(ps) if rows_of(read_bytes(sha))]
+        kept[y] = [(url, _take(sha, read_bytes)) for _, url, sha in ps[:full[-1] + 1 if full else 0]]
+    return kept
 
 
 def sheets(held: list, read_bytes) -> dict:

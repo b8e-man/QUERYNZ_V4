@@ -33,11 +33,19 @@ def test_a_listing_page_is_its_newest_copy_in_page_order_and_a_sheet_is_found_by
             (ROOT + "pagecomponent-file-files/2023-candidate-returns-updated-24092024.xlsx", E, 4),
             (ROOT + "pagecomponent-file-files/2023-candidate-returns-updated-01022024.xlsx", F, 8)]
     store = {s: s[:1].encode() for s in (A, B, C, D, E, F)}
-    ls = M.listings(held, store.__getitem__)
+    ls = M.listings(held, store.__getitem__, rows_of=lambda data: [1])
     assert [(n.rsplit("=", 1)[1], t()) for n, t in ls[2020]] == [("0", (B, b"b")), ("100", (C, b"c"))]
     sh = M.sheets(held, store.__getitem__)
     assert [t()[0] for _, t in sh[2020]] == [D]
     assert [t()[0] for _, t in sh[2023]] == [F, E]                  # oldest version first: 1 Feb, then 24 Sep 2024
+
+
+def test_pages_past_the_list_s_end_are_left_out_and_an_empty_page_inside_it_stays():
+    held = [(L20 + str(n), ch * 64, n) for n, ch in ((0, "a"), (20, "b"), (40, "c"), (60, "d"), (80, "e"))]
+    store = {ch * 64: ch.encode() for ch in "abcde"}
+    ls = M.listings(held, store.__getitem__, rows_of=lambda data: [1] if data in (b"a", b"c") else [])
+    assert [n.rsplit("=", 1)[1] for n, _ in ls[2020]] == ["0", "20", "40"]
+    assert M.listings(held, store.__getitem__, rows_of=lambda data: []) == {2020: []}
 
 
 def test_the_statements_read_files_from_anywhere():

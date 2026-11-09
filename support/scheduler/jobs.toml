@@ -1418,7 +1418,7 @@ command = ["python", "-m", "support.mcpsource", "--budget-s", "12600", "--corpus
            "--corpus", "beehive", "--corpus", "parliament-wayback", "--corpus", "parliament-written-questions",
            "--corpus", "parliament-bills", "--corpus", "parliament-diaries", "--corpus", "parliament-hansard-index",
            "--corpus", "parliament-hansard-debates", "--corpus", "parliament-bills-historical", "--corpus", "parliament-sops",
-           "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts", "--corpus", "estate-fma", "--corpus", "estate-worksafe", "--corpus", "estate-commerce_commission", "--corpus", "estate-councillor_interests", "--corpus", "estate-building_practitioners", "--corpus", "estate-local_elections", "--corpus", "estate-council_minutes", "--corpus", "estate-courts-jdo", "--corpus", "estate-courts-era", "--corpus", "estate-disclosures", "--corpus", "estate-candidate_returns"]
+           "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts", "--corpus", "estate-disclosures", "--corpus", "estate-candidate_returns", "--corpus", "estate-fma", "--corpus", "estate-worksafe", "--corpus", "estate-commerce_commission", "--corpus", "estate-councillor_interests", "--corpus", "estate-building_practitioners", "--corpus", "estate-local_elections", "--corpus", "estate-council_minutes", "--corpus", "estate-courts-jdo", "--corpus", "estate-courts-era"]
 then = ["qv4-courts-read"]   # the reader reads what the pull lands; it never waited on a green load (3 November: a red load left 6,447 unread)
 every_s = 21600   # every six hours from 31 October (Arthur: the MCP is gathered continuously); was nightly 02:30 NZDT
 nice = 10
@@ -1540,7 +1540,7 @@ deadline_s = 1800
 query_timeout_s = 600
 class = "due"
 priority = 102
-command = ["python", "-m", "registers.candidate_returns.load"]
+command = ["python", "-m", "registers.candidate_returns.load", "--from-mcp"]   # the ingest MCP's copies (Arthur, 9 November 2026: option 2); proven the same as the old folder's: 1,105 returns, 930 read, 482 donors, 2,151 Commission lines
 at_utc = "13:40"
 then = ["qv4-scan-rerun", "qv4-names-candidate-returns"]   # the stale scan lines re-run (31 October); its names into pub.names (1 November)
 nice = 10
