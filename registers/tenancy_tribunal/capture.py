@@ -445,6 +445,9 @@ def main(argv=None) -> int:
         run = Run(t, land_fn=landing(conn), budget_s=a.budget_s, max_items=a.max_items,
                   anytime=mcp.pop("anytime", a.anytime), **mcp)
         out = run.run(dt.date.today(), list_only=a.list_only)
+        if a.from_mcp:      # ruling 165: what neither copy holds, asked of the provider, soonest to leave first
+            from registers.tenancy_tribunal import asks
+            out["asked_of_provider"] = asks.write(conn, a.schema)
     ok = not out["stopped"].startswith("stopped:")
     detail = (f"{out['listings']} listings, {out['listed']} orders listed, {out['rows_kept']} listing rows kept whole, "
               f"{out['landed']} landed, "

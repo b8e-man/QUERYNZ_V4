@@ -129,3 +129,33 @@ def test_the_nightly_job_takes_the_mcp_copy_and_the_pull_brings_it():
     assert job.get("enabled", True) and "--from-mcp" in job["command"]
     pulled = jobs["qv4-mcp-pull"]["command"]
     assert set(C.MCP_CORPORA) <= {pulled[i + 1] for i, a in enumerate(pulled) if a == "--corpus"}
+
+
+def test_the_request_names_what_neither_copy_holds_soonest_first(tmp_path):
+    import datetime as dt
+    import json
+    from registers.tenancy_tribunal import asks
+
+    class Conn:
+        def execute(self, q):
+            class R:
+                def __init__(self, rows):
+                    self.rows = rows
+
+                def fetchall(self):
+                    return self.rows
+
+                def fetchone(self):
+                    return self.rows[0]
+            if "count(*)" in q:
+                return R([(5,)])
+            assert "document IS NULL" in q and "ORDER BY unpublished_date" in q
+            return R([("b", dt.date(2028, 6, 23)), ("a", dt.date(2028, 9, 1)), ("c", dt.date(2028, 9, 2)), ("d", None)])
+
+    out = asks.write(Conn(), path=str(tmp_path / "t.json"))
+    assert out == {"missing": 4, "earliest_take_down": "2028-06-23",
+                   "request_id": "estate-tenancy_tribunal@short-4-2028-06-23"}
+    s = json.loads((tmp_path / "t.json").read_text())
+    assert s["listed"] == 5 and [o["order_id"] for o in s["orders"]] == ["b", "a", "c", "d"]
+    assert s["by_take_down_month"] == [{"month": "2028-06", "orders": 1}, {"month": "2028-09", "orders": 2},
+                                       {"month": "undated", "orders": 1}]

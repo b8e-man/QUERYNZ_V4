@@ -766,3 +766,24 @@ def test_the_closing_section_is_carried_through_verbatim(registry, tmp_path):
     page.write_text("# no section\n")
     assert sl.provider_outputs(f, NOW, str(page), str(tmp_path / "x.json"), str(tmp_path / "none.md"))[0].rstrip().endswith(
         f"What is asked, for each: {sl.ASKED}.")
+
+
+def test_a_lane_s_request_reaches_the_provider_page_and_feed(tmp_path):
+    """Ruling 165: a lane's file under handover/asks/ is carried to the provider whole; a file that does not read, or
+    asks for nothing, is skipped."""
+    import datetime as dt
+    import json
+    from checks import source_lights as S
+    (tmp_path / "tenancy_tribunal.json").write_text(json.dumps({
+        "corpus": "estate-tenancy_tribunal", "source": "Tenancy Tribunal orders", "listed": 33847, "missing": 2,
+        "earliest_take_down": "2028-06-23", "by_take_down_month": [{"month": "2028-06", "orders": 2}],
+        "orders": [{"order_id": "1", "take_down": "2028-06-23"}, {"order_id": "2", "take_down": "2028-06-30"}],
+        "asked": "gather these orders", "request_id": "estate-tenancy_tribunal@short-2-2028-06-23"}), encoding="utf-8")
+    (tmp_path / "broken.json").write_text("{", encoding="utf-8")
+    (tmp_path / "none.json").write_text(json.dumps({"corpus": "x", "missing": 0}), encoding="utf-8")
+    now = dt.datetime(2026, 11, 10, tzinfo=dt.timezone.utc)
+    feed = S.provider_feed({"freshness": {}}, now, None, asks_dir=str(tmp_path))
+    assert [o["corpus"] for o in feed["short_of_source"]] == ["estate-tenancy_tribunal"]
+    assert feed["short_of_source"][0]["orders"][1]["order_id"] == "2"
+    page = S.provider_list({"freshness": {}}, now, "", feed)
+    assert "Short of the source's own list" in page and "| estate-tenancy_tribunal | 33,847 | 2 | 2028-06-23 |" in page

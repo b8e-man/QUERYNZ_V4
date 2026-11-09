@@ -78,6 +78,25 @@ GAPS_FILE = os.path.join(HERE, "source_gaps.toml")
 CADENCE_FILE = os.path.join(HERE, "mcp_cadence.toml")
 STALE_FILE = os.environ.get("QV4_MCP_STALE") or "/home/user/querynzv4-work/handover/mcp-stale.md"
 STALE_JSON = os.path.splitext(STALE_FILE)[0] + ".json"           # the same list, for the provider's tool
+ASKS_DIR = os.path.join(os.path.dirname(STALE_FILE), "asks")      # a lane's own request to the provider (ruling 165)
+
+
+def lane_asks(folder: str = None) -> list:
+    """Every lane's request file under <handover>/asks/: what the source lists that neither copy holds. A file that
+    does not read is skipped, never guessed."""
+    out = []
+    d = folder or ASKS_DIR
+    for n in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+        if not n.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(d, n), encoding="utf-8") as f:
+                o = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if isinstance(o, dict) and o.get("corpus") and isinstance(o.get("missing"), int) and o["missing"] > 0:
+            out.append(o)
+    return out
 STALE_CLOSING = os.path.splitext(STALE_FILE)[0] + ".closing.md"  # the integrator's closing section, when kept apart
 CATALOGUE = os.path.join(REPO, "products", "board", "catalogue.py")
 JOB = "qv4-source-lights"
@@ -508,7 +527,7 @@ def request_id(corpus: str, newest) -> str:
     return f"{corpus}@{_iso(newest)}"
 
 
-def provider_feed(facts: dict, now: dt.datetime, previous: dict = None) -> dict:
+def provider_feed(facts: dict, now: dt.datetime, previous: dict = None, asks_dir: str = None) -> dict:
     """The machine-readable list (schema 1; Arthur, 10 November 2026): one object per stale corpus, and `repaired`:
     corpora stale on the last run whose newest arrival has moved since, so fresh arrivals, never the provider's word,
     confirm a repair. Kept REPAIRED_KEEP_DAYS after the arrival that showed it."""
@@ -550,8 +569,11 @@ def provider_feed(facts: dict, now: dt.datetime, previous: dict = None) -> dict:
               "cadence_days": x["cadence"]["days"], "pipeline_lane": None,
               "asked": "a lane in pipeline for this corpus, or word that it is a one-time copy",
               "request_id": request_id(x["corpus"], x["newest"])} for x in no_collector(facts, now)]
+    short = [{k: o.get(k) for k in ("corpus", "source", "listed", "missing", "earliest_take_down", "by_take_down_month",
+                                    "orders", "asked", "request_id", "written_at")} for o in lane_asks(asks_dir)]
     return {"schema_version": 1, "measured_at": _iso(max(at)) if at else None, "written_at": _iso(now),
-            "stale": stale, "no_collector": quiet, "repaired": sorted(repaired.values(), key=lambda o: o["corpus"])}
+            "stale": stale, "no_collector": quiet, "repaired": sorted(repaired.values(), key=lambda o: o["corpus"]),
+            "short_of_source": short}
 
 
 def provider_list(facts: dict, now: dt.datetime, closing: str = "", feed: dict = None) -> str:
@@ -587,6 +609,16 @@ def provider_list(facts: dict, now: dt.datetime, closing: str = "", feed: dict =
         for x in quiet[:PAGE_ROWS]:
             out.append(f"| {x['corpus']} | {when(x['newest'])} | {publishes(x['cadence']['days'])} |")
         out += ["", "What is asked, for each: a lane in pipeline for it, or word that it is a one-time copy."]
+    short = (feed or {}).get("short_of_source") or []
+    if short:
+        out += ["", "Short of the source's own list: the source lists these, and neither our register nor the MCP's copy "
+                "holds them. The ids, soonest to be taken down first, are in mcp-stale.json (`short_of_source`).", "",
+                "| Corpus | Source lists | Neither holds | First taken down |", "| --- | --- | --- | --- |"]
+        for o in short:
+            out.append(f"| {o['corpus']} | {o.get('listed') or '?':,} | {o['missing']:,} | {o.get('earliest_take_down') or '?'} |"
+                       if isinstance(o.get("listed"), int) else
+                       f"| {o['corpus']} | ? | {o['missing']:,} | {o.get('earliest_take_down') or '?'} |")
+        out += ["", "What is asked, for each: " + (short[0].get("asked") or ASKED) + "."]
     rep = (feed or {}).get("repaired") or []
     if rep:
         out += ["", "Repaired (new records have arrived since it was listed): "
