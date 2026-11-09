@@ -122,6 +122,11 @@ line and a pushed commit (ruling 244).
    contextual connection made through a register, shown on a real subject.
 8. **Stage 2: near links on request.**
 
+While tranches 3 and 4 wait for Arthur's look at the two news sources,
+tranches 5 and 6 go ahead: they need no news, and the registers come first
+(ruling 154). Tranche 7 waits for the corpus. Tranche 8 may go ahead after
+tranche 6.
+
 ## Settled (Arthur, 9 November; ruling 157)
 
 - **The checks.** The one report carries one combined set of red, amber and
