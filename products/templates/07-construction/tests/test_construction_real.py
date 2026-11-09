@@ -89,7 +89,9 @@ def test_a_director_on_a_liquidated_and_a_new_company_raises_the_phoenix_flag(pa
     assert m["flags"]["insolvency-notices"]["status"] == "fired"
     for name in ("building-practitioners", "insolvency-register", "court-judgments", "employment-determinations", "change-history"):
         assert m["flags"][name]["status"] == "blocked", name
-    assert "not held: Licensed building practitioners" in m["text"]
+    # published since the template named it as not held (9 November 2026): the report says so, and never calls it not held
+    assert "not held: Licensed building practitioners" not in m["text"]
+    assert "the template names as not held a register that is published and which it does not read: Building practitioners" in m["text"]
 
 
 def test_from_the_new_company_the_people_are_listed_and_the_signature_blocks(pair):

@@ -36,13 +36,14 @@ def test_the_not_held_list_carries_the_health_and_property_keys_and_keeps_the_re
                       ("health_providers", "Ministry of Health"), ("aged_care_commissioner", "Aged Care Commissioner"),
                       ("building_consents", "code compliance")):
         assert key in cat.NOT_HELD_NAME and word in cat.NOT_HELD_NAME[key], key
-    for key in ("court_coverage", "insolvency", "securities", "linz", "fsp", "sanctions", "tender_coverage", "building_practitioners", "overseas",
+    for key in ("court_coverage", "insolvency", "securities", "linz", "fsp", "sanctions", "tender_coverage", "overseas",
                 "trusts", "unincorporated", "company_history", "nzbn_interface", "credit_bureau", "mpi", "fire", "employment",
                 "disputes", "tribunals", "disciplinary"):
         assert key in cat.NOT_HELD_NAME, key
+    assert "building_practitioners" not in cat.NOT_HELD_NAME   # the licence register, published (9 November 2026)
     assert "charities" not in cat.NOT_HELD_NAME and len(cat.NOT_HELD) == len(set(k for k, _ in cat.NOT_HELD))
     # the Real Estate Authority's decisions are read since 2 November 2026: held, and the old key kept as superseded
-    assert "rea" not in cat.NOT_HELD_NAME and cat.SUPERSEDED_NOT_HELD.get("rea") == "rea" and "rea" in dict(cat.REGISTERS)
+    assert "rea" not in cat.NOT_HELD_NAME and cat.SUPERSEDED_NOT_HELD.get("rea") == "real_estate_authority" and "real_estate_authority" in dict(cat.REGISTERS)
     for v in ("rea_decisions", "rea_parties", "grants", "society_states", "councillor_interests"):
         assert v in cat.BY_NAME, v
 

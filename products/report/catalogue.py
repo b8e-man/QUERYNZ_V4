@@ -22,7 +22,8 @@ ON_BASIS_WORD = {"hearing": "to be heard", "objections by": "objections by", "ap
 @dataclass(frozen=True)
 class View:
     name: str                   # the pub view
-    register: str               # the lane folder, as the board and pub.names name it
+    register: str               # the lane folder, as pub.names and pub.links name it: a row's ref is `register:key`, so a
+                                #   label of the catalogue's own finds no link (councils, rea and building_board did, to 9 November 2026)
     kind: str                   # person | organisation | figure | event | place | document
     title: tuple                # columns joined with ' · ' for the row's title
     names: tuple = ()           # name columns: replaced by "name suppressed" when the row is suppressed
@@ -185,18 +186,18 @@ VIEWS: tuple = (
       statement="{title}: Financial Markets Authority {kind}; {outcome}", note="a warning or a case as the FMA lists it today"),
     V("fma_parties", "fma", "organisation", ("name",), names=("name",), suppressed="withheld", entity=("fma_actions", "action_key"),
       on="action_on", on_label="listed", statement="{title}: named in the Financial Markets Authority's listing \"{entity}\""),
-    V("building_practitioner_decisions", "building_board", "person", ("name", "decision_kind"), names=("name",),
+    V("building_practitioner_decisions", "building_practitioners", "person", ("name", "decision_kind"), names=("name",),
       suppressed="suppressed", on="decided_on", on_label="decided",
       statement="{title}: Building Practitioners Board decision {complaint_number}, upheld {upheld}; penalties {penalties}",
       note="a Board decision as published, shown for three years from the decision; a name the Board withholds is not shown"),
     # ── the Real Estate Authority's decisions database (registers/real_estate_authority, published 2 November 2026): a decision and
     # each licensee, agency or defendant it names; a suppressed decision's names withheld; the penalty never shown (it can name a
     # street, `penalty_names_address`), nor the reasoning, nor the complainant ──
-    V("rea_decisions", "rea", "event", ("citation",), names=("citation",), suppressed="suppressed", on="decided_on", on_label="decided",
+    V("rea_decisions", "real_estate_authority", "event", ("citation",), names=("citation",), suppressed="suppressed", on="decided_on", on_label="decided",
       statement="{title}: {decided_by}, {decision}",
       note="a decision as the Authority's database lists it: the deciding body and its finding; the penalty and the reasoning are in the "
            "decision cited, never here"),
-    V("rea_parties", "rea", "person", ("name",), names=("name",), suppressed="suppressed", entity=("rea_decisions", "decision_key"),
+    V("rea_parties", "real_estate_authority", "person", ("name",), names=("name",), suppressed="suppressed", entity=("rea_decisions", "decision_key"),
       role="role", on="decided_on", on_label="decided",
       statement="{title}: {role} ({kind}; licence {licence_number}) named in {entity}, {decided_by}: {decision}",
       note="a licensee, agency or defendant as the decision names it; being named is not a finding against anyone unless the decision "
@@ -215,7 +216,7 @@ VIEWS: tuple = (
       note="the state a monthly file carried before a later file changed it; the day of the change is between the two files' cuts"),
     # ── councillors' declared interests (registers/councillor_interests): a member's register entry, by category; the entries' text
     # is never shown (it can name property), only that the register holds an entry under the category ──
-    V("councillor_interests", "councils", "person", ("member",), names=("member",), role="category", on="as_at", on_label="as at",
+    V("councillor_interests", "councillor_interests", "person", ("member",), names=("member",), role="category", on="as_at", on_label="as at",
       statement="{title}: {role} of {council}; the register of interests holds entries under {category}",
       note="a councillor's own published summary of the register of members' interests; the entries are in the document cited, never "
            "here; a name only: a namesake's until a rule confirms it"),
@@ -293,14 +294,14 @@ REGISTERS = (
     ("worksafe", "WorkSafe prosecutions and enforceable undertakings"),
     ("commerce_commission", "Commerce Commission cases"),
     ("fma", "Financial Markets Authority warnings and cases"),
-    ("building_board", "Building Practitioners Board decisions"),
+    ("building_practitioners", "Building practitioners: the licence register and the Board's decisions"),
     ("limited_partnerships", "Limited partnerships and their general partners"),
     ("overseas_investment", "Overseas Investment Office decision summaries"),
     ("courts", "Court judgments (the courts corpus held)"),
     ("tenders", "Government contract award notices (GETS)"),
-    ("rea", "Real Estate Authority decisions (the Authority's decisions database)"),
+    ("real_estate_authority", "Real Estate Authority decisions (the Authority's decisions database)"),
     ("grants", "Grants as their funders publish them"),
-    ("councils", "Councillors' registers of interests"),
+    ("councillor_interests", "Councillors' registers of interests"),
 )
 REGISTER_NAME = dict(REGISTERS)
 
@@ -318,7 +319,6 @@ NOT_HELD = (
     ("linz", "LINZ titles"),
     ("tender_coverage", "Contracts awarded without a GETS award notice: under the thresholds, direct awards, and most councils' and private clients' contracts"),
     ("sanctions", "Sanctions lists"),
-    ("building_practitioners", "Licensed building practitioners"),
     ("overseas", "Overseas company registers"),
     ("trusts", "Trusts: no New Zealand register exists"),
     ("unincorporated", "Sole traders, general partnerships and other business-number entities outside the companies file"),
@@ -338,8 +338,9 @@ NOT_HELD = (
 NOT_HELD_NAME = dict(NOT_HELD)
 #: not-held keys a template may still cite for a register a lane has since published: {old key: the register}. A template naming one
 #: loads, the key is dropped from its section's blank, and the report says the register is published and the template does not read it
-SUPERSEDED_NOT_HELD = {"charities": "charities", "rea": "rea",   # rea: published 2 November 2026
-                       "retirement_villages": "companies"}   # the October 2026 package's villages file (2 November 2026)
+SUPERSEDED_NOT_HELD = {"charities": "charities", "rea": "real_estate_authority",   # rea: published 2 November 2026
+                       "retirement_villages": "companies",
+                       "building_practitioners": "building_practitioners"}   # the licensed practitioners' register, published (9 November 2026)   # the October 2026 package's villages file (2 November 2026)
 
 #: what links/ publishes; read through walk, never as a register view
 LINKS_VIEWS = frozenset({"links", "groups", "decisions", "names", "old_decisions"})
