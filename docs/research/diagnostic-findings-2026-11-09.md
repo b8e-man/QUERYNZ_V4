@@ -47,3 +47,18 @@ One line per problem, by kind (plan: `diagnostic-report-plan-2026-11-09.md`). Th
 Findings 6 and 8 are the case for choosing significant information product by product: a report that reads land
 titles and the Hansard, Beehive and Parliament mentions draws in name matches on almost every subject. Each
 use-case report should name whether it reads them at all, and if so by which links.
+
+## Worked on 9 November, evening
+
+| # | Outcome |
+| --- | --- |
+| 7 | **Fixed.** Written questions were linked (582,019 confirmed) but the report could not open a ref carrying the person's part (`#asker`, `#minister`) and dropped every one; the sitting MP's report now lists all 51 |
+| 8 | **Not a gap.** Both subjects were filed under a surname alone (564 of 787 Board decision parties, 28,183 diary attendees), which every register files and no rule should join on; the diagnostic now looks for no surname alone and starts these cases from a full name, and with one every row is reached |
+| 9 | **Corrected, rule proposed.** The decisions do print the licence number (787 of 794, `BP123456`); 496 are on today's register. Proposed `lbp-number@1`, as the Real Estate Authority's licence rule: confirmed where the names agree (132 by first and last name, 351 by the surname a decision prints alone), near otherwise (13). 20 pairs for Arthur: `/home/user/querynzv4-work/live/diagnostic/2026-11-09/pairs-board-decisions.md` |
+| 10 | **Not a gap**, as 8: the supplier's name is one word, read as a person; the 12 court rows are the same word |
+| 11 | **Fixed.** A search answer gives no annulment date and details were asked in estate order; ended estates are now asked first (157, inside one night's run), and the report says "annulled", never "no end filed" |
+| 12 | **The source's.** No raw Companies Office answer carries a non-ASCII character in a person's name (the API's lookups too: 0 of 31,624 roles); our copy strips nothing. The fold already matches the folded form |
+| 16 | **Fixed.** Ten tables that say each row's kind are read by it (`catalogue.ROW_KIND`): a body there is walked as a body |
+| 17 | **Fixed** (at the next links build): every iwi directory row is a body (2,545 of 2,697 were read as people). A marae's key carries its place, a public place, not a home: no change |
+| 19 | The OpenLaw file is never run (ruling 137 keeps it as the record); `pub.court_cases` is the courts lane's. The two `charities_a`/`charities_b` folders hold 17 compiled files; the safety hook refuses a recursive delete, so Arthur removes them |
+| — | A construction report was refused: a fired flag quoting a society's registered name ("… PEST CONTROL …") read as a word of cause. Flags are now judged on the report's own words, as items are |
