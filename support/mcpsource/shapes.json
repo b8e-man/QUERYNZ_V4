@@ -3256,5 +3256,209 @@
     ]
    }
   }
+ },
+ "estate-real_estate_authority": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "null",
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null",
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null",
+    "str"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-tenancy_tribunal": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "null",
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null",
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null",
+    "str"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
  }
 }
