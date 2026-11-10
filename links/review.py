@@ -499,9 +499,9 @@ def applies() -> bool:
 
 def latest_pass(conn, s: str) -> dict | None:
     """The latest score of THIS judgment (agent and fingerprint) that passed, or None."""
-    r = conn.execute(f"SELECT run_id, figures FROM {s}.scores WHERE agent = %s AND fingerprint = %s AND passed ORDER BY scored_at DESC LIMIT 1",
+    r = conn.execute(f"SELECT run_id, figures, model FROM {s}.scores WHERE agent = %s AND fingerprint = %s AND passed ORDER BY scored_at DESC LIMIT 1",
                      (AGENT_VERSION, fingerprint())).fetchone()
-    return {"run_id": r[0], "figures": r[1]} if r else None
+    return {"run_id": r[0], "figures": r[1], "model": r[2]} if r else None
 
 
 def apply(conn, s: str, log=print, rebuild=None) -> dict:
@@ -509,7 +509,10 @@ def apply(conn, s: str, log=print, rebuild=None) -> dict:
     is off, and while the latest score of this judgment has not passed.
     Each recorded split (a reading of a watched link, not of a test pair)
     without a decision by this agent becomes one decision, `made_by` this
-    agent, `made_on` the reading; then the groups rebuild."""
+    agent, `made_on` the reading; then the groups rebuild. The fingerprint leaves the model out, so a score authorises
+    only readings by the model it measured, and the screen's (model NULL: the registers' own statement, inside the
+    fingerprint); a reading by another model waits for a score of that model (10 November: qwen4exp's watched readings
+    under qwen3.6's score)."""
     if not applies():
         raise RuntimeError("links.SETTINGS['review_applies'] is off: readings are recorded and never applied")
     passed = latest_pass(conn, s)
@@ -518,8 +521,9 @@ def apply(conn, s: str, log=print, rebuild=None) -> dict:
     rows = conn.execute(f"""SELECT r.reading_id, r.row_a, r.row_b, r.verdict, r.reasoning, r.run_id, r.evidence, r.citations
                             FROM {s}.readings r
                             WHERE r.pair_id IS NULL AND r.agent LIKE %s AND r.verdict IN ('contested', 'not the same')
+                              AND (r.model IS NULL OR r.model = %s)
                               AND NOT EXISTS (SELECT 1 FROM {s}.decisions d WHERE d.row_a = r.row_a AND d.row_b = r.row_b AND d.made_by = %s)
-                            ORDER BY r.reading_id""", (AGENT_VERSION + "%", AGENT_VERSION)).fetchall()
+                            ORDER BY r.reading_id""", (AGENT_VERSION + "%", passed["model"], AGENT_VERSION)).fetchall()
     n = 0
     with conn.cursor() as w:
         for rid, a, b, v, reasoning, run_id, evidence, citations in rows:

@@ -127,12 +127,35 @@ def test_apply_refuses_while_the_switch_is_off_and_while_unmeasured(monkeypatch)
 
 def test_apply_adds_a_decision_per_split_then_rebuilds_when_on_and_passed(monkeypatch):
     monkeypatch.setitem(links.SETTINGS, "review_applies", "on")
-    conn = _Conn({"FROM links.scores": [("score-1", {"passed": True})],
+    conn = _Conn({"FROM links.scores": [("score-1", {"passed": True}, "model-a")],
                   "FROM links.readings r": [(9, "a:1", "b:2", "contested", "common name, nothing joining", "watched-1", {"rows": []}, [])]})
     rebuilt = []
     out = review.apply(conn, "links", log=lambda *a: None, rebuild=lambda c, s, log: rebuilt.append(s) or {"groups": 1})
     assert out["decisions_added"] == 1 and out["score_run"] == "score-1" and rebuilt == ["links"]
     assert any("INSERT INTO links.decisions" in w for w in conn.writes)
+
+
+def test_apply_takes_only_readings_by_the_model_its_score_measured(monkeypatch):
+    """The fingerprint leaves the model out; a pass on one model must not apply another's splits (10 November 2026:
+    qwen4exp's 144 contested watched readings sat under qwen3.6's passing score). Real SQL, on temporary tables that
+    end with the connection."""
+    from support import db
+    monkeypatch.setitem(links.SETTINGS, "review_applies", "on")
+    s, ag = "pg_temp", review.AGENT_VERSION
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        conn.execute(f"CREATE TABLE {s}.scores (run_id text, figures jsonb, model text, agent text, fingerprint text, "
+                     f"passed bool, scored_at timestamptz DEFAULT now())")
+        conn.execute(f"CREATE TABLE {s}.readings (reading_id int, row_a text, row_b text, verdict text, reasoning text, "
+                     f"run_id text, evidence jsonb, citations jsonb, pair_id int, agent text, model text)")
+        conn.execute(f"CREATE TABLE {s}.decisions (row_a text, row_b text, verdict text, made_by text, made_on jsonb)")
+        conn.execute(f"INSERT INTO {s}.scores (run_id, figures, model, agent, fingerprint, passed) "
+                     f"VALUES ('score-1', '{{}}', 'model-a', %s, %s, true)", (ag, review.fingerprint()))
+        for rid, model in ((1, "model-a"), (2, "model-b"), (3, None)):
+            conn.execute(f"INSERT INTO {s}.readings VALUES (%s, %s, %s, 'contested', 'thin', 'watched-1', %s, '[]', NULL, %s, %s)",
+                         (rid, f"a:{rid}", f"b:{rid}", json.dumps({"rows": []}), ag, model))
+        out = review.apply(conn, s, log=lambda *a: None, rebuild=lambda c, sc, log: {"groups": 0})
+        got = {r[0] for r in conn.execute(f"SELECT row_a FROM {s}.decisions")}
+    assert out["decisions_added"] == 2 and got == {"a:1", "a:3"}, (out, got)   # model-b's reading waits for its own score
 
 
 def test_the_check_fails_if_a_reading_became_a_decision_while_off():
