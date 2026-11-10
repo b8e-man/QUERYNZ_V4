@@ -119,7 +119,31 @@ def counts_agree(src, dst, spec) -> tuple:
     return int(n_src), int(n_dst)
 
 
-def judge_table(database, schema, table, entry, spec, led, count) -> tuple:
+SUPERSET_MAX_ROWS = 2_000_000
+
+
+def rows_missing(src, dst, spec, schema: str = None) -> int:
+    """How many of the source's distinct rows (spec's ranges and leave_out) are not in the copy, row by row: md5 of
+    each row's copied columns on both sides, the rows the copier's own whole-table measure hashes. For a copy that holds
+    more rows than the source, which drops rows the copy keeps."""
+    cat = T.catalogue(src, spec.schema, spec.table, spec.key)
+    cat["leave_out"] = tuple(spec.leave_out)
+    src_rel = T._ident(spec.schema, spec.table)
+    dst_rel = T._ident(schema or T.dest_schema(spec.database), T.dest_table(spec.schema, spec.table))
+    q = "SELECT DISTINCT md5(s::text) FROM (SELECT {} FROM {} WHERE {}) s"
+    want = set()
+    for lo, hi in spec.ranges:
+        with src.transaction():
+            want |= {r[0] for r in src.execute(sql.SQL(q).format(T._cols(cat), src_rel, T._where(cat, lo, hi)))}
+    if not want:
+        return 0
+    held = dst.execute(sql.SQL("SELECT count(DISTINCT m) FROM (SELECT md5(s::text) AS m FROM (SELECT {} FROM {}) s) h "
+                               "WHERE m = ANY(%s)").format(T._cols(cat), dst_rel), (list(want),)).fetchone()[0]
+    dst.rollback()
+    return len(want) - int(held)
+
+
+def judge_table(database, schema, table, entry, spec, led, count, missing=None) -> tuple:
     """(class, why) for one old table. `entry` is its inventory row or None; `spec` its inventory.Table when
     copied; `led` its ledger state or None; `count()` gives (source, copy) rows now, called only when needed."""
     fate, fate_why = P.fate(database, schema, table)
@@ -134,6 +158,15 @@ def judge_table(database, schema, table, entry, spec, led, count) -> tuple:
         if not led["caught_up"]:
             return "waiting", f"{led['rows']} rows copied, not caught up"
         n_src, n_dst = count()
+        if n_dst > n_src and missing is not None:
+            if n_src > SUPERSET_MAX_ROWS:
+                return "waiting", (f"{n_dst} rows in the copy, {n_src} at the source (the source dropped rows): too "
+                                   f"many to compare row by row")
+            gone = missing()
+            if gone:
+                return "waiting", f"{gone} of the source's {n_src} rows not in the copy (changed since the copy)"
+            return "copied", (f"every one of the source's {n_src} rows is in the copy, which keeps {n_dst - n_src} "
+                              f"more the source has since dropped")
         if n_src != n_dst:
             return "waiting", f"{n_src} rows at the source now, {n_dst} in the copy (new rows since)"
         return "copied", f"{n_dst} rows, the counts agree"
@@ -213,7 +246,7 @@ def measure(old_connect, dst, inv, log=print) -> dict:
                 piece = f"{database}:{schema}.{table}"
                 spec = specs.get(piece)
                 cls, why = judge_table(database, schema, table, entries.get(piece), spec, led.get(piece),
-                                       lambda: counts_agree(src, dst, spec))
+                                       lambda: counts_agree(src, dst, spec), lambda: rows_missing(src, dst, spec))
                 rows.append({"piece": piece, "class": cls, "why": why})
         log(f"consumed: {database}: {sum(1 for r in rows if r['piece'].startswith(database + ':'))} tables")
     rows += judge_trees(inv, file_state(dst))

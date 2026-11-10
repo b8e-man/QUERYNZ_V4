@@ -208,6 +208,32 @@ def test_a_table_is_copied_verbatim_in_checked_batches(env):
     d.rollback()
 
 
+def test_a_copy_holding_rows_the_source_dropped_is_judged_by_every_source_row(env):
+    """society_officers, 11 November 2026: 894 rows in the copy, 744 at the source, judged `waiting` for ever by the
+    count. Row by row: every source row in the copy is copied; one changed since is not."""
+    from support.oldcopy import consumed as C
+    e = env
+    spec = _spec(e["src_s"], "t")
+    _copy(e, spec, rows=500)
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as w:          # the source drops rows the copy keeps
+        w.execute(f"DELETE FROM {e['src_s']}.t WHERE id > 1000")
+        w.commit()
+    assert C.rows_missing(e["src"], e["dst"], spec, schema=e["dst_s"]) == 0
+    ok = {"caught_up": True, "rows": 1234, "failed_since_ok": False, "refused": None}
+    cls, why = C.judge_table("querynz_v4_sample", e["src_s"], "t", {"status": "NEW"}, spec, ok, lambda: (1000, 1234),
+                             lambda: C.rows_missing(e["src"], e["dst"], spec, schema=e["dst_s"]))
+    assert cls == "copied" and "234 more" in why, why
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as w:          # and one source row changes after the copy
+        w.execute(f"UPDATE {e['src_s']}.t SET label = 'changed' WHERE id = 7")
+        w.commit()
+    assert C.rows_missing(e["src"], e["dst"], spec, schema=e["dst_s"]) == 1
+    cls, why = C.judge_table("querynz_v4_sample", e["src_s"], "t", {"status": "NEW"}, spec, ok, lambda: (1000, 1234),
+                             lambda: C.rows_missing(e["src"], e["dst"], spec, schema=e["dst_s"]))
+    assert cls == "waiting" and why.startswith("1 of"), why
+    assert C.judge_table("querynz_v4_sample", e["src_s"], "t", {"status": "NEW"}, spec, ok, lambda: (1000, 1234))[0] \
+        == "waiting"                                                  # no row check given: the count alone never passes
+
+
 def test_a_stopped_copy_resumes_from_its_cursor_without_a_row_twice(env):
     e = env
     calls = {"n": 0}
