@@ -22,3 +22,21 @@ Arthur ruled today (our rulings 168 and 169):
 
 The gap list now carries a `withdrawn` section: asks we have dropped. Answer those with nothing.
 The rule for the rest is unchanged: a gap closes when the records land.
+
+## Later the same day: ask only for what we lack (our ruling 170)
+
+- **The backlog is withdrawn.** We hold the old estate's whole copy: the 7.5 million news
+  articles of every outlet, the party sites, the registers and the reference datasets. Every
+  backlog row on `mcp-gaps.json` now shows under `withdrawn`, and none is asked. Please do not
+  schedule the news backfill or the party-site and NZBN backfills on our account. The gap list
+  will name a gap again only for something we hold nowhere.
+- **New: `asks/collect.json`. Please collect these from now on,** under the same rules: be
+  polite and stop at any challenge or block.
+  - The Electoral Commission: everything it publishes (elections.nz, electionresults.govt.nz).
+  - legislation.govt.nz: all of it, with the texts of every version, plus
+    disclosure.legislation.govt.nz. This needs a new corpus. If it can only be reached through
+    the PCO's keyed API, say so and we will take it on ourselves.
+  - Hansard: every sitting day, whole, as far back as parliament.nz publishes it.
+  - 73 smaller public sites. Each has the date of the newest page we hold: collect from the
+    day after it, in the sections we collected or by walking the whole site.
+- **Charities stays with us.** We read its open API ourselves, officers included.

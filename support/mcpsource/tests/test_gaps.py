@@ -293,3 +293,32 @@ def test_measure_end_to_end_on_fakes():
     assert not any(t == "records" and a["corpus"] == "beehive" for t, a in client.calls)   # nothing past our cursor
     assert mcp["tail_read"] == {"beehive": 0, "gets": 0, "estate-late": 1}
     assert old.closed and news.closed
+
+
+def test_what_the_new_estate_copied_is_not_asked():
+    """ruling 170: ask only for what we do not hold. A table the inventory says copied or held is not asked; a table it
+    does not name stays asked, never assumed held."""
+    inv = {"tables": [{"database": "incoming_news", "schema": "public", "table": "articles", "status": "NEW"},
+                      {"database": "nzbn_canonical", "schema": "legislation", "table": "instruments", "status": "HELD"},
+                      {"database": "nzbn_canonical", "schema": "elections", "table": "candidates", "status": "DERIVED"}]}
+    gs = [dict(_gap("articles:odt.co.nz", 9), source_id="articles:odt.co.nz"),
+          dict(_gap("legislation", 5), source_id="legislation"),
+          dict(_gap("election-candidates", 4), source_id="election-candidates"),
+          dict(_gap("documents:hrc.govt.nz", 2), source_id="documents:hrc.govt.nz")]
+    G.mark_copied(gs, inv)
+    st = {g["source_id"]: g["status"] for g in gs}
+    assert st == {"articles:odt.co.nz": "copied", "legislation": "copied", "election-candidates": "gap",
+                  "documents:hrc.govt.nz": "gap"}
+    fd = G.feed(gs, NOW)
+    assert {g["source_id"] for g in fd["gaps"]} == {"election-candidates", "documents:hrc.govt.nz"}
+    assert "ruling 170" in G.page(fd, NOW)
+
+
+def test_a_source_whose_files_we_hold_is_not_asked():
+    """ruling 170: the old rows name files by sha256; held in our store, every one, it is not asked; one missing, or
+    a row with no file, and it stays asked."""
+    have = {"a", "b"}.__contains__
+    assert G.in_our_store([(None, "a", "2020", "r"), (None, "b", "2021", "r")], have)
+    assert not G.in_our_store([(None, "a", "2020", "r"), (None, "c", "2021", "r")], have)
+    assert not G.in_our_store([(None, "a", "2020", "r"), (None, None, "2021", "r")], have)
+    assert not G.in_our_store([], have)

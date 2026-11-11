@@ -1499,3 +1499,20 @@ ingest MCP's provider is asked to collect the NZME mastheads (nzherald.co.nz,
 businessdesk.co.nz) into `estate-news` from 17 and 18 October 2026, when the old scrapers
 stopped them; the archive before then is held (ruling 161) and is not asked for. The 9
 November "do not collect" for NZME is withdrawn; fyi.org.nz and OpenLaw stay out.
+
+170. Arthur, 11 November, on the gap list asking the provider for the old news archive, the
+reference datasets and the party sites: "do we need the backfill? dont we already have that?";
+"you need to ask for what you dont have. it is not for the mcp to hold a full catalogue". And:
+"add everything from the electoral comission and legislation.govt.nz to the mcp holdings. Also
+the charity offices if they dont come through an api. also hansard"; "we want those smaller
+pages so we want the mcp to get those". (a) The provider is asked only for what the new estate
+does not hold. A gap whose old tables the copy holds (the inventory's NEW, PARTLY or HELD), or
+whose every file is in the document store by its sha256, is `copied` and not asked; the 279
+backlog asks of 11 November are withdrawn, none closed (support/mcpsource/gaps.py). (b) Asked to
+collect from now on (`asks/collect.json`): everything the Electoral Commission publishes
+(elections.nz, electionresults.govt.nz); all of legislation.govt.nz with its texts and
+disclosure.legislation.govt.nz; Hansard, every sitting day, whole; and the 73 smaller public
+sites the old estate collected from, each from the day after the newest page we hold. (c) The
+charity officers come through the Charities Register's open API, which the boxes read
+(qv4-charities-capture): they stay with us. GLEIF, ROR and Wikidata are held in the copy and
+LINZ's place names in the linz lane; none is asked.

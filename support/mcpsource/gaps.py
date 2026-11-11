@@ -166,7 +166,7 @@ SOURCES = (
            "parliament-hansard-debates", match="date", date_pattern=r"/(\d{4}-\d{2}-\d{2})[/-]",
            how="sitting days the old estate read speech by speech; a day is held when the MCP holds its daily PDF"),
     Source("hansard-sections", "Hansard: debate sections", "incoming_news",
-           f"select '{UNDATED}', 'section', count(*) from hansard_sections group by 1,2",
+           f"select '{UNDATED}', 'section', count(*) from public.hansard_sections group by 1,2",
            "parliament-hansard-debates", match="count", how="sections of debates read from the HTML transcript"),
     # keyed APIs the boxes keep (the 5 November split): shown with their size, not asked
     Source("companies", "Companies Register and NZBN (entities)", "nzbn_canonical",
@@ -508,7 +508,51 @@ def unmeasured(inventory, measured_ids: set) -> tuple:
     return gaps, out
 
 
-ORDER = {"gap": 0, "unmeasured": 1, "boxes": 2, "held": 3, "searched": 4, "derived": 5}
+ORDER = {"gap": 0, "unmeasured": 1, "boxes": 2, "held": 3, "copied": 4, "searched": 5, "derived": 6}
+
+#: ruling 170 (Arthur, 11 November): ask the provider only for what the new estate does not hold. The old estate's
+#: tables the inventory says the new estate copied (NEW, PARTLY: rows left out by a ruling) or already held (HELD).
+COPIED_STATUSES = frozenset({"NEW", "PARTLY", "HELD"})
+COPIED_CAVEAT = "in the new estate's copy of the old estate (rulings 160-164): not asked (ruling 170)"
+_FROM = re.compile(r"\bfrom\s+([a-z_0-9]+\.[a-z_0-9]+)", re.I)
+
+
+def old_tables(gap: dict) -> set:
+    """The old tables a gap was measured from, as database.schema.table."""
+    sid = gap.get("source_id") or ""
+    if sid.startswith("articles:"):
+        return {"incoming_news.public.articles"}
+    if sid.startswith("documents:"):
+        return {"incoming_news.public.documents"}
+    src = next((s for s in SOURCES if s.id == sid), None)
+    if src is None:
+        return set()
+    return {f"{src.db}.{t.lower()}" for t in _FROM.findall(src.sql)}
+
+
+STORE_CAVEAT = "every file is in the new estate's document store, by its sha256: not asked (ruling 170)"
+
+
+def in_our_store(rows, exists=None) -> bool:
+    """Every old row names a file (its sha256) and the new estate's store holds each one (opened by key, never
+    scanned)."""
+    if exists is None:
+        from support.docstore.landing import path_for
+        exists = lambda sha: os.path.exists(path_for(sha))
+    shas = [r[1] for r in rows]
+    return bool(shas) and all(shas) and all(exists(x) for x in set(shas))
+
+
+def mark_copied(gaps: list, inventory) -> list:
+    """A gap whose every old table the new estate holds is `copied`, not asked (ruling 170). A gap with a table the
+    inventory does not name, or names otherwise, stays asked: never assumed held."""
+    tables = inventory.get("tables") if isinstance(inventory, dict) else None
+    held = {f"{t['database']}.{t['schema']}.{t['table']}" for t in tables or [] if t.get("status") in COPIED_STATUSES}
+    for g in gaps:
+        names = old_tables(g)
+        if g["status"] == "gap" and names and names <= held:
+            g.update(status="copied", asked=None, caveats=COPIED_CAVEAT)
+    return gaps
 
 
 def ordered(gaps: list) -> list:
@@ -575,7 +619,7 @@ def _top_periods(g: dict, k: int = 3) -> str:
 
 
 NOT_ASKED = {"boxes": "a keyed API the boxes keep", "held": "in the new estate's copy; new articles asked in asks/news.json (rulings 161, 169)",
-             "searched": "searched, never mined (hard limit 17)", "derived": "built by the old estate; not a source",
+             "copied": COPIED_CAVEAT, "searched": "searched, never mined (hard limit 17)", "derived": "built by the old estate; not a source",
              "unmeasured": "in stream I's inventory; not yet measured", "gap": "nothing missing"}
 
 
@@ -616,7 +660,7 @@ def page(fd: dict, now: dt.datetime) -> str:
     noted = [g for g in fd["noted"] if g["status"] != "gap"]
     if noted:
         out += ["Not asked, shown so the picture is whole:", ""]
-        for st in ("boxes", "held", "searched", "derived", "unmeasured"):
+        for st in ("boxes", "held", "copied", "searched", "derived", "unmeasured"):
             gs = [g for g in noted if g["status"] == st]
             if gs:
                 out.append(f"- {NOT_ASKED[st]}: " + "; ".join(f"{g['source']} ({_n(g['old_count'])})" for g in gs[:12])
@@ -625,8 +669,14 @@ def page(fd: dict, now: dt.datetime) -> str:
     if fd["closed"]:
         out += ["Closed (the records have landed): " + ", ".join(c["source"] or c["gap_id"] for c in fd["closed"]) + ".", ""]
     if fd.get("withdrawn"):
-        out += ["Withdrawn (no longer asked as a backlog, nothing is said to have landed; anything still asked is named in brackets): "
-                + "; ".join(f"{w['source'] or w['gap_id']} ({w['why']})" for w in fd["withdrawn"]) + ".", ""]
+        by_why: dict = {}
+        for w in fd["withdrawn"]:
+            by_why.setdefault(w["why"], []).append(w["source"] or w["gap_id"])
+        out += ["Withdrawn (no longer asked as a backlog, nothing is said to have landed; every row is in mcp-gaps.json):", ""]
+        for why, names in sorted(by_why.items(), key=lambda x: -len(x[1])):
+            more = f", and {len(names) - 8} more" if len(names) > 8 else ""
+            out.append(f"- {len(names)}, {why}: " + "; ".join(names[:8]) + more)
+        out.append("")
     out += ["How it is measured: an old document or page is held when the MCP holds the same address or the same "
             "content sha256. A register the old estate held as rows is compared by count; where the MCP has a corpus "
             "for it, its records are captured pages, not rows, so the count cannot say what is missing (shown as ?) "
@@ -706,7 +756,12 @@ def measure(old_connect, v4_conn, client=None, inventory=None, log=print) -> tup
             gaps += gaps_of(src, tally_counts(rows), records.get(src.corpus) if src.corpus else None, how_mcp)
         else:
             dates = dates_held(held, src.corpus, src.date_pattern) if src.match == "date" else None
-            gaps += gaps_of(src, tally(rows, held, src.match, dates), how_mcp=how_mcp)
+            new = gaps_of(src, tally(rows, held, src.match, dates), how_mcp=how_mcp)
+            if "sha" in src.match and in_our_store(rows):
+                for g in new:
+                    if g["status"] == "gap":
+                        g.update(status="copied", asked=None, caveats=STORE_CAVEAT)
+            gaps += new
         log(f"gaps: {src.id}: {len(rows):,} rows")
     news = conn_for("incoming_news")
     counts = news.execute(ARTICLE_COUNTS).fetchall()
@@ -724,6 +779,7 @@ def measure(old_connect, v4_conn, client=None, inventory=None, log=print) -> tup
     extra, out_ids = unmeasured(inventory, {s.id for s in SOURCES})
     gaps = [g for g in gaps if g["source_id"] not in out_ids and g["source_id"].split(":", 1)[-1] not in out_ids]
     gaps += extra
+    mark_copied(gaps, inventory)
     for c in conns.values():
         c.close()
     mcp = {"corpora": len(corpora), "our_copy_cursors": cursors, "tail_read": tail, "records": records}
