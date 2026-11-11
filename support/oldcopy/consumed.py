@@ -205,7 +205,7 @@ def judge_trees(inv: dict, fstate: dict, listdir=os.listdir, judge=judge_store) 
     OUT; a tree with no store of the inventory under it, or with files outside its stores, is not held."""
     stores = inv.get("stores") or []
     out = []
-    for name, (root, fate, why, _excl) in sorted(P.TREES.items()):
+    for name, (root, fate, why, _excl) in sorted({**P.TREES, **P.OLD_TREES}.items()):
         if not root.startswith(P.OLD_REPO) or fate == P.OUT:
             continue
         under = [s for s in stores if (s.get("root") or "").startswith(root.rstrip("/") + "/") or s.get("root") == root]

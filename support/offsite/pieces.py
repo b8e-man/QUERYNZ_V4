@@ -39,8 +39,13 @@ OLD_REPO = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"  
 
 # database -> the login that reads it, and whether it is frozen. The old
 # databases are read through the read-only old login (never the owner).
+# Arthur, 11 November 2026: "stop the old estate's backups", once support.oldcopy.consumed read READY (157 tables
+# copied, 53 held, 55 let go, nothing waiting or unaccounted for). The off-site copy sends the new estate only; the old
+# databases and trees are kept below, not sent, for the consumed check and for restoring a copy made before that day.
 DATABASES = {
     "querynz_v4": {"login": db.OWNER_KEY, "frozen": False},
+}
+OLD_DATABASES = {
     "nzbn_canonical": {"login": db.OLD_READ_KEY, "frozen": False},
     "incoming_news": {"login": db.OLD_READ_KEY, "frozen": False},
     "extractions": {"login": db.OLD_READ_KEY, "frozen": True},
@@ -81,6 +86,10 @@ TREES = {
                  "stored model readings, run records, check records, the freeze patches",
                  ("llama",)),
     "qv4-inbox": ("/home/user/querynzv4-work/inbox", SEND, "merge requests and notes a session or Arthur typed", ()),
+}
+# The old estate's trees, read only, no longer sent (11 November 2026, above); support.oldcopy copies them in and
+# support.oldcopy.consumed judges them.
+OLD_TREES = {
     # The old estate's trees, read only. ec-donations (archive, residue)
     # rejoins: captured documents the old push left out under ruling 198
     # (queue: whether-the-ec-archive-and-residue-join-the-weekly-full-copy,

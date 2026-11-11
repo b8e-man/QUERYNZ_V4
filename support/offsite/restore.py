@@ -172,7 +172,7 @@ def read_manifest(src: Source, stamp: str, passphrase: str) -> dict:
 def live_locale(database: str) -> dict:
     """The live server's settings for `database`, read now, through the
     login the copy reads it with."""
-    login = P.DATABASES.get(database, {}).get("login", db.OWNER_KEY)
+    login = {**P.OLD_DATABASES, **P.DATABASES}.get(database, {}).get("login", db.OWNER_KEY)   # a copy from before 11 Nov
     with db.connect(login, database) as conn:
         return C.database_locale(conn.cursor())
 

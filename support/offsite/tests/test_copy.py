@@ -33,7 +33,16 @@ def test_every_rule_names_a_rebuild_that_must_exist():
 
 
 def test_the_press_graph_is_frozen_and_nothing_else_is():
-    assert [d for d, c in P.DATABASES.items() if c["frozen"]] == ["extractions"]
+    assert [d for d, c in P.OLD_DATABASES.items() if c["frozen"]] == ["extractions"]
+
+
+def test_the_copy_sends_the_new_estate_only():
+    """Arthur, 11 November 2026: the old estate's backups stop once the new estate has consumed it. The old databases
+    and trees stay named (the consumed check, restoring an earlier copy) and are never sent."""
+    assert list(P.DATABASES) == ["querynz_v4"]
+    assert set(P.OLD_DATABASES) == {"nzbn_canonical", "incoming_news", "extractions"}
+    assert not any(root.startswith(P.OLD_REPO) for root, *_ in P.TREES.values())
+    assert set(P.OLD_TREES) == {"v3-staging", "v3-audits", "v3-eras", "v3-review", "v3-systemd"}
 
 
 def test_object_names_are_safe():
