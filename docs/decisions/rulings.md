@@ -1460,3 +1460,20 @@ both stops (the 5 November split). As ruling 159 for the blocked councils, the p
 copy is taken for forms.justice.govt.nz, which our fetch gate holds (ruling 141): the
 provider has its own compliance relationship. The hold itself stays; nothing of ours asks
 the host. The orders neither copy holds go to the provider's list, soonest to leave first.
+
+166. Arthur, 11 November, on the old estate's collectors: the NZBN API's society officers
+"comes through a api so we want it to keep coming"; the declared-donations feed "is an rss
+feed we now publish so it should always stay on" (`ec-disclosures`, the carve-out); "the other
+old collectors should move to the mcp unless they are apis". The web crawls go to the
+provider as requests (`handover/asks/old-collectors.json`, the code in
+`handover/old-crawlers-2026-11-11.tar.gz`); each old crawl stops once the provider's copy of
+its source has new records. GETS's award files move to the provider (`estate-tenders`).
+
+167. Arthur, 11 November: "move the apis to the new estate and stop the old estate's
+backups". The new lanes already ask the four APIs the old jobs ask (societies: the NZBN API;
+charities: the OData feed; linz: the Data Service with the owners table; gazette: DigitalNZ),
+so the old API jobs stop. The old estate was judged consumed that day
+(`support.oldcopy.consumed`: READY, 157 copied, 53 held, 55 let go, nothing waiting or not
+held); `qv4-offsite-copy` sends the new estate only, the old estate's copy inside it
+included, and the old estate's own push (`offsite-push`) stops. Limit 18 is unchanged:
+nothing of the old estate is deleted by this.
