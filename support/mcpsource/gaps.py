@@ -24,7 +24,7 @@ A source with no corpus is a gap in itself. A source is listed with `status`:
   boxes     a keyed API the boxes keep (the 5 November split); shown, not asked
   searched  Papers Past: searched, never mined (hard limit 17); shown, never asked
   held      the NZME mastheads (the NZ Herald, BusinessDesk): already in the new estate's copy of the old news
-            (ruling 161), and Arthur does not want them collected (ruling 168); shown, not asked
+            (ruling 161); their new articles are asked in asks/news.json (ruling 169), not here; shown, not asked
   derived   built by the old estate from other sources (claims, links, derived registers); not a source
   out       left out entirely: the recovered news dump held on node1 (rulings 154, 161), fyi.org.nz (removed from
             the estate, ruling 168)
@@ -220,10 +220,11 @@ ARTICLE_CORPUS = {
     "elections.nz/expenses": "estate-candidate_returns",
 }
 COUNCIL_TAG = re.compile(r"infocouncil")
-#: the NZME mastheads: in the copy already (ruling 161), not to be collected (ruling 168)
+#: the NZME mastheads: in the copy already (ruling 161), new articles asked in asks/news.json (ruling 169)
 NZME_TAGS = frozenset({"nzherald.co.nz", "businessdesk.co.nz"})
 ARTICLE_STATUS = {"paperspast.natlib.govt.nz": "searched", **{t: "held" for t in NZME_TAGS}}
-HELD_CAVEAT = "an NZME masthead: in the new estate's copy (ruling 161), not to be collected (ruling 168): not asked"
+HELD_CAVEAT = ("an NZME masthead: its archive is in the new estate's copy (ruling 161); its new articles are asked "
+               "in asks/news.json (ruling 169): the archive is not asked")
 # Left out entirely. Ruling 154 (161 keeps it): the recovered news dump held on node1, which has no host tag in the
 # catalogue; stream I's inventory marks it OUT, and any tag or source id it names OUT is left out here. Ruling 168:
 # fyi.org.nz is removed from the estate.
@@ -535,7 +536,7 @@ def feed(gaps: list, now: dt.datetime, measured_at=None, previous: dict = None, 
             closed[gid] = {"gap_id": gid, "source": g.get("source"), "was_missing": g.get("missing"),
                            "closed_at": _iso(now), "by": "records landed: missing measured 0"}
     # an ask dropped by us (a source ruled out, or now shown and not asked) is withdrawn, never closed: the provider
-    # stops working it, and nothing is said to have landed (ruling 168: fyi.org.nz, NZME, GeoNames)
+    # stops working it, and nothing is said to have landed (rulings 168, 169: fyi.org.nz, GeoNames, the NZME archive)
     asked_ids = {g["gap_id"] for g in asked}
     withdrawn = {w["gap_id"]: w for w in prev.get("withdrawn") or [] if w.get("gap_id") and w["gap_id"] not in asked_ids}
     for g in prev.get("gaps") or []:
@@ -567,7 +568,7 @@ def _top_periods(g: dict, k: int = 3) -> str:
     return ", ".join(f"{p}: {n:,}" for n, p in top)
 
 
-NOT_ASKED = {"boxes": "a keyed API the boxes keep", "held": "in the new estate's copy, not to be collected (rulings 161, 168)",
+NOT_ASKED = {"boxes": "a keyed API the boxes keep", "held": "in the new estate's copy; new articles asked in asks/news.json (rulings 161, 169)",
              "searched": "searched, never mined (hard limit 17)", "derived": "built by the old estate; not a source",
              "unmeasured": "in stream I's inventory; not yet measured", "gap": "nothing missing"}
 

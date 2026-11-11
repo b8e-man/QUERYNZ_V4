@@ -1,6 +1,6 @@
 """support/mcpsource/gaps.py (ruling 160): the provider's gap list. An old item is held when the MCP holds its
 address or its content hash; missing is counted by the old item's year; a source with no corpus is a gap in
-itself; Papers Past, the NZME mastheads (in the copy, ruling 168), the boxes' keyed APIs and derived tables are shown and never asked; fyi.org.nz is left out; a gap is
+itself; Papers Past, the NZME mastheads (the archive in the copy, ruling 169), the boxes' keyed APIs and derived tables are shown and never asked; fyi.org.nz is left out; a gap is
 closed only when a measure finds nothing missing, never on an answer."""
 import datetime as dt
 
@@ -110,7 +110,7 @@ def test_articles_one_gap_per_host():
     assert pp["status"] == "searched" and pp["asked"] is None                     # hard limit 17
     assert "articles:fyi.org.nz" not in gs                                        # ruling 168: removed entirely
     nz = gs["articles:nzherald.co.nz"]
-    assert nz["status"] == "held" and nz["asked"] is None and "ruling 168" in nz["caveats"]   # copied, not collected
+    assert nz["status"] == "held" and nz["asked"] is None and "ruling 169" in nz["caveats"]   # archive copied; new articles asked elsewhere
     ds = G.document_gaps([("https://fyi.org.nz/request/1/x.pdf", None, "2024", "fyi.org.nz")], h, "")
     assert ds == []
 
@@ -170,16 +170,16 @@ def test_a_gap_closes_only_when_measured_empty():
 
 
 def test_an_ask_we_drop_is_withdrawn_never_closed():
-    """ruling 168: fyi.org.nz removed, NZME and GeoNames no longer asked; the provider is told to stop, and nothing
+    """ruling 168: fyi.org.nz removed, GeoNames and the NZME archive no longer asked; the provider is told to stop, and nothing
     is said to have landed."""
     prev = G.feed([_gap("articles:nzherald.co.nz", 9), _gap("geonames", 5), _gap("kept", 3)], NOW)
     later = NOW + dt.timedelta(hours=6)
-    nz = dict(_gap("articles:nzherald.co.nz", 9, "held"), caveats="an NZME masthead: ruling 168")
+    nz = dict(_gap("articles:nzherald.co.nz", 9, "held"), caveats="an NZME masthead: ruling 169")
     fd = G.feed([nz, _gap("kept", 3)], later, previous=prev)
     assert fd["closed"] == []
     w = {x["gap_id"]: x for x in fd["withdrawn"]}
     assert set(w) == {"articles:nzherald.co.nz", "geonames"}
-    assert "ruling 168" in w["articles:nzherald.co.nz"]["why"] and "out of scope" in w["geonames"]["why"]
+    assert "ruling 169" in w["articles:nzherald.co.nz"]["why"] and "out of scope" in w["geonames"]["why"]
     again = G.feed([nz, _gap("kept", 3)], later + dt.timedelta(hours=6), previous=fd)
     assert [x["gap_id"] for x in again["withdrawn"]] == ["articles:nzherald.co.nz", "geonames"]     # kept
     assert again["withdrawn"][0]["withdrawn_at"] == w["articles:nzherald.co.nz"]["withdrawn_at"]

@@ -1492,3 +1492,10 @@ removable on Arthur's word with a logged line. The fetch gate still refuses the 
 gap list and the provider's requests no longer name it. (c) GeoNames: out of scope; LINZ's
 place names stand in. The copy no longer takes it (OUT), the provider's gap is withdrawn, and
 the copied tables, which can be regenerated, are dropped.
+
+169. Arthur, 11 November, on asking why NZME was not to be gathered (no rule of ours stops
+it: hard limit 8 was withdrawn by ruling 155): "make the changes". Replaces ruling 168(a): the
+ingest MCP's provider is asked to collect the NZME mastheads (nzherald.co.nz,
+businessdesk.co.nz) into `estate-news` from 17 and 18 October 2026, when the old scrapers
+stopped them; the archive before then is held (ruling 161) and is not asked for. The 9
+November "do not collect" for NZME is withdrawn; fyi.org.nz and OpenLaw stay out.
