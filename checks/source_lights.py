@@ -94,8 +94,9 @@ def lane_asks(folder: str = None) -> list:
                 o = json.load(f)
         except (OSError, ValueError):
             continue
-        if isinstance(o, dict) and o.get("corpus") and isinstance(o.get("missing"), int) and o["missing"] > 0:
-            out.append(o)
+        for x in (o.get("asks") if isinstance(o, dict) and isinstance(o.get("asks"), list) else [o]):   # one or several
+            if isinstance(x, dict) and x.get("corpus") and isinstance(x.get("missing"), int) and x["missing"] > 0:
+                out.append(x)
     return out
 STALE_CLOSING = os.path.splitext(STALE_FILE)[0] + ".closing.md"  # the integrator's closing section, when kept apart
 CATALOGUE = os.path.join(REPO, "products", "board", "catalogue.py")

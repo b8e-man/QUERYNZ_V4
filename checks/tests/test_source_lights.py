@@ -786,10 +786,13 @@ def test_a_lane_s_request_reaches_the_provider_page_and_feed(tmp_path):
         "corpus": "estate-tenders", "listed": 9, "missing": 9, "earliest_take_down": None,
         "asked": "gather the GETS award-notice files", "request_id": "estate-tenders@files-9-held-2026-08-14"}),
         encoding="utf-8")
+    (tmp_path / "old-collectors.json").write_text(json.dumps({"asks": [                # one file, several requests
+        {"corpus": "estate-coronial", "missing": 1, "asked": "a collector"}, {"corpus": "estate-nothing", "missing": 0},
+        "not a request"]}), encoding="utf-8")
     now = dt.datetime(2026, 11, 10, tzinfo=dt.timezone.utc)
     feed = S.provider_feed({"freshness": {}}, now, None, asks_dir=str(tmp_path))
-    assert [o["corpus"] for o in feed["short_of_source"]] == ["estate-tenancy_tribunal", "estate-tenders"]
-    assert feed["short_of_source"][0]["orders"][1]["order_id"] == "2"
+    assert [o["corpus"] for o in feed["short_of_source"]] == ["estate-coronial", "estate-tenancy_tribunal", "estate-tenders"]
+    assert feed["short_of_source"][1]["orders"][1]["order_id"] == "2"
     page = S.provider_list({"freshness": {}}, now, "", feed)
     assert "Short of the source's own list" in page and "| estate-tenancy_tribunal | 33,847 | 2 | 2028-06-23 |" in page
     assert "| estate-tenders | 9 | 9 | ? |" in page
