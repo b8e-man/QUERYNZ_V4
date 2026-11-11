@@ -183,6 +183,10 @@ def test_an_ask_we_drop_is_withdrawn_never_closed():
     again = G.feed([nz, _gap("kept", 3)], later + dt.timedelta(hours=6), previous=fd)
     assert [x["gap_id"] for x in again["withdrawn"]] == ["articles:nzherald.co.nz", "geonames"]     # kept
     assert again["withdrawn"][0]["withdrawn_at"] == w["articles:nzherald.co.nz"]["withdrawn_at"]
+    stale = dict(again, withdrawn=[dict(x, why="not to be collected (ruling 168)") for x in again["withdrawn"]])
+    fresh = {x["gap_id"]: x["why"] for x in G.feed([nz, _gap("kept", 3)], later, previous=stale)["withdrawn"]}
+    assert "ruling 169" in fresh["articles:nzherald.co.nz"] and "168" not in fresh["articles:nzherald.co.nz"]
+    assert fresh["geonames"] == "not to be collected (ruling 168)"        # no longer shown: its reason stands
     reasked = G.feed([_gap("geonames", 5)], later + dt.timedelta(hours=12), previous=again)
     assert "geonames" not in {x["gap_id"] for x in reasked["withdrawn"]}
     assert "Withdrawn (no longer asked" in G.page(fd, later)

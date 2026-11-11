@@ -539,6 +539,12 @@ def feed(gaps: list, now: dt.datetime, measured_at=None, previous: dict = None, 
     # stops working it, and nothing is said to have landed (rulings 168, 169: fyi.org.nz, GeoNames, the NZME archive)
     asked_ids = {g["gap_id"] for g in asked}
     withdrawn = {w["gap_id"]: w for w in prev.get("withdrawn") or [] if w.get("gap_id") and w["gap_id"] not in asked_ids}
+    for gid, w in withdrawn.items():
+        # a withdrawal still shown takes today's reason: a later ruling (169: NZME's new articles asked) must not
+        # leave the provider reading an older one (168: not to be collected)
+        cur = now_ids.get(gid)
+        if cur is not None:
+            w["why"] = cur.get("caveats") or NOT_ASKED.get(cur["status"], "") or w.get("why")
     for g in prev.get("gaps") or []:
         gid = g.get("gap_id")
         if gid and gid not in asked_ids and gid not in closed:
@@ -619,7 +625,7 @@ def page(fd: dict, now: dt.datetime) -> str:
     if fd["closed"]:
         out += ["Closed (the records have landed): " + ", ".join(c["source"] or c["gap_id"] for c in fd["closed"]) + ".", ""]
     if fd.get("withdrawn"):
-        out += ["Withdrawn (no longer asked; stop working these, nothing is said to have landed): "
+        out += ["Withdrawn (no longer asked as a backlog, nothing is said to have landed; anything still asked is named in brackets): "
                 + "; ".join(f"{w['source'] or w['gap_id']} ({w['why']})" for w in fd["withdrawn"]) + ".", ""]
     out += ["How it is measured: an old document or page is held when the MCP holds the same address or the same "
             "content sha256. A register the old estate held as rows is compared by count; where the MCP has a corpus "
