@@ -82,7 +82,14 @@
    "note": "7.47 M rows: the ingest ledger of the articles (status, failures)",
    "date_range": null,
    "dest": "querynz_v4.old_incoming_news_private.article_ledger",
-   "where_to": "/home (the database's own disk)"
+   "where_to": "/home (the database's own disk)",
+   "leave_out": [
+    {
+     "column": "sources",
+     "like": "%fyi.org.nz%",
+     "why": "Arthur, 11 November (ruling 168): fyi.org.nz is removed from the estate entirely; the copy's fyi rows are quarantined (support.oldcopy.quarantine) and never copied again"
+    }
+   ]
   },
   {
    "database": "incoming_news",
@@ -107,6 +114,11 @@
      "column": "news_url",
      "like": "%paperspast.natlib.govt.nz%",
      "why": "Arthur, 10 November (ruling 163): all 4,648,837 Papers Past rows are held in papers_past.items (held_in_old, checked by the integrator), so the old copies are not needed"
+    },
+    {
+     "column": "news_url",
+     "like": "%fyi.org.nz%",
+     "why": "Arthur, 11 November (ruling 168): fyi.org.nz is removed from the estate entirely; the copy's fyi rows are quarantined (support.oldcopy.quarantine) and never copied again"
     }
    ]
   },
@@ -226,7 +238,14 @@
    "date_range": null,
    "dest": null,
    "keep": true,
-   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small"
+   "keep_why": "ruling 162 (Arthur, 10 November): nothing is lost when the old off-site copy stops; kept by the integrator, being small",
+   "leave_out": [
+    {
+     "column": "url",
+     "like": "%fyi.org.nz%",
+     "why": "Arthur, 11 November (ruling 168): fyi.org.nz is removed from the estate entirely; the copy's fyi rows are quarantined (support.oldcopy.quarantine) and never copied again"
+    }
+   ]
   },
   {
    "database": "incoming_news",
@@ -245,7 +264,14 @@
    "note": "5,132 PDFs' rows with their text; only 1,064 of the PDFs are on disk or in the store; 4,072 PDFs are nowhere (gap for the MCP)",
    "date_range": null,
    "dest": "querynz_v4.old_incoming_news_private.documents",
-   "where_to": "/home (the database's own disk)"
+   "where_to": "/home (the database's own disk)",
+   "leave_out": [
+    {
+     "column": "source",
+     "like": "fyi.org.nz",
+     "why": "Arthur, 11 November (ruling 168): fyi.org.nz is removed from the estate entirely; the copy's fyi rows are quarantined (support.oldcopy.quarantine) and never copied again"
+    }
+   ]
   },
   {
    "database": "incoming_news",
@@ -405,7 +431,7 @@
    "database": "incoming_news",
    "schema": "public",
    "table": "oia_requests",
-   "status": "NEW",
+   "status": "OUT",
    "relkind": "table",
    "key": [
     "oia_id"
@@ -418,7 +444,9 @@
    "note": "302 fyi.org.nz requests (fyi stays held at the fetch gate, old ruling 321; this is a copy, not a fetch)",
    "date_range": null,
    "dest": "querynz_v4.old_incoming_news_private.oia_requests",
-   "where_to": "/home (the database's own disk)"
+   "where_to": "/home (the database's own disk)",
+   "out_why": "Arthur, 11 November (ruling 168): fyi.org.nz is removed from the estate entirely; the copy's fyi rows are quarantined (support.oldcopy.quarantine) and never copied again",
+   "quarantine_whole": true
   },
   {
    "database": "incoming_news",
@@ -891,7 +919,7 @@
    "database": "nzbn_canonical",
    "schema": "bulk",
    "table": "geonames",
-   "status": "NEW",
+   "status": "OUT",
    "relkind": "table",
    "key": [
     "geonameid"
@@ -904,13 +932,14 @@
    "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
    "date_range": null,
    "dest": "querynz_v4.old_nzbn_canonical_private.bulk__geonames",
-   "where_to": "/home (the database's own disk)"
+   "where_to": "/home (the database's own disk)",
+   "out_why": "Arthur, 11 November (ruling 168): GeoNames is not needed; LINZ holds New Zealand's places"
   },
   {
    "database": "nzbn_canonical",
    "schema": "bulk",
    "table": "geonames_alternate",
-   "status": "NEW",
+   "status": "OUT",
    "relkind": "table",
    "key": [
     "alternateid"
@@ -923,7 +952,8 @@
    "note": "reference datasets loaded from public downloads (originals in /home/user/offload-2026-09-02/bulk); no counterpart in the new estate",
    "date_range": null,
    "dest": "querynz_v4.old_nzbn_canonical_private.bulk__geonames_alternate",
-   "where_to": "/home (the database's own disk)"
+   "where_to": "/home (the database's own disk)",
+   "out_why": "Arthur, 11 November (ruling 168): GeoNames is not needed; LINZ holds New Zealand's places"
   },
   {
    "database": "nzbn_canonical",

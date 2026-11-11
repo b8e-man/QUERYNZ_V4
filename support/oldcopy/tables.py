@@ -178,8 +178,9 @@ def _bound(cat, values):
 
 
 def _kept(cat):
-    """The rows copied: none matching a leave_out pair (a NULL value never matches, so its row is kept)."""
-    return [sql.SQL("NOT COALESCE({} ILIKE {}, false)").format(sql.Identifier(c), sql.Literal(p))
+    """The rows copied: none matching a leave_out pair (a NULL value never matches, so its row is kept). The value is
+    matched as its text, so an array column (article_ledger.sources) is matched as '{fyi.org.nz}'."""
+    return [sql.SQL("NOT COALESCE({}::text ILIKE {}, false)").format(sql.Identifier(c), sql.Literal(p))
             for c, p in cat.get("leave_out", ())]
 
 

@@ -154,6 +154,6 @@ Three kinds of module, with imports running one way, held by one test.
 - The press graph as it was: people and claims drawn from journalism at large. Parked. It returns SCOPED, as use case 17 Discourse (Arthur, 17 October) — one subject at a time, after links, with the joined registers as what its names resolve against (Arthur, 16 October: once the registers are joined, "we can use them for name resolution for press"). Until step 4 is closed nothing resolves a press name.
 - A stored person record, or any graph database.
 - Billing, accounts, metering.
-- Anything from NZME or fyi.org.nz.
+- Collecting from NZME: its archive is held (ruling 161) and nothing more is gathered (ruling 168). fyi.org.nz: removed from the estate (ruling 168).
 - The later list: mayoral diaries, chief executives' gifts and expenses. (Ministers' diaries came off it on 17 October — use case 15.)
 

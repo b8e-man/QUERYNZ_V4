@@ -1,4 +1,4 @@
-"""python -m support.oldcopy tables|files|status (support/oldcopy/__init__.py has the commands and the limits)."""
+"""python -m support.oldcopy tables|files|status|quarantine (support/oldcopy/__init__.py has the commands and the limits)."""
 import argparse
 import os
 import sys
@@ -144,6 +144,20 @@ def cmd_status(a) -> int:
     return 0
 
 
+def cmd_quarantine(a) -> int:
+    """The copied rows the inventory now leaves out, moved into quarantine_private (support/oldcopy/quarantine.py)."""
+    import json
+    from support.oldcopy import quarantine
+    if not os.path.exists(a.inventory):
+        raise SystemExit(f"support.oldcopy: no inventory at {a.inventory}")
+    with open(a.inventory, encoding="utf-8") as fh:
+        inv = json.load(fh)
+    with db.connect(db.OWNER_KEY, DEST_DB, connect_timeout=10) as conn:
+        conn.execute("SELECT set_config('statement_timeout', '1800s', false)")
+        quarantine.run(conn, inv, dry_run=a.dry_run)
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="python -m support.oldcopy")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -165,8 +179,11 @@ def main(argv=None) -> int:
     f.add_argument("--budget-s", type=float, default=3000)
     f.add_argument("--any-hour", action="store_true")
     sub.add_parser("status")
+    q = sub.add_parser("quarantine", help="move copied rows the inventory now leaves out into quarantine_private")
+    q.add_argument("--inventory", default=INVENTORY)
+    q.add_argument("--dry-run", action="store_true", help="count what would move; nothing written")
     a = p.parse_args(argv)
-    return {"tables": cmd_tables, "files": cmd_files, "status": cmd_status}[a.cmd](a)
+    return {"tables": cmd_tables, "files": cmd_files, "status": cmd_status, "quarantine": cmd_quarantine}[a.cmd](a)
 
 
 if __name__ == "__main__":

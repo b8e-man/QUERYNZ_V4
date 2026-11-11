@@ -1477,3 +1477,18 @@ so the old API jobs stop. The old estate was judged consumed that day
 held); `qv4-offsite-copy` sends the new estate only, the old estate's copy inside it
 included, and the old estate's own push (`offsite-push`) stops. Limit 18 is unchanged:
 nothing of the old estate is deleted by this.
+
+168. Arthur, 11 November: "we dont need nzme and you can delete fyi. We will get rid of that
+entirely. cleans all records and mentiones of it. Bring all nzme press into the corpus
+including nzherald"; and "get rid of geonames. we dont need them if we have linz".
+(a) NZME: nothing more is collected from any NZME masthead; the 782,587 NZME articles the
+old estate held (779,702 nzherald, 2,885 businessdesk) stay in the corpus, the copy of the old
+news (ruling 161), and the provider is not asked for them. (b) fyi.org.nz: removed. The copy
+leaves it out (the inventory's leave_out), the rows already copied (32,584 articles, 278
+documents, 353 OIA requests, 32,315 ledger and 33,422 index rows) are moved to
+`quarantine_private` with one ledger line each, and the four fyi files in the document store
+are withdrawn. Under the deletion rule they are kept until 11 December 2026 and are then
+removable on Arthur's word with a logged line. The fetch gate still refuses the host; the
+gap list and the provider's requests no longer name it. (c) GeoNames: out of scope; LINZ's
+place names stand in. The copy no longer takes it (OUT), the provider's gap is withdrawn, and
+the copied tables, which can be regenerated, are dropped.

@@ -432,6 +432,17 @@ def test_rows_held_elsewhere_are_left_out_by_the_inventory_and_a_null_is_kept(en
     d.rollback()
 
 
+def test_an_array_column_is_left_out_by_its_text(env):
+    """ruling 168: article_ledger.sources is text[]; '{fyi.org.nz}' is matched as its text, not refused by ILIKE."""
+    e = env
+    s, d = e["src_s"], e["dst"]
+    spec = inventory.Table("querynz_v4_sample", s, "t", "NEW", (), ((None, None),), (("tags", "{x7,%"),))
+    out = _copy(e, spec, rows=500)
+    assert out["rows"] == 1233 and out["caught_up"]
+    assert d.execute(f"SELECT count(*) FROM {e['dst_s']}.{s}__t WHERE id = 7").fetchone()[0] == 0
+    d.rollback()
+
+
 def test_the_inventory_reads_leave_out_and_refuses_a_malformed_one():
     inv = {"tables": [
         {"database": "incoming_news", "schema": "public", "table": "a", "status": "NEW",
@@ -501,3 +512,47 @@ def test_a_queued_row_may_ask_for_a_daytime_run(monkeypatch):
     assert M._any_hour(a) is False
     monkeypatch.setenv("QV4_ARGS", "[]")
     assert M._any_hour(a) is False
+
+
+def test_quarantine_moves_the_left_out_rows_row_for_row_and_logs_one_line(env):
+    """ruling 168: fyi's copied rows set aside, never deleted; a whole OUT table moved; the counts must agree."""
+    from support.oldcopy import quarantine as Q
+    e = env
+    s, d = e["src_s"], e["dst"]
+    _copy(e, _spec(s, "t"), rows=500)
+    _copy(e, _spec(s, "pair"), rows=500)
+    d.commit()
+    qs = e["led"].replace("_ocledger_private", "_ocq_private")
+    d.execute(f"DROP SCHEMA IF EXISTS {qs} CASCADE")
+    Q.ensure(d, qs)
+    rel = f"{e['dst_s']}.{s}__t"
+    before = _whole(d, rel)
+    gone = d.execute(f"SELECT count(*), md5(string_agg(md5(x::text), '' ORDER BY id)) FROM {rel} x "
+                     f"WHERE label ILIKE '%tab%' OR tags::text ILIKE '{{x1,%'").fetchone()
+    r = Q.move(d, "querynz_v4_sample", s, "t", (("label", "%tab%"), ("tags", "{x1,%")), "ruling 168",
+               src_schema=e["dst_s"], q_schema=qs, today=dt.date(2026, 11, 11))
+    d.commit()
+    assert r["moved"] and r["rows"] == gone[0] and r["removable_after"] == "2026-12-11"
+    held = d.execute(f"SELECT count(*), md5(string_agg(md5(x::text), '' ORDER BY id)) FROM {r['held_in']} x").fetchone()
+    assert held == gone                                                   # the same rows, unchanged
+    assert d.execute(f"SELECT count(*) FROM {rel}").fetchone()[0] == before[0] - gone[0]
+    assert Q.move(d, "querynz_v4_sample", s, "t", (("label", "%tab%"),), "x", src_schema=e["dst_s"],
+                  q_schema=qs)["rows"] == 0                               # a second run finds nothing
+    w = Q.move(d, "querynz_v4_sample", s, "pair", None, "whole", src_schema=e["dst_s"], q_schema=qs)
+    d.commit()
+    assert w["rows"] == 300 and d.execute(f"SELECT count(*) FROM {e['dst_s']}.{s}__pair").fetchone()[0] == 0
+    led = d.execute(f"SELECT rows, rule FROM {qs}.ledger ORDER BY id").fetchall()
+    assert led == [(gone[0], "label ILIKE %tab%; tags ILIKE {x1,%"), (300, "whole")]
+    d.execute(f"DROP SCHEMA {qs} CASCADE")
+    d.commit()
+
+
+def test_the_quarantine_plan_reads_leave_out_and_whole_entries():
+    from support.oldcopy import quarantine as Q
+    inv = {"tables": [{"database": "incoming_news", "table": "articles", "status": "NEW",
+                       "leave_out": [{"column": "news_url", "like": "%fyi.org.nz%", "why": "168"}]},
+                      {"database": "incoming_news", "table": "oia_requests", "status": "OUT", "quarantine_whole": True,
+                       "out_why": "168"},
+                      {"database": "incoming_news", "table": "plain", "status": "NEW"}]}
+    assert Q.plan(inv) == [("incoming_news", "public", "articles", (("news_url", "%fyi.org.nz%"),), "168"),
+                           ("incoming_news", "public", "oia_requests", None, "168")]

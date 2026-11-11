@@ -31,7 +31,7 @@ def robots(host="example.org", text="", unreadable=False, delay=None):
 
 def test_a_held_host_is_refused_whatever_else_is_true():
     d = fg.decide("https://fyi.org.nz/request/1", robots("fyi.org.nz"), position="oia")
-    assert not d.allowed and "ruling 321" in d.reason
+    assert not d.allowed and "ruling 168" in d.reason
     assert not fg.decide("https://www.fyi.org.nz/a", None, "x").allowed          # a subdomain is not the way back in
     assert "nzherald.co.nz" not in fg.HELD                                         # ruling 155: NZME no longer held by name
 

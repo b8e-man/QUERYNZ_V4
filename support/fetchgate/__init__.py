@@ -87,7 +87,7 @@ REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
 #: hosts we do not capture from. Matched with every parent domain. (Hard limit 8 and ruling 12, which held the NZME mastheads, are withdrawn: ruling 155.)
 HELD = {
-    "fyi.org.nz": "ruling 321: fyi.org.nz is not captured, indexed or read",
+    "fyi.org.nz": "ruling 168: fyi.org.nz is removed from the estate; never captured, indexed or read",
     "hansard.parliament.nz": "ruling 78: Hansard is not captured by the estate (a challenge since about 5 October 2026); its register comes from the old export and the MCP (ruling 96)",
     "parliament.nz": "ruling 78: not captured by the estate; the MCP is the source (rulings 94, 96)",
 }

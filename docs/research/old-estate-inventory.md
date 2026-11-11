@@ -23,8 +23,8 @@ the old estate or to any database. The machine-readable copy, read by the copier
 3. **4,072 PDFs exist nowhere.** These are the PDFs behind `incoming_news.documents` (regulation.govt.nz,
    legislation disclosures, OIA releases, motu and others). They are not on disk and not in the store. Their
    text survives in the rows. They are a gap for the provider (stream K); each row carries its url.
-4. **fyi.org.nz.** 32,584 articles and 302 OIA requests from fyi.org.nz are inside the copied tables. fyi stays
-   held at the fetch gate (old ruling 321). Copying rows is not a fetch, but say if you want them left out.
+4. **fyi.org.nz.** Removed from the estate (Arthur, 11 November, ruling 168): the copy leaves it out, and the rows
+   already copied are in `quarantine_private` (support/oldcopy/quarantine.py).
 5. **Files that are not PDFs or images** fall outside ruling 160's file kinds. Not copied: 4,027 raw LINZ API
    pages (11 GB; their rows are held), 19 EC spreadsheets and CSVs, the ICIJ offshore-leaks zip, 6 boundary
    files, 5 Word files and the 98 GB of bulk reference downloads (wikidata and others). Each one is listed under

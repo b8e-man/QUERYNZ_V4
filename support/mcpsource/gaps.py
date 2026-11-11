@@ -23,9 +23,11 @@ A source with no corpus is a gap in itself. A source is listed with `status`:
   gap       asked of the provider: "gather it, or say it cannot be gathered and why"
   boxes     a keyed API the boxes keep (the 5 November split); shown, not asked
   searched  Papers Past: searched, never mined (hard limit 17); shown, never asked
-  held      fyi.org.nz, held by old ruling 321 (ruling 156); shown, not asked
+  held      the NZME mastheads (the NZ Herald, BusinessDesk): already in the new estate's copy of the old news
+            (ruling 161), and Arthur does not want them collected (ruling 168); shown, not asked
   derived   built by the old estate from other sources (claims, links, derived registers); not a source
-  out       set aside by ruling 154 until Arthur's look (the recovered news dump held on node1): left out
+  out       left out entirely: the recovered news dump held on node1 (rulings 154, 161), fyi.org.nz (removed from
+            the estate, ruling 168)
 
 A gap is closed only when records land: a gap in the last feed whose missing count is now 0 is moved to
 `closed`, dated by this run, never by the provider's answer. The rows carry source names, counts and periods;
@@ -166,9 +168,6 @@ SOURCES = (
     Source("hansard-sections", "Hansard: debate sections", "incoming_news",
            f"select '{UNDATED}', 'section', count(*) from hansard_sections group by 1,2",
            "parliament-hansard-debates", match="count", how="sections of debates read from the HTML transcript"),
-    Source("oia-requests", "fyi.org.nz requests", "incoming_news",
-           f"select '{UNDATED}', 'request', count(*) from oia_requests group by 1,2", None, match="count", status="held",
-           how="requests and responses", caveat="fyi.org.nz is held by old ruling 321 (ruling 156)"),
     # keyed APIs the boxes keep (the 5 November split): shown with their size, not asked
     Source("companies", "Companies Register and NZBN (entities)", "nzbn_canonical",
            f"select {_year('registered_at')}, coalesce(entity_type,'?'), count(*) from public.entities group by 1,2",
@@ -200,9 +199,6 @@ SOURCES = (
     Source("ror", "Research Organization Registry", "nzbn_canonical",
            f"select '{UNDATED}', 'organisation name', count(*) from bulk.ror_names group by 1,2", None, match="count",
            how="a bulk download (worldwide; not a New Zealand publication)", category="reference dataset"),
-    Source("geonames", "GeoNames", "nzbn_canonical",
-           f"select '{UNDATED}', 'place', count(*) from bulk.geonames group by 1,2", None, match="count",
-           how="a bulk download (worldwide; not a New Zealand publication)", category="reference dataset"),
     Source("wikidata", "Wikidata (labels, names, attributes)", "nzbn_canonical",
            f"select '{UNDATED}', 'name', count(*) from bulk.wikidata_names group by 1,2", None, match="count",
            how="a bulk download (worldwide; not a New Zealand publication)", category="reference dataset"),
@@ -224,10 +220,14 @@ ARTICLE_CORPUS = {
     "elections.nz/expenses": "estate-candidate_returns",
 }
 COUNCIL_TAG = re.compile(r"infocouncil")
-ARTICLE_STATUS = {"paperspast.natlib.govt.nz": "searched", "fyi.org.nz": "held"}
-# Ruling 154 (161 keeps it): the recovered news dump held on node1 stays out. It has no host tag in the catalogue;
-# stream I's inventory marks it OUT, and any tag or source id it names OUT is left out here.
-OUT_TAGS: frozenset = frozenset()
+#: the NZME mastheads: in the copy already (ruling 161), not to be collected (ruling 168)
+NZME_TAGS = frozenset({"nzherald.co.nz", "businessdesk.co.nz"})
+ARTICLE_STATUS = {"paperspast.natlib.govt.nz": "searched", **{t: "held" for t in NZME_TAGS}}
+HELD_CAVEAT = "an NZME masthead: in the new estate's copy (ruling 161), not to be collected (ruling 168): not asked"
+# Left out entirely. Ruling 154 (161 keeps it): the recovered news dump held on node1, which has no host tag in the
+# catalogue; stream I's inventory marks it OUT, and any tag or source id it names OUT is left out here. Ruling 168:
+# fyi.org.nz is removed from the estate.
+OUT_TAGS: frozenset = frozenset({"fyi.org.nz"})
 
 
 def article_corpus(tag: str) -> str | None:
@@ -453,7 +453,7 @@ def article_gaps(counts, urls_by_tag: dict, held: Held, how_mcp: str) -> list:
         src = Source(f"articles:{tag}", f"{tag} (pages held as articles)", "incoming_news", "", corpus, match="url",
                      status=status, category=category_of(tag), how=f"articles tagged {tag}, by publication year",
                      caveat=("Papers Past is searched, never mined (hard limit 17): not asked" if status == "searched" else
-                             "fyi.org.nz is held by old ruling 321 (ruling 156): not asked" if status == "held" else
+                             HELD_CAVEAT if status == "held" else
                              "" if tag in urls_by_tag else
                              "the MCP holds nothing under this host, so every article is counted missing without a match"))
         out += gaps_of(src, {"article": cells}, how_mcp=how_mcp)
@@ -473,7 +473,7 @@ def document_gaps(rows, held: Held, how_mcp: str) -> list:
         src = Source(f"documents:{source}", f"{source} (fetched documents)", "incoming_news", "",
                      article_corpus(source), status=status, category=category_of(source),
                      how=f"documents fetched from {source}, by capture year (no document date is kept)",
-                     caveat="fyi.org.nz is held by old ruling 321 (ruling 156): not asked" if status == "held" else "")
+                     caveat=HELD_CAVEAT if status == "held" else "")
         out += gaps_of(src, tally(items, held, "url+sha"), how_mcp=how_mcp)
     return out
 
@@ -534,10 +534,23 @@ def feed(gaps: list, now: dt.datetime, measured_at=None, previous: dict = None, 
         if gid and cur is not None and cur["missing"] == 0:
             closed[gid] = {"gap_id": gid, "source": g.get("source"), "was_missing": g.get("missing"),
                            "closed_at": _iso(now), "by": "records landed: missing measured 0"}
+    # an ask dropped by us (a source ruled out, or now shown and not asked) is withdrawn, never closed: the provider
+    # stops working it, and nothing is said to have landed (ruling 168: fyi.org.nz, NZME, GeoNames)
+    asked_ids = {g["gap_id"] for g in asked}
+    withdrawn = {w["gap_id"]: w for w in prev.get("withdrawn") or [] if w.get("gap_id") and w["gap_id"] not in asked_ids}
+    for g in prev.get("gaps") or []:
+        gid = g.get("gap_id")
+        if gid and gid not in asked_ids and gid not in closed:
+            cur = now_ids.get(gid)
+            withdrawn[gid] = {"gap_id": gid, "source": g.get("source"), "was_missing": g.get("missing"),
+                              "withdrawn_at": _iso(now),
+                              "why": (cur.get("caveats") or NOT_ASKED.get(cur["status"], "")) if cur else
+                              "no longer asked: the source is out of scope"}
     return {"schema_version": SCHEMA_VERSION, "written_at": _iso(now), "measured_at": _iso(measured_at or now),
             "asked": ASKED, "rule": "a gap is closed only when records land, never on the provider's word",
             "mcp": mcp or {}, "gaps": asked, "noted": noted,
-            "closed": sorted(closed.values(), key=lambda c: c["gap_id"])}
+            "closed": sorted(closed.values(), key=lambda c: c["gap_id"]),
+            "withdrawn": sorted(withdrawn.values(), key=lambda c: c["gap_id"])}
 
 
 def _iso(t) -> str | None:
@@ -554,7 +567,7 @@ def _top_periods(g: dict, k: int = 3) -> str:
     return ", ".join(f"{p}: {n:,}" for n, p in top)
 
 
-NOT_ASKED = {"boxes": "a keyed API the boxes keep", "held": "held (old ruling 321)",
+NOT_ASKED = {"boxes": "a keyed API the boxes keep", "held": "in the new estate's copy, not to be collected (rulings 161, 168)",
              "searched": "searched, never mined (hard limit 17)", "derived": "built by the old estate; not a source",
              "unmeasured": "in stream I's inventory; not yet measured", "gap": "nothing missing"}
 
@@ -604,6 +617,9 @@ def page(fd: dict, now: dt.datetime) -> str:
         out.append("")
     if fd["closed"]:
         out += ["Closed (the records have landed): " + ", ".join(c["source"] or c["gap_id"] for c in fd["closed"]) + ".", ""]
+    if fd.get("withdrawn"):
+        out += ["Withdrawn (no longer asked; stop working these, nothing is said to have landed): "
+                + "; ".join(f"{w['source'] or w['gap_id']} ({w['why']})" for w in fd["withdrawn"]) + ".", ""]
     out += ["How it is measured: an old document or page is held when the MCP holds the same address or the same "
             "content sha256. A register the old estate held as rows is compared by count; where the MCP has a corpus "
             "for it, its records are captured pages, not rows, so the count cannot say what is missing (shown as ?) "
