@@ -45,6 +45,11 @@ old ntfy.
 - Step 9 (150-162), 10 Nov: 1, 2, 6, 8, pane built; 7 waits on news;
   5: 6 lanes on the MCP, stale list lit. Old estate copied in nightly
   (oldcopy on); handover/mcp-gaps.md for the provider, daily.
+- 11 Nov (166-168): old API jobs moved to the new lanes; old backups
+  stopped; consumed READY (154 copied, 53 held, 58 let go). fyi removed
+  (rows quarantined, removable after 11 Dec on Arthur's word); NZME kept,
+  not collected; GeoNames out (copy tables await Arthur's drop). Courts
+  load past its 4.5 h limit 10 and 11 Nov: rebuilds all 87k records.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
