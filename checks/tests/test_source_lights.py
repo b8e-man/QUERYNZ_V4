@@ -689,7 +689,8 @@ def test_the_stale_copies_of_10_november_on_the_real_lanes(monkeypatch):
     from support.mcpsource import freshness as F
     f["freshness"] = {c: {"at": now, "corpus": c, "newest_arrival": F.parse_time(t), "arrivals_last_24h": 0,
                           "pipeline_lane": None, "pipeline_status": None, "pipeline_read": True} for c, t in newest.items()}
-    assert [x["corpus"] for x in sl.stale_corpora(f, now)] == ["estate-courts"]
+    assert [x["corpus"] for x in sl.stale_corpora(f, now)] == []   # 11 November: the provider calls estate-courts a
+    assert sl.copy_state("estate-courts", f, now)["state"] == "closed"  # closed copy; courtsofnz is live in `courts`
     later = now + dt.timedelta(days=7)
     assert {x["corpus"] for x in sl.stale_corpora(f, later)} >= {"estate-commerce_commission", "estate-worksafe"}
     for j in REAL_LANES["commerce_commission"].update:

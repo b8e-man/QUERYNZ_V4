@@ -23,9 +23,9 @@ CURRENT = ("gets-award-notices.csv", "gets-supplier-data.csv", "gets-region-by-t
 STATIC = ("gets-award-notices-historic.csv", "gets-supplier-data-historic.csv", "gets-region-by-tender-historic.csv",
           "gets-product-categories-historic.csv", "schema-and-documentation.xlsx")
 REFRESH_DAYS = 120
-ASKED = ("gather the Ministry's GETS award-notice files (the catalogue package's CSVs and dictionary) into a corpus "
-         "estate-tenders, each file verbatim by hash whenever its bytes change, with a collector at the Ministry's "
-         "cadence (about quarterly); or say why they cannot be gathered")
+ASKED = ("serve the Ministry's GETS award-notice files (the catalogue package's CSVs and dictionary; your reply of 11 "
+         "November says you hold the award CSV raw) as a corpus estate-tenders, each file verbatim by hash whenever its "
+         "bytes change, with a collector at the Ministry's cadence (about quarterly); or say why they cannot be")
 
 
 def short(conn, schema: str = "tenders", now: dt.datetime = None) -> dict:

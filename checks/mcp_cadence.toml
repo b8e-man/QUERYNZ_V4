@@ -70,15 +70,15 @@ reason = "new determinations every night 5 to 9 Nov (307 to 1,283 a night)"
 
 [[corpus]]
 corpus = "estate-courts-finder"
-days = 7
+days = 0
 basis = "default"
-reason = "our finder walk ran once (3 Nov), so no history; the Ministry's finder adds decisions most weeks: a week, conservative"
+reason = "closed: the provider's reply of 11 November: a one-time copy (34 records), nothing collects it (a collector on offer; Arthur's call). Was 7 days: our finder walk ran once (3 Nov)"
 
 [[corpus]]
 corpus = "estate-courts"
-days = 7
+days = 0
 basis = "measured"
-reason = "new case pages on 22 Oct, 24 Oct, 29 Oct and 30 Oct: every two to five days"
+reason = "closed: the provider's reply of 11 November: the copy handed over on 5 November, nothing appends to it; courtsofnz.govt.nz is collected live in the `courts` corpus, which carries its freshness. Was 7 days (new case pages 22 to 30 Oct)"
 
 [[corpus]]
 corpus = "estate-courts-survey"
@@ -136,9 +136,9 @@ reason = "the watched pages changed on 29 Oct, 4 Nov and 9 Nov: about weekly"
 
 [[corpus]]
 corpus = "estate-council_procurement"
-days = 31
+days = 0
 basis = "default"
-reason = "four terms pages, changed once since 22 Oct; the lane is switched off (ruling 136): a month"
+reason = "closed: the provider's reply of 11 November: a one-time copy (4 records); the platform bars capture, and a monthly watch of the public pages says if that changes. Was 31 days"
 
 # ── the MCP's own corpora ──
 
