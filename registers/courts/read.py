@@ -164,10 +164,27 @@ class Result:
     counts: dict = field(default_factory=dict)
 
 
-@functools.lru_cache(maxsize=None)
+#: inside one read(), each profile looked up once (the ledger is a file; 11 November 2026: 14% of the load's time was
+#: re-reading it, twice per document); None outside a read, where every call reads the ledger as it is now
+_MEMO = None
+
+
+def _memo(key, make):
+    if _MEMO is None:
+        return make()
+    if key not in _MEMO:
+        _MEMO[key] = make()
+    return _MEMO[key]
+
+
 def profile_of(slug: str) -> dict:
     """The profile's newest line: the ledger's, or the lane's proposed line
     (`profile-proposed.jsonl`) until the integrator appends it at the merge."""
+    return _memo(("of", slug), lambda: _profile_of(slug))
+
+
+@functools.lru_cache(maxsize=None)
+def _profile_of(slug: str) -> dict:
     held = [p for p in (profiles.profile(slug), profiles.profile(slug, path=PROPOSED)) if p]
     if not held:
         raise LookupError(f"no document profile {slug}")
@@ -179,6 +196,10 @@ def profile_version(slug: str, fallback: bool = False) -> int:
     that only adds to the extract list, or only a reading rule's fallback, leaves the stored readings standing; a
     reading the fallback made (`fallback=True`) is stamped with the version that brought the fallback in; a proposed
     line is a new reading."""
+    return _memo(("version", slug, fallback), lambda: _profile_version(slug, fallback))
+
+
+def _profile_version(slug: str, fallback: bool) -> int:
     p = profile_of(slug)
     held = profiles.profile(slug)
     if held is not None and int(held["version"]) == int(p["version"]):
@@ -433,7 +454,7 @@ def _texts_of(data: bytes, sha: str, store: rd.Store, scanned_version: int) -> t
     """Every page's text: the text layer, and for a page with none the page
     reader's stored reading under the scanned profile (never made here).
     Returns (texts, read_from, unread pages)."""
-    layer = P.text_pages(data)
+    layer = P.text_pages_cached(data, sha)
     thin = set(P.thin_pages(layer))
     texts, unread, pixels = {}, [], 0
     for p in sorted(layer):
@@ -465,6 +486,15 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
     rows ({citation, document, reason}). `data_of(sha)` gives a document's
     bytes (the store's, by default). Every entry becomes one `documents` row;
     every row is read, waiting, set aside or caught, asserted."""
+    global _MEMO
+    _MEMO = {}
+    try:
+        return _read(entries, orders, store, data_of, now)
+    finally:
+        _MEMO = None
+
+
+def _read(entries, orders, store, data_of, now) -> Result:
     from support.docread.read import read_document
     from support.docstore.landing import path_for, read_bytes
     from registers.courts import model_read

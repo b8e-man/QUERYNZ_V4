@@ -40,3 +40,13 @@ def _gate_holds_stay_in_the_test(tmp_path_factory, monkeypatch):
         return
     monkeypatch.setattr(fetchgate, "LEDGER_DIR", str(tmp_path_factory.mktemp("fetch-gate")))
     fetchgate._STRIKES.clear()
+
+
+@pytest.fixture(autouse=True)
+def _text_layers_stay_in_the_test(tmp_path_factory, monkeypatch):
+    """The text-layer cache (support.docread.pages.TEXT_CACHE) is live and shared by both boxes: a test's is its own."""
+    try:
+        from support.docread import pages
+    except ImportError:
+        return
+    monkeypatch.setattr(pages, "TEXT_CACHE", str(tmp_path_factory.mktemp("textlayer")))

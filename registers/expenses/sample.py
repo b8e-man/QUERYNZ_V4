@@ -31,6 +31,16 @@ def fill(conn, schema: str, items: list) -> int:
         if item.startswith("key:"):
             continue
         sha = item.split()[0]
+        if sha not in index and os.path.exists(path_for(sha)):
+            # the old folder's file was fetched again under the same name (the old job ran until 11 November 2026),
+            # so the hash the sample names is held in the store under its old path, not on the old disk
+            from support.docstore.landing import names_of
+            for name in names_of(sha, conn):
+                folder = os.path.basename(os.path.dirname(name))
+                kind = folder in capture.FOLDERS and capture.kind_of(folder, os.path.basename(name))
+                if kind:
+                    index[sha] = (kind, name)
+                    break
         if sha not in index:
             raise LookupError(f"expenses/sample.list names {sha}, which is not in the old folders: ask for a capture")
         kind, path = index[sha]
