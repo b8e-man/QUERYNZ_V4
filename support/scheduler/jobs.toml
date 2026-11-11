@@ -986,6 +986,7 @@ nice = 10
 
 # ── registers/tenders: the GETS award notices (step 6.2, template 1; tenders-1, card the-tenders-jobs-into-the-catalogue) ──
 [jobs.qv4-tenders-refresh]
+enabled = false   # 11 November 2026 (Arthur: "move gets to the mcp"): the award-notice files are the ingest MCP provider's to gather (the 5 November split; www.mbie.govt.nz answers 403 and the fetch gate holds it). The lane asks for them as estate-tenders (registers/tenders/asks.py, written by each load); a --from-mcp reading follows once the provider serves the corpus
 description = "The ministry's GETS award-notice files through the fetch gate, each current file once a quarter. Asks nothing until a set was last acquired 80 days ago, or within a week of a block; off-peak, 10 s apart; stops and goes red at a block (card the-ministry-s-gets-files-answer-403)."
 needs = "processor"
 memory_gb = 0.2

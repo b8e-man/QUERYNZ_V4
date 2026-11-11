@@ -182,6 +182,9 @@ def job(log=print) -> int:
     started = jobrun.now()
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
         conn.execute("SET statement_timeout = '600s'")
+        from registers.tenders import asks
+        log(f"tenders: the request to the provider: {asks.write(conn)}")   # 11 November 2026: the files are the MCP's
+        conn.rollback()
         listed = listings(conn)
         if unchanged(conn, listed):
             log("tenders: the listing is the one published; nothing loaded")

@@ -328,6 +328,9 @@
     ],
     "Last-Modified": [
      "str"
+    ],
+    "Cache-Control": [
+     "str"
     ]
    }
   }

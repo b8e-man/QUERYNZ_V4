@@ -97,8 +97,9 @@ REGS = [(r, r, True) for r in LANES] + [("unknown", "unknown", False)]
 
 
 @pytest.fixture(autouse=True)
-def lanes(monkeypatch):
+def lanes(monkeypatch, tmp_path):
     monkeypatch.setattr(sl, "LANES", LANES)
+    monkeypatch.setattr(sl, "ASKS_DIR", str(tmp_path / "no-asks"))   # never the live handover/asks/ (11 November 2026)
 
 
 @pytest.fixture
@@ -781,9 +782,16 @@ def test_a_lane_s_request_reaches_the_provider_page_and_feed(tmp_path):
         "asked": "gather these orders", "request_id": "estate-tenancy_tribunal@short-2-2028-06-23"}), encoding="utf-8")
     (tmp_path / "broken.json").write_text("{", encoding="utf-8")
     (tmp_path / "none.json").write_text(json.dumps({"corpus": "x", "missing": 0}), encoding="utf-8")
+    (tmp_path / "tenders.json").write_text(json.dumps({                    # 11 November: a second lane, its own ask
+        "corpus": "estate-tenders", "listed": 9, "missing": 9, "earliest_take_down": None,
+        "asked": "gather the GETS award-notice files", "request_id": "estate-tenders@files-9-held-2026-08-14"}),
+        encoding="utf-8")
     now = dt.datetime(2026, 11, 10, tzinfo=dt.timezone.utc)
     feed = S.provider_feed({"freshness": {}}, now, None, asks_dir=str(tmp_path))
-    assert [o["corpus"] for o in feed["short_of_source"]] == ["estate-tenancy_tribunal"]
+    assert [o["corpus"] for o in feed["short_of_source"]] == ["estate-tenancy_tribunal", "estate-tenders"]
     assert feed["short_of_source"][0]["orders"][1]["order_id"] == "2"
     page = S.provider_list({"freshness": {}}, now, "", feed)
     assert "Short of the source's own list" in page and "| estate-tenancy_tribunal | 33,847 | 2 | 2028-06-23 |" in page
+    assert "| estate-tenders | 9 | 9 | ? |" in page
+    assert "What is asked for estate-tenancy_tribunal: gather these orders." in page      # each lane's own words
+    assert "What is asked for estate-tenders: gather the GETS award-notice files." in page

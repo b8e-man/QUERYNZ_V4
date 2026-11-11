@@ -22,6 +22,13 @@ class NotHeld(OSError):
     """The MCP holds no copy of the address (or its bytes are not in our store yet)."""
 
 
+def holds(conn, corpus: str, schema: str = "mcpsource") -> bool:
+    """Whether the pull has taken any record of `corpus` (a lane asking the provider for a corpus it does not serve
+    yet, registers.tenders.asks)."""
+    return conn.execute(f"SELECT count(*) FROM {schema}.cursors WHERE corpus = %s AND cursor > 0",
+                        (corpus,)).fetchone()[0] > 0
+
+
 def newest(conn, url: str, corpora, schema: str = "mcpsource"):
     """The hash of the newest copy of `url` in `corpora`, or None."""
     row = conn.execute(NEWEST.format(schema=schema), (url, list(corpora))).fetchone()

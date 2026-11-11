@@ -234,6 +234,33 @@ def test_a_copy_holding_rows_the_source_dropped_is_judged_by_every_source_row(en
         == "waiting"                                                  # no row check given: the count alone never passes
 
 
+def test_the_sweep_finds_rows_below_the_cursor_takes_changes_and_keeps_dropped_rows(env):
+    """11 November 2026: incoming_news.articles is keyed by a uuid, so a new row sorts below the copier's cursor and
+    the copy said 'caught up' while 868 rows were missing. The sweep checks every range against the source now."""
+    e = env
+    spec = _spec(e["src_s"], "t")
+    _copy(e, spec, rows=500)
+    dst_rel = f"{e['dst_s']}.{e['src_s']}__t"
+    e["dst"].execute(f"DELETE FROM {dst_rel} WHERE id IN (5, 500, 501)")            # rows the cursor passed by
+    e["dst"].commit()
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as w:
+        w.execute(f"UPDATE {e['src_s']}.t SET label = 'changed' WHERE id = 7")       # a row changed at the source
+        w.execute(f"DELETE FROM {e['src_s']}.t WHERE id = 1200")                     # one the source dropped
+        w.commit()
+    out = T.sweep(e["src"], e["dst"], spec, schema=e["dst_s"], ledger=e["led"], rows=200, log=lambda *_: None)
+    assert out["caught_up"] and out["rows"] == 4 and out["merged"] == 3, out          # ranges 1-200 and 401-600, 1201-
+    d = e["dst"]
+    assert d.execute(f"SELECT count(*) FROM {dst_rel} WHERE id IN (5, 500, 501, 1200)").fetchone()[0] == 4
+    assert d.execute(f"SELECT label FROM {dst_rel} WHERE id = 7").fetchone()[0] == "changed"
+    src_ids = _whole(e["src"], f"{e['src_s']}.t")
+    got = d.execute(f"SELECT count(*), md5(string_agg(md5(s::text), '' ORDER BY id)) FROM {dst_rel} s "
+                    f"WHERE id <> 1200").fetchone()
+    assert tuple(got) == tuple(src_ids)                                              # every source row, row for row
+    again = T.sweep(e["src"], e["dst"], spec, schema=e["dst_s"], ledger=e["led"], rows=200, log=lambda *_: None)
+    assert again["rows"] == 0 and again["caught_up"], again                         # nothing left but the kept row
+    d.rollback()
+
+
 def test_a_stopped_copy_resumes_from_its_cursor_without_a_row_twice(env):
     e = env
     calls = {"n": 0}

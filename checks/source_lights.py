@@ -162,8 +162,8 @@ LANES = {
     "worksafe": Lane(update=("qv4-worksafe-capture", "qv4-worksafe-load"), hosts=("worksafe.govt.nz",),
                      positions=("worksafe-prosecutions-and-undertakings",), asks=("qv4-worksafe-capture",),
                      corpora=("estate-worksafe",)),
-    "tenders": Lane(update=("qv4-tenders-refresh", "qv4-tenders-load"),
-                    hosts=("mbie.govt.nz", "data.govt.nz", "catalogue.data.govt.nz"),
+    "tenders": Lane(update=("qv4-tenders-load",),        # 11 November 2026: the refresh is off; the files are the MCP's
+                    hosts=("mbie.govt.nz", "data.govt.nz", "catalogue.data.govt.nz"), asks=("qv4-tenders-refresh",),
                     positions=("government-procurement-award-notices",)),
     "sanctions": Lane(update=("qv4-sanctions-capture", "qv4-sanctions-load"), positions=("sanctions-lists",),
                       hosts=("scsanctions.un.org",)),
@@ -618,7 +618,7 @@ def provider_list(facts: dict, now: dt.datetime, closing: str = "", feed: dict =
             out.append(f"| {o['corpus']} | {o.get('listed') or '?':,} | {o['missing']:,} | {o.get('earliest_take_down') or '?'} |"
                        if isinstance(o.get("listed"), int) else
                        f"| {o['corpus']} | ? | {o['missing']:,} | {o.get('earliest_take_down') or '?'} |")
-        out += ["", "What is asked, for each: " + (short[0].get("asked") or ASKED) + "."]
+        out += [""] + [f"What is asked for {o['corpus']}: {o.get('asked') or ASKED}." for o in short]
     rep = (feed or {}).get("repaired") or []
     if rep:
         out += ["", "Repaired (new records have arrived since it was listed): "

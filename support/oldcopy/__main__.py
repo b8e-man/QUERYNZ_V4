@@ -39,6 +39,17 @@ def _any_hour(a) -> bool:
     return bool(a.any_hour) or queued
 
 
+def _sweep(a) -> bool:
+    """--sweep, or a queued row's args {"sweep": true}: check a caught-up table range by range against the source now
+    (tables.sweep), for keys that do not grow in order."""
+    import json
+    try:
+        queued = json.loads(os.environ.get("QV4_ARGS") or "{}").get("sweep") is True
+    except (ValueError, AttributeError):
+        queued = False
+    return bool(getattr(a, "sweep", False)) or queued
+
+
 def _stop(any_hour):
     return (lambda: False) if any_hour else (lambda: not off_peak())
 
@@ -81,7 +92,9 @@ def cmd_tables(a) -> int:
             ensure_ledger(dst)
             dst.commit()
             try:
-                out = T.copy_table(src, dst, spec, rows=a.rows, budget_s=a.budget_s, stop=_stop(_any_hour(a)))
+                go = T.sweep if _sweep(a) else T.copy_table
+                kw = {} if _sweep(a) else {"rows": a.rows}
+                out = go(src, dst, spec, budget_s=a.budget_s, stop=_stop(_any_hour(a)), **kw)
             except T.Refused as exc:
                 print(f"support.oldcopy: {spec.piece} refused: {exc}")
                 return 0                       # recorded; a refusal is a report, not a failed night
@@ -143,6 +156,8 @@ def main(argv=None) -> int:
     t.add_argument("--rows", type=int, default=5000)
     t.add_argument("--budget-s", type=float, default=1200)
     t.add_argument("--any-hour", action="store_true", help="a hand run outside the off-peak hours")
+    t.add_argument("--sweep", action="store_true", help="with --piece: check a caught-up table range by range "
+                   "against the source and merge what differs (keys that do not grow in order)")
     f = sub.add_parser("files")
     f.add_argument("--inventory", default=INVENTORY)
     f.add_argument("--store")

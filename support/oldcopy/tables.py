@@ -314,6 +314,94 @@ def refuse(dst, ledger, piece, why) -> None:
     dst.commit()
 
 
+SWEEP_RANGE = -1          # the sweep's own cursor row; while it runs the piece is not caught up (honestly: waiting)
+SWEEP_ROWS = 50_000
+
+
+def _merge(src, dst, src_rel, dst_rel, cat, after, through) -> tuple:
+    """The source's rows of one key range into a temporary table, then into the copy: a key the copy lacks is added,
+    a key it holds with other values takes the source's (the source is the old estate as it stands), a row the source
+    has dropped stays. Returns (rows read, rows written, source rows now in the copy row for row)."""
+    tmp = sql.Identifier("_oldcopy_sweep")
+    dst.execute(sql.SQL("CREATE TEMP TABLE {} (LIKE {}) ON COMMIT DROP").format(tmp, dst_rel))
+    n_read = _stream(src, dst, src_rel, tmp, cat, after, through)
+    keys = sql.SQL(", ").join(sql.Identifier(k) for k in cat["key"])
+    rest = [c["name"] for c in cat["columns"] if c["name"] not in cat["key"]]
+    on = (sql.SQL("DO UPDATE SET {} WHERE ({}) IS DISTINCT FROM ({})").format(
+        sql.SQL(", ").join(sql.SQL("{} = EXCLUDED.{}").format(sql.Identifier(c), sql.Identifier(c)) for c in rest),
+        sql.SQL(", ").join(sql.SQL("{}.{}").format(dst_rel, sql.Identifier(c)) for c in rest),
+        sql.SQL(", ").join(sql.SQL("EXCLUDED.{}").format(sql.Identifier(c)) for c in rest))
+          if rest else sql.SQL("DO NOTHING"))
+    with dst.cursor() as c:
+        c.execute(sql.SQL("INSERT INTO {} ({}) SELECT {} FROM {} ON CONFLICT ({}) {}").format(
+            dst_rel, _cols(cat), _cols(cat), tmp, keys, on))
+        written = c.rowcount
+    same = dst.execute(sql.SQL(
+        "SELECT count(*) FROM {} t JOIN {} d USING ({}) WHERE ROW({})::text = ROW({})::text").format(
+        tmp, dst_rel, keys,
+        sql.SQL(", ").join(sql.SQL("t.{}").format(sql.Identifier(c["name"])) for c in cat["columns"]),
+        sql.SQL(", ").join(sql.SQL("d.{}").format(sql.Identifier(c["name"])) for c in cat["columns"]))).fetchone()[0]
+    return n_read, written, int(same)
+
+
+def sweep(src, dst, spec, *, schema: str = None, ledger: str = LEDGER, rows: int = SWEEP_ROWS,
+          budget_s: float = 1200, stop=lambda: False, log=print) -> dict:
+    """A keyed copy checked range by range against the source as it stands now, for keys that do not grow in order
+    (a uuid, a hash, a text id: a new row sorts below the copier's cursor and the cursor never sees it). Each range of
+    `rows` source keys is counted and hashed on both sides; one that differs is merged (`_merge`) and holds only when
+    every source row of the range is then in the copy row for row. Resumes from its own cursor (SWEEP_RANGE); a pass
+    that reaches the end resets it, so the next sweep starts again from the first key."""
+    piece = spec.piece
+    schema = schema or dest_schema(spec.database)
+    cat = catalogue(src, spec.schema, spec.table, spec.key)
+    cat["leave_out"] = tuple(spec.leave_out)
+    if cat["whole"]:
+        return {"batches": 0, "rows": 0, "caught_up": True, "stopped": "", "swept": "a whole table: copied whole"}
+    src_rel, dst_rel = _ident(spec.schema, spec.table), _ident(schema, dest_table(spec.schema, spec.table))
+    t0 = time.monotonic()
+    done = {"batches": 0, "rows": 0, "ranges": 0, "merged": 0, "caught_up": False, "stopped": ""}
+    after, caught = cursor_of(dst, ledger, piece, SWEEP_RANGE)
+    dst.rollback()
+    if caught:
+        after = None                                   # the last pass finished: start again from the first key
+    while True:
+        if time.monotonic() - t0 > budget_s or stop():
+            done["stopped"] = "budget" if not stop() else "window"
+            return done
+        b0 = time.monotonic()
+        with src.transaction():
+            bound = next_bound(src, src_rel, cat, after, None, rows)
+            if bound is None:
+                _set_cursor(dst, ledger, piece, SWEEP_RANGE, None, True, 0)
+                dst.commit()
+                done["caught_up"] = True
+                return done
+            n_src, md5_src = measure(src, src_rel, cat, after, bound)
+            n_dst, md5_dst = measure(dst, dst_rel, cat, after, bound)
+            done["ranges"] += 1
+            if (n_src, md5_src) == (n_dst, md5_dst):
+                _set_cursor(dst, ledger, piece, SWEEP_RANGE, bound, False, 0)
+                dst.commit()
+                after = bound
+                continue
+            n_read, written, same = _merge(src, dst, src_rel, dst_rel, cat, after, bound)
+        ok = n_read == n_src == same
+        why = None if ok else f"swept: {n_src} source rows, {n_read} read, {same} in the copy row for row"
+        if not ok:
+            dst.rollback()
+            _ledger_line(dst, ledger, piece, SWEEP_RANGE, after, bound, n_src, n_read, same, md5_src, None, False, why,
+                         time.monotonic() - b0)
+            dst.commit()
+            raise Mismatch(f"{piece}: {why}")
+        _ledger_line(dst, ledger, piece, SWEEP_RANGE, after, bound, n_src, written, same, md5_src, None, True,
+                     f"swept: {written} written of {n_src}; the copy held {n_dst}", time.monotonic() - b0)
+        _set_cursor(dst, ledger, piece, SWEEP_RANGE, bound, False, written)
+        dst.commit()
+        log(f"support.oldcopy: {piece}: swept {after} to {bound}: {written} row(s) written")
+        done.update(batches=done["batches"] + 1, rows=done["rows"] + written, merged=done["merged"] + 1)
+        after = bound
+
+
 def copy_table(src, dst, spec, *, schema: str = None, ledger: str = LEDGER, rows: int = BATCH_ROWS,
                budget_s: float = 1200, stop=lambda: False, log=print) -> dict:
     """Copy `spec` (an inventory.Table) into `schema` (default old_<database>_private) until it is caught up, the
