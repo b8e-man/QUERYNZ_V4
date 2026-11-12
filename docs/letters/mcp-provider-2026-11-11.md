@@ -74,3 +74,8 @@ sha256 we hold on its sites (`asks/held-<section>.tsv`): skip anything on it. In
 - **legislation.govt.nz:** we hold titles only, so every text of every version, and the
   disclosure pages not on the held list.
 - **The courts finder:** everything except the 28 decisions on the held list.
+- **Later on 13 November (our ruling 174): the Electoral Commission, every document.** Request
+  `estate-collect@2026-11-13b`. Collect every document the Commission publishes, of every year and
+  every kind, results included, except those on `held-electoral-commission.tsv`. A year we hold is
+  not complete until its listings say so: take any document on them that is not on our list. The
+  results of 1999 to 2025, which we hold only as figures, are asked.

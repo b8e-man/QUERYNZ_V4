@@ -1552,3 +1552,11 @@ collect and from when, with a list of every address and sha256 we hold on its si
 to skip. Hansard: every sitting day 11 February 2003 to 23 September 2026 is held (1,862 days; the
 "137 sitting days" first sent was one table of them). Documents are downloaded whole with all their
 metadata, never extracted (Arthur, 12 November).
+
+174. Arthur, 13 November, on whether the Electoral Commission's results of 1999 to 2025 (held as
+figures, not as its documents) should be asked for: "yea i want it all always". A source's
+documents are always collected whole: what the estate holds as figures, titles or rows never stands
+in for the document, and a year or range we hold is never taken as complete. Only a document we
+hold, by its sha256 or its address, is skipped. `asks/collect.json` (estate-collect@2026-11-13b)
+asks the Commission for every document of every year and kind except those on
+held-electoral-commission.tsv, results included.
