@@ -101,3 +101,8 @@ Our first put, in-e948118a044e34b3 (21:40 UTC on 12 November): estate-collect@20
 (`asks/collect-amendment-2026-11-13b.sent.json`) with the four held lists attached, and the answer to their
 ask 1: the amendment governs and its replace_section supersedes the shipped collect.json's Electoral
 Commission section. Asks 2 to 4 wait on Arthur.
+
+Our second put, in-145e39a8cf689599: estate-collect@2026-11-13c, kind answer (`asks/collect-answers-2026-11-13c.sent.json`),
+on Arthur's word: no route to the Commission's challenged documents, so they stay failed reads; legislation is ours
+through the PCO keyed API (the key is Arthur's to apply for); Hansard before 2003 accepted as not served by
+parliament.nz and kept as our own gap, Papers Past not used.
