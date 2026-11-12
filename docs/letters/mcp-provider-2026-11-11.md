@@ -49,3 +49,7 @@ The rule for the rest is unchanged: a gap closes when the records land.
   for new decisions, at least weekly. We hold 28, from your one-time copy of 5 November. It is the
   fourth entry in `asks/collect.json` (request `estate-collect@2026-11-12`). The same rules
   apply: be polite and stop at any challenge or block.
+- **Download, do not extract** (Arthur, 12 November): for everything in `asks/collect.json`,
+  download every document whole and keep it as fetched, with its address, fetch time, sha256 and
+  the page that lists it. Do not extract, parse or read any document into fields or text; we read
+  them here.
