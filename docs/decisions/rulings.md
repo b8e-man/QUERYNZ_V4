@@ -1532,3 +1532,12 @@ before its 11 December date, on this word: the five quarantine_private tables (3
 carries the word and the time (`python -m support.oldcopy quarantine --remove`). The four fyi files
 in the document store stay withdrawn, as captured documents are never deleted; the old estate's own
 fyi rows are untouched (hard limit 18).
+
+172. Arthur, 12 November, on the provider's offer of a collector for the Ministry of Justice's
+decisions finder (we hold 28 decisions, from its one-time copy of 5 November): "yes. as it to
+collect everything and also monitor it for new content going forward". The provider is asked
+(`asks/collect.json`, request estate-collect@2026-11-12; the letter of 11 November, its 12
+November section) to collect every decision the finder lists in its 22 jurisdictions, about
+15,000, and to watch each jurisdiction for new decisions, at least weekly, into
+estate-courts-finder. The boxes' own walk (registers/courts/own.py, FinderWalk) stays off (the 5
+November split).

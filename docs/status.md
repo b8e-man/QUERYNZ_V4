@@ -42,7 +42,7 @@ old ntfy.
 - 12 Nov (171): model server at 10 requests x 32k, 11.5 GiB pool a
   rank, both boxes; node2 reads the n-gram table from the spare
   drive (/mnt/ssd2), node1 from RAM. fyi quarantine removed on
-  Arthur's word, ledger stamped; the 4 store files stay withdrawn.
+  Arthur's word. 172: the provider asked for the courts finder whole.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in

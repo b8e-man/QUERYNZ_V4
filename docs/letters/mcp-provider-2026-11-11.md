@@ -40,3 +40,12 @@ The rule for the rest is unchanged: a gap closes when the records land.
   - 73 smaller public sites. Each has the date of the newest page we hold: collect from the
     day after it, in the sections we collected or by walking the whole site.
 - **Charities stays with us.** We read its open API ourselves, officers included.
+
+## 12 November: the courts finder (our ruling 172)
+
+- **Yes to the collector you offered for `estate-courts-finder`.** Please collect every decision
+  the Ministry of Justice's decisions finder lists (www.justice.govt.nz, all 22 jurisdictions, each
+  decision's PDF and its listing page; we estimate about 15,000), then watch every jurisdiction
+  for new decisions, at least weekly. We hold 28, from your one-time copy of 5 November. It is the
+  fourth entry in `asks/collect.json` (request `estate-collect@2026-11-12`). The same rules
+  apply: be polite and stop at any challenge or block.
