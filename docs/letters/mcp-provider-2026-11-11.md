@@ -85,4 +85,5 @@ sha256 we hold on its sites (`asks/held-<section>.tsv`): skip anything on it. In
 We ask you to add a requests channel to the MCP you serve us, so requests, amendments and replies
 stop travelling by hand: `asks_put`, `asks_get` and `asks_status`, as proposed in
 `asks/channel-request-2026-11-13.json` (request `estate-channel@2026-11-13`). Change the shapes if
-your side needs to, and tell us when it can answer.
+your side needs to, and tell us when it can answer. This is the only file we send by hand: our
+amendment `estate-collect@2026-11-13b` waits for the channel and will be its first `asks_put`.

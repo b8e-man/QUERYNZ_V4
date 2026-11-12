@@ -1567,5 +1567,6 @@ provider is asked (`asks/channel-request-2026-11-13.json`, request estate-channe
 add a requests channel to the MCP: asks_put (a request or amendment, by request_id, with its held
 lists attached), asks_get (its replies and questions) and asks_status (each request's state and
 counts). No credential crosses it; every exchange is kept by both sides and recorded in
-docs/letters/; Arthur approves what is sent. Until it answers, amendments go by hand as files
-(no more pack rebuilds).
+docs/letters/; Arthur approves what is sent. Arthur, the same day: "let's just do the asks tools and then send the unsent
+communicae accross it": the channel request is the only file sent by hand; estate-collect@2026-11-13b
+waits for the channel and is its first asks_put.
