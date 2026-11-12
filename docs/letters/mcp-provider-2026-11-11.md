@@ -57,3 +57,20 @@ The rule for the rest is unchanged: a gap closes when the records land.
   the final address after redirects). Do not extract a document's
   text or read it into fields; we do that here. Inspecting a file as you go, to diagnose a fault
   or to check it is a real document and not an error page or a stub, is fine.
+
+## 13 November: collect only what we lack (our ruling 173)
+
+`asks/collect.json` is now request `estate-collect@2026-11-13`. Do not collect what we hold. For
+the Electoral Commission, legislation.govt.nz, Hansard and the courts finder, each section names
+what we hold, what to collect and where to start, and points to a list of every address and
+sha256 we hold on its sites (`asks/held-<section>.tsv`): skip anything on it. In short:
+
+- **Hansard:** we hold every sitting day from 11 February 2003 to 23 September 2026. Collect from
+  24 September 2026 on, and anything parliament.nz serves from before 11 February 2003.
+- **Electoral Commission:** we hold donation disclosures to 10 November 2026, party annual returns
+  2017 to 2025, and the candidate and party-finance returns of 2020 and 2023. Collect the other
+  years, everything from now on, and the rest of what it publishes that is not on the held list.
+  Not the electoral roll.
+- **legislation.govt.nz:** we hold titles only, so every text of every version, and the
+  disclosure pages not on the held list.
+- **The courts finder:** everything except the 28 decisions on the held list.

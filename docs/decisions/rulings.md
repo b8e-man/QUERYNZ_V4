@@ -1541,3 +1541,14 @@ November section) to collect every decision the finder lists in its 22 jurisdict
 15,000, and to watch each jurisdiction for new decisions, at least weekly, into
 estate-courts-finder. The boxes' own walk (registers/courts/own.py, FinderWalk) stays off (the 5
 November split).
+
+173. Arthur, 13 November, on the request asking Hansard and the rest "whole": "we dont want
+everything we already have. you need to tell it where to start collecting and what gaps you
+have". Replaces "whole" in rulings 170(b) and 172 for the Electoral Commission, legislation.govt.nz,
+Hansard and the courts finder: the provider is asked only for what we do not hold
+(`asks/collect.json`, request estate-collect@2026-11-13), each section naming what we hold, what to
+collect and from when, with a list of every address and sha256 we hold on its sites
+(`asks/held-<section>.tsv`: Hansard 3,217, the Commission 2,255, legislation 869, the finder 28)
+to skip. Hansard: every sitting day 11 February 2003 to 23 September 2026 is held (1,862 days; the
+"137 sitting days" first sent was one table of them). Documents are downloaded whole with all their
+metadata, never extracted (Arthur, 12 November).
