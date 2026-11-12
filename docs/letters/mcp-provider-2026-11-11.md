@@ -51,6 +51,9 @@ The rule for the rest is unchanged: a gap closes when the records land.
   apply: be polite and stop at any challenge or block.
 - **Download, do not extract** (Arthur, 12 November): for everything in `asks/collect.json`,
   download every document whole, PDFs and images of documents included, and keep it as fetched,
-  with its address, fetch time, sha256 and the page that lists it. Do not extract a document's
+  with its address, fetch time, sha256 and the page that lists it, and record all its metadata:
+  everything the site states about it (title, date, jurisdiction, number, parties, author,
+  section, any listed field) and the response's own (content type, length, last-modified, ETag,
+  the final address after redirects). Do not extract a document's
   text or read it into fields; we do that here. Inspecting a file as you go, to diagnose a fault
   or to check it is a real document and not an error page or a stub, is fine.
