@@ -40,24 +40,24 @@ unit = "qv4-radiance.service"
 port = 8060
 cards = 2
 weights = ["radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad"]
-slots = 16
+slots = 10   # 16 until 12 November 2026: the log held 8 in flight 90% of the busy time; the unit says why
 context = 32768   # 31 October: the 32k bound and a 20 GiB pool a rank, so the KV cache is 524,396 tokens (5.8 GB a card) not 22,652 (the bulk ingest, ruling 130)
 temperature = 0.0
 max_tokens = 8192
 memory_gb = 26.1
 host_memory_gb = 87.9   # RSS read 1 November 2026 20:5x: the n-gram table in RAM (47.7 GiB) and a 13 GiB pool a rank
-measured_geometry = "32768x16"
+measured_geometry = "32768x10"   # 12 November 2026, the unit's new shape (was 32768x16); memory_gb and host_memory_gb are the 16-slot readings until re-read
 load_seconds = 21.6
 flags = []
 used_for = "The standing server the text reader and review are views on (ruling 121)"
 
-# The text reader and review are VIEWS on flash-next: the same model on the same cards, sharing its 16 slots; what
+# The text reader and review are VIEWS on flash-next: the same model on the same cards, sharing its 10 slots; what
 # differs is what each request says (`request`, handed to the job as QV4_MODEL_REQUEST). Radiance takes a request's
 # own chat_template_kwargs over the server's default (thinking off) and closes the reasoning at thinking_token_budget.
 [profiles.text-reader]
 on = "flash-next"
 model = "qwen4exp"
-slots = 16
+slots = 10
 context = 32768
 temperature = 0.0
 max_tokens = 8192
@@ -68,7 +68,7 @@ used_for = "Turning text into rows; the old job type was document-read. No think
 [profiles.review]
 on = "flash-next"
 model = "qwen4exp"
-slots = 16
+slots = 10
 context = 32768
 temperature = 0.2
 max_tokens = 6144

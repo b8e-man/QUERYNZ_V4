@@ -1,8 +1,8 @@
 """The shipped `qv4-radiance` unit runs Radiance in the shape ruling 121
 recorded (the integrator's experiment, 29 October 2026): both cards, their
 render nodes passed one by one (rootless podman drops them when given the
-whole /dev/dri), memlock unlimited for the pinned host pool, 16 slots at a
-16k bound, the host pool and card headroom that leave the frozen product's
+whole /dev/dri), memlock unlimited for the pinned host pool, 10 slots (16 until 12 November 2026) at a
+32k bound, the host pool and card headroom that leave the frozen product's
 OCR server its room (hard limit 23), and the port on the loopback only."""
 from __future__ import annotations
 
@@ -50,9 +50,9 @@ def test_the_recorded_serving_shape():
     22,652 tokens and three requests ran at a time; a bigger pool moves
     experts off-card and the KV cache takes the VRAM they leave: 524,396)."""
     argv = _exec_start()
-    want = {"--tp": "2", "--max-num-seqs": "16", "--max-model-len": "32768", "--max-num-batched-tokens": "4096",
+    want = {"--tp": "2", "--max-num-seqs": "10", "--max-model-len": "32768", "--max-num-batched-tokens": "4096",
             "--draft-window": "adaptive", "--checkpoint-policy": "tip-only", "--ngram-placement": "ram",
-            "--host-pool-mib": "13312", "--gpu-headroom-mib": "500", "--placement": "expert_tiered", "--vision-tower-placement": "ram",
+            "--host-pool-mib": "11776", "--gpu-headroom-mib": "500", "--placement": "expert_tiered", "--vision-tower-placement": "ram",
             "--kv-cache-dtype": "fp8", "--port": "8060", "--served-model-name": "qwen4exp"}
     assert {k: _flag(argv, k) for k in want} == want
 

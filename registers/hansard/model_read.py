@@ -59,7 +59,7 @@ URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completi
 BUDGET = 84000
 MAX_TOKENS = 11000
 ATTEMPTS = 2
-#: a day's pieces in flight at once (the job runs `concurrency` days at once besides; the text-reader profile has 16 slots)
+#: a day's pieces in flight at once (the job runs `concurrency` days at once besides; the text-reader profile has 10 slots)
 THREADS = int(os.environ.get("QV4_HANSARD_THREADS") or 2)
 KINDS = ("person", "company", "agency", "body", "other")
 UNUSABLE = "the text reader answered with no usable JSON object in %d attempts"

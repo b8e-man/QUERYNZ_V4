@@ -33,6 +33,12 @@ LimitMEMLOCK=infinity
 # about 51 GB of node2's host memory; the host pool then fell from 20 GiB to 13 GiB a rank (out of memory at 20:31: Radiance
 # killed at 94 GB anonymous; the cards hold 70% of the experts and the ~9 GiB a rank left over fit 13 GiB). Thinking is off by default;
 # a profile that wants it (review) says so per request, and a request wins.
+# 12 November 2026 (Arthur: "set it for the actual usage", "just make the changes"): 10 sequences, not 16. The log of
+# 5-12 November held 8 requests in flight 90% of the busy time (62,775 requests; the largest 17,317 tokens), and
+# the 16x32k cache (5.38 GiB a card, 1.72 of it per-sequence linear state) went mostly unheld. The bound stays
+# 32768: Hansard sends about 20,000 tokens of text with 11,000 to answer in. 10x32k is about 3.4 GiB a card, so
+# about 2 GiB a card more experts on the cards and the pool falls from 13 GiB to 11.5 GiB a rank (the arithmetic
+# gives 11.0; the half GiB is margin: a larger pool only gives the cache more, a short one fails at start).
 ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --sdnotify=conmon --replace -d \
   --name qv4-radiance \
   --device /dev/kfd --device /dev/dri/renderD128 --device /dev/dri/renderD129 \
@@ -45,8 +51,8 @@ ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --
   docker.io/stilldeadcode/radiance:latest \
   --model /model.rad --served-model-name qwen4exp \
   --tp 2 --tp-wire exact \
-  --max-model-len 32768 --max-num-seqs 16 --kv-cache-dtype fp8 \
-  --placement expert_tiered --host-pool-mib 13312 --gpu-headroom-mib 500 --vision-tower-placement ram \
+  --max-model-len 32768 --max-num-seqs 10 --kv-cache-dtype fp8 \
+  --placement expert_tiered --host-pool-mib 11776 --gpu-headroom-mib 500 --vision-tower-placement ram \
   --ngram-placement ram --num-speculative-tokens 3 --draft-window adaptive \
   --max-num-batched-tokens 4096 --checkpoint-policy tip-only \
   --chat-template-kwargs '{"enable_thinking":false}' \
