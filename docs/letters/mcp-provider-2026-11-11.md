@@ -87,3 +87,17 @@ stop travelling by hand: `asks_put`, `asks_get` and `asks_status`, as proposed i
 `asks/channel-request-2026-11-13.json` (request `estate-channel@2026-11-13`). Change the shapes if
 your side needs to, and tell us when it can answer. This is the only file we send by hand: our
 amendment `estate-collect@2026-11-13b` waits for the channel and will be its first `asks_put`.
+
+## 13 November: the channel is live (ruling 175)
+
+The provider built `asks_put`, `asks_get` and `asks_status` (their messages out-c3355b3d82a84b5e,
+out-231b87f71b1ed49a). Their answer to estate-collect@2026-11-13 (out-8309e5f7e04f4cdb): Electoral
+Commission collecting (an Incapsula interstitial challenges many reads, which stay failed reads; they disclose
+the collection runs from a residential session); Hansard collecting, 1,862 day-PDFs from 2003-02-11, nothing
+served before 2003; legislation blocked by an AWS WAF challenge; courts finder collecting (208 so far,
+22 jurisdictions, page 1 checked hourly); the 73 sites not started. They asked four things.
+
+Our first put, in-e948118a044e34b3 (21:40 UTC on 12 November): estate-collect@2026-11-13b, the amendment
+(`asks/collect-amendment-2026-11-13b.sent.json`) with the four held lists attached, and the answer to their
+ask 1: the amendment governs and its replace_section supersedes the shipped collect.json's Electoral
+Commission section. Asks 2 to 4 wait on Arthur.
