@@ -556,3 +556,48 @@ def test_the_quarantine_plan_reads_leave_out_and_whole_entries():
                       {"database": "incoming_news", "table": "plain", "status": "NEW"}]}
     assert Q.plan(inv) == [("incoming_news", "public", "articles", (("news_url", "%fyi.org.nz%"),), "168"),
                            ("incoming_news", "public", "oia_requests", None, "168")]
+
+
+def test_a_quarantine_is_removed_only_on_the_word_and_each_line_says_so(env):
+    """12 November 2026 (Arthur, "delete it", ruling 171): the held tables of one ruling's lines are dropped and each
+    line stamped with the word; before removable_after only --early; another ruling's line and a table whose count
+    is not the ledger's are never touched."""
+    from support.oldcopy import quarantine as Q
+    e = env
+    s, d = e["src_s"], e["dst"]
+    _copy(e, _spec(s, "t"), rows=500)
+    _copy(e, _spec(s, "pair"), rows=500)
+    d.commit()
+    qs = e["led"].replace("_ocledger_private", "_ocq_private")
+    d.execute(f"DROP SCHEMA IF EXISTS {qs} CASCADE")
+    Q.ensure(d, qs)
+    a = Q.move(d, "querynz_v4_sample", s, "t", (("label", "%tab%"),), "Arthur (ruling 168): fyi out", src_schema=e["dst_s"], q_schema=qs,
+               today=dt.date(2026, 11, 11))
+    b = Q.move(d, "querynz_v4_sample", s, "pair", None, "Arthur (ruling 1680): another", src_schema=e["dst_s"], q_schema=qs,
+               today=dt.date(2026, 11, 11))
+    d.commit()
+    held_a, held_b = a["held_in"].split(".")[1], b["held_in"].split(".")[1]
+    with pytest.raises(ValueError):
+        Q.remove(d, "ruling 168", "  ", q_schema=qs)                       # no word, nothing goes
+    with pytest.raises(ValueError):
+        Q.remove(d, "", "Arthur: delete it", q_schema=qs)                  # no ruling would match every line
+    with pytest.raises(RuntimeError, match="removable after"):
+        Q.remove(d, "ruling 168", "Arthur: delete it", q_schema=qs, today=dt.date(2026, 11, 12))
+    d.rollback()
+    dry = Q.remove(d, "ruling 168", "Arthur: delete it", q_schema=qs, early=True, dry_run=True, today=dt.date(2026, 11, 12))
+    d.rollback()
+    assert [r["found"] for r in dry] == [a["rows"]] and Q._exists(d, qs, held_a)
+    d.execute(f"DELETE FROM {a['held_in']} WHERE id IN (SELECT id FROM {a['held_in']} LIMIT 1)")
+    with pytest.raises(RuntimeError, match="the ledger says"):
+        Q.remove(d, "ruling 168", "Arthur: delete it", q_schema=qs, early=True)   # a count that disagrees: refused
+    d.rollback()
+    got = Q.remove(d, "ruling 168", "Arthur, 12 November: delete it", q_schema=qs, early=True)
+    d.commit()
+    assert [r["removed"] for r in got] == [True] and not Q._exists(d, qs, held_a)
+    led = d.execute(f"SELECT why, removed_at IS NOT NULL, removed_on_word FROM {qs}.ledger ORDER BY id").fetchall()
+    assert led == [("Arthur (ruling 168): fyi out", True, "Arthur, 12 November: delete it"),
+                   ("Arthur (ruling 1680): another", False, None)]               # named mid-line; 1680 is not 168
+    assert Q._exists(d, qs, held_b)                                        # another ruling's rows stay
+    assert Q.remove(d, "ruling 168", "again", q_schema=qs, early=True) == []  # a second run finds nothing
+    d.execute(f"DROP SCHEMA {qs} CASCADE")
+    d.commit()

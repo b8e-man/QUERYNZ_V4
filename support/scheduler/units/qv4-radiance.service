@@ -21,6 +21,14 @@ StartLimitBurst=3
 Type=notify
 NotifyAccess=all
 Environment=PODMAN_SYSTEMD_UNIT=%n
+# The model file and where its n-gram table is read from: by default the model on /home and the table in host RAM.
+# A box's own file beside this unit, qv4-radiance-<hostname>.env in the main checkout, overrides the two (node2's,
+# 12 November 2026, Arthur: "move it": the table read from the copy on the spare drive, about 48 GB of RAM back).
+Environment=QV4_RADIANCE_MODEL=/home/user/models/radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad
+Environment=QV4_RADIANCE_NGRAM=ram
+EnvironmentFile=-/home/user/querynzv4/support/scheduler/units/qv4-radiance-%H.env
+# a model file that is not there (the spare drive not mounted) fails here, named, not inside the container
+ExecStartPre=/usr/bin/test -r ${QV4_RADIANCE_MODEL}
 # The pinned host pool needs memlock unlimited; the user manager's own limit is unlimited on node2. The pool is 11 GiB
 # a rank, not the experiment's 10: started after the OCR server, Radiance counts that server's ~2.2 GiB a card as
 # already held AND keeps the 2.5 GiB headroom, and at 10 GiB the experts were 0.44 GiB short (out of memory at start,
@@ -47,13 +55,13 @@ ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --
   --ulimit memlock=-1:-1 \
   -e HIP_VISIBLE_DEVICES=0,1 \
   -p 127.0.0.1:8060:8060 \
-  -v /home/user/models/radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad:/model.rad:ro \
+  -v ${QV4_RADIANCE_MODEL}:/model.rad:ro \
   docker.io/stilldeadcode/radiance:latest \
   --model /model.rad --served-model-name qwen4exp \
   --tp 2 --tp-wire exact \
   --max-model-len 32768 --max-num-seqs 10 --kv-cache-dtype fp8 \
   --placement expert_tiered --host-pool-mib 11776 --gpu-headroom-mib 500 --vision-tower-placement ram \
-  --ngram-placement ram --num-speculative-tokens 3 --draft-window adaptive \
+  --ngram-placement ${QV4_RADIANCE_NGRAM} --num-speculative-tokens 3 --draft-window adaptive \
   --max-num-batched-tokens 4096 --checkpoint-policy tip-only \
   --chat-template-kwargs '{"enable_thinking":false}' \
   --host 0.0.0.0 --port 8060

@@ -1516,3 +1516,19 @@ sites the old estate collected from, each from the day after the newest page we 
 charity officers come through the Charities Register's open API, which the boxes read
 (qv4-charities-capture): they stay with us. GLEIF, ROR and Wikidata are held in the copy and
 LINZ's place names in the linz lane; none is asked.
+
+171. Arthur, 12 November, on the model server and the fyi quarantine: "set it for the actual usage"
+and "just make the changes"; on the n-gram table on node2's spare drive, "move it"; on the fyi rows
+held until 11 December, "delete it". (a) The model server takes 10 requests at once, not 16 (the
+log of 5 to 12 November held 8 in flight 90% of the busy time), at the same 32,768-token bound
+(Hansard sends about 20,000 tokens with 11,000 to answer in); the host pool falls from 13 to 11.5
+GiB a rank and the cards hold about 2.6 GiB a card more experts (commit 20c21ac). (b) node2 reads
+the n-gram table from the model copy on its spare drive (/mnt/ssd2, ext4, compared byte for byte),
+not RAM: about 48 GB of node2's RAM back, measured 0 to 9% slower at 1 to 8 at once. A box's own
+file (support/scheduler/units/qv4-radiance-<host>.env) holds the model path and the table's place;
+node1 keeps both on /home and in RAM. (c) The fyi.org.nz quarantine of ruling 168 is removed now,
+before its 11 December date, on this word: the five quarantine_private tables (32,315 ledger,
+32,584 articles, 33,422 index, 278 documents, 353 OIA requests) are dropped and each ledger line
+carries the word and the time (`python -m support.oldcopy quarantine --remove`). The four fyi files
+in the document store stay withdrawn, as captured documents are never deleted; the old estate's own
+fyi rows are untouched (hard limit 18).

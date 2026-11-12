@@ -16,9 +16,27 @@ def _lines() -> list[str]:
     return UNIT.read_text(encoding="utf-8").splitlines()
 
 
-def _exec_start() -> list[str]:
-    """ExecStart joined across its continuation lines and split as systemd would."""
+def _env(box: str = None) -> dict:
+    """The unit's Environment= defaults, then the box's own file over them (EnvironmentFile wins, as in systemd)."""
+    env = {}
+    for line in _lines():
+        if line.startswith("Environment="):
+            k, _, v = line[len("Environment="):].partition("=")
+            env[k] = v
+    own = UNIT.parent / f"qv4-radiance-{box}.env"
+    if box and own.exists():
+        for line in own.read_text(encoding="utf-8").splitlines():
+            if line.strip() and not line.lstrip().startswith("#"):
+                k, _, v = line.partition("=")
+                env[k.strip()] = v.strip()
+    return env
+
+
+def _exec_start(box: str = None) -> list[str]:
+    """ExecStart joined across its continuation lines, ${VAR} expanded for `box`, and split as systemd would."""
     text, out, on = UNIT.read_text(encoding="utf-8"), [], False
+    for k, v in _env(box).items():
+        text = text.replace("${" + k + "}", v)
     for line in text.splitlines():
         if line.startswith("ExecStart="):
             on, line = True, line[len("ExecStart="):]
@@ -91,3 +109,18 @@ def test_it_never_names_the_frozen_products_units_or_program():
     live = [l for l in _lines() if not l.lstrip().startswith("#")]
     for foreign in ("querynz-agent-llm", "querynz-vision-ocr", "/home/user/llama.cpp", "Git Repos", "Conflicts="):
         assert not any(foreign in l for l in live), f"the unit acts on {foreign!r}"
+
+
+def test_the_model_and_its_ngram_table_are_a_boxs_own_setting():
+    """12 November 2026 (Arthur, "move it"): node2 reads the n-gram table from the model copy on its spare drive;
+    every other box keeps the model on /home and the table in RAM. The file must be there before the container."""
+    assert _flag(_exec_start("node1"), "--ngram-placement") == "ram"
+    assert "/home/user/models/radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad:/model.rad:ro" in _exec_start("node1")
+    two = _exec_start("node2")
+    assert _flag(two, "--ngram-placement") == "disk"
+    assert "/mnt/ssd2/radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad:/model.rad:ro" in two
+    lines = _lines()
+    assert "EnvironmentFile=-/home/user/querynzv4/support/scheduler/units/qv4-radiance-%H.env" in lines
+    assert "ExecStartPre=/usr/bin/test -r ${QV4_RADIANCE_MODEL}" in lines
+    assert lines.index("ExecStartPre=/usr/bin/test -r ${QV4_RADIANCE_MODEL}") < next(
+        i for i, l in enumerate(lines) if l.startswith("ExecStart="))

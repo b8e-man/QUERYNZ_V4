@@ -17,8 +17,12 @@ counts must agree, or nothing is kept. Nothing here removes a quarantined row; t
 
     python -m support.oldcopy quarantine --dry-run    what would move, counted, nothing written
     python -m support.oldcopy quarantine              move it
+    python -m support.oldcopy quarantine --remove --why 'ruling 168' --word "Arthur, <date>: <his words>" [--early] [--dry-run]
+        the removal: every ledger line of that ruling not yet removed, its held table dropped and the line
+        stamped with the word and the time; before `removable_after` only with --early (his word moved the day)
 """
 import datetime as dt
+import re
 
 from psycopg import sql
 
@@ -127,3 +131,40 @@ def run(conn, inv: dict, *, dry_run=False, log=print, **kw) -> list:
                                                      if r.get("moved") else f" {r.get('why', '')}".rstrip()))
         done.append(r)
     return done
+
+
+def remove(conn, why: str, word: str, *, early=False, dry_run=False, q_schema=SCHEMA, today=None) -> list:
+    """Drop the quarantine tables of the ledger lines whose `why` names `why` and that are not yet removed,
+    each stamped `removed_at` and `removed_on_word` in the same transaction as its drop. A table whose rows are not
+    the ledger's count is refused (something else wrote to it): nothing of that line is touched. Before
+    `removable_after` only `early` (Arthur's word moved the day). The caller commits."""
+    if not (word or "").strip():
+        raise ValueError("a quarantine is removed on Arthur's word: --word names it")
+    if not (why or "").strip():
+        raise ValueError("--why names the ruling whose lines go: an empty one would match every line")
+    today = today or dt.date.today()
+    # the ruling as whole words anywhere in the line (a line quotes it mid-sentence; "ruling 168" is never "ruling 1680")
+    lines = conn.execute(sql.SQL("SELECT id, held_in, rows, removable_after FROM {}.ledger WHERE why ~ %s "
+                                 "AND removed_at IS NULL ORDER BY id").format(sql.Identifier(q_schema)),
+                         (r"\m" + re.escape(why.strip()) + r"\M",)).fetchall()
+    out = []
+    for lid, held_in, rows, after in lines:
+        if after > today and not early:
+            raise RuntimeError(f"{held_in}: removable after {after}; --early only on Arthur's word that moves the day")
+        sch, _, tab = held_in.partition(".")
+        if sch != q_schema:
+            raise RuntimeError(f"ledger line {lid} holds {held_in}, outside {q_schema}: never dropped from here")
+        rel = sql.SQL("{}.{}").format(sql.Identifier(sch), sql.Identifier(tab))
+        n = conn.execute(sql.SQL("SELECT count(*) FROM {}").format(rel)).fetchone()[0] if _exists(conn, sch, tab) else None
+        # one table may hold the lines of several moves (a second run of the same table): its count is their sum
+        due = conn.execute(sql.SQL("SELECT sum(rows) FROM {}.ledger WHERE held_in = %s AND removed_at IS NULL")
+                           .format(sql.Identifier(q_schema)), (held_in,)).fetchone()[0]
+        if n is not None and n != due:
+            raise RuntimeError(f"{held_in}: {n} rows, the ledger says {due}; nothing removed")
+        if not dry_run:
+            if n is not None:
+                conn.execute(sql.SQL("DROP TABLE {}").format(rel))
+            conn.execute(sql.SQL("UPDATE {}.ledger SET removed_at = now(), removed_on_word = %s WHERE id = %s")
+                         .format(sql.Identifier(q_schema)), (word.strip(), lid))
+        out.append({"line": lid, "held_in": held_in, "rows": rows, "found": n, "removed": not dry_run})
+    return out

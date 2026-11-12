@@ -154,6 +154,17 @@ def cmd_quarantine(a) -> int:
         inv = json.load(fh)
     with db.connect(db.OWNER_KEY, DEST_DB, connect_timeout=10) as conn:
         conn.execute("SELECT set_config('statement_timeout', '1800s', false)")
+        if a.remove:
+            try:
+                done = quarantine.remove(conn, a.why, a.word, early=a.early, dry_run=a.dry_run)
+                conn.rollback() if a.dry_run else conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            for r in done:
+                print(f"{r['held_in']}: {r['found']} row(s) (ledger {r['rows']})" + (" removed" if r["removed"] else " would go"))
+            print(f"{len(done)} ledger line(s) {'removed' if not a.dry_run else 'due'} on the word: {a.word}")
+            return 0
         quarantine.run(conn, inv, dry_run=a.dry_run)
     return 0
 
@@ -182,6 +193,10 @@ def main(argv=None) -> int:
     q = sub.add_parser("quarantine", help="move copied rows the inventory now leaves out into quarantine_private")
     q.add_argument("--inventory", default=INVENTORY)
     q.add_argument("--dry-run", action="store_true", help="count what would move; nothing written")
+    q.add_argument("--remove", action="store_true", help="drop the held tables of one ruling's ledger lines")
+    q.add_argument("--why", default="", help="--remove: the ruling the lines name (their `why` starts with it)")
+    q.add_argument("--word", default="", help="--remove: Arthur's word, quoted, kept on each ledger line")
+    q.add_argument("--early", action="store_true", help="--remove: before removable_after (his word moved the day)")
     a = p.parse_args(argv)
     return {"tables": cmd_tables, "files": cmd_files, "status": cmd_status, "quarantine": cmd_quarantine}[a.cmd](a)
 

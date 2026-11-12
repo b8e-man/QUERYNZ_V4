@@ -148,7 +148,11 @@ def test_the_unit_and_the_profile_agree():
     port are the profile's, or the read-back refuses every load."""
     p = reg.profiles()["flash-next"]
     text = UNIT.read_text(encoding="utf-8")
-    body = text.split("ExecStart=", 1)[1].split("\nExecStop=", 1)[0]
+    for line in text.splitlines():                     # the unit's own defaults (a box's .env may move the model file)
+        if line.startswith("Environment=QV4_"):
+            k, _, v = line[len("Environment="):].partition("=")
+            text = text.replace("${" + k + "}", v)
+    body = text.split("\nExecStart=", 1)[1].split("\nExecStop=", 1)[0]
     argv = shlex.split(" ".join(l.rstrip("\\").strip() for l in body.splitlines() if not l.lstrip().startswith("#")))
     flag = lambda n: argv[argv.index(n) + 1]  # noqa: E731
     assert flag("--served-model-name") == p.model
@@ -156,6 +160,9 @@ def test_the_unit_and_the_profile_agree():
     assert flag("-p") == f"127.0.0.1:{p.port}:{p.port}"
     assert p.unit == UNIT.name
     assert flag("-v").split(":")[0].endswith(p.weights[0])
+    for own in UNIT.parent.glob("qv4-radiance-*.env"):  # every box's own model file is the same weights
+        model = [l.split("=", 1)[1] for l in own.read_text(encoding="utf-8").splitlines() if l.startswith("QV4_RADIANCE_MODEL=")]
+        assert all(m.endswith(p.weights[0]) for m in model), own.name
 
 
 def test_no_card_on_node2_is_reserved_for_the_frozen_chat_model_any_more():
