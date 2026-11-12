@@ -563,3 +563,14 @@ def test_a_suppressed_name_is_kept_whole_with_the_source_s_words_never_lost():
     for w in res.withheld:
         assert set(w) == set(courts_load.WITHHELD_COLUMNS) and w["name"] and w["suppressed"] is True
         assert w["held_in"] == "judgment_parties" and w["document"] == "c" * 64 and "banner" in w["suppression_words"]
+
+
+def test_a_citation_number_of_six_or_seven_digits_is_a_citation():
+    """The Immigration and Protection Tribunal numbers its decisions in six digits ([2024] NZIPT 506123); caption.CITE
+    took at most five, so 12,833 decisions had no citation and were set aside as no shape (13 November 2026)."""
+    from registers.courts import caption
+    m = caption.CITE.search("IMMIGRATION AND PROTECTION TRIBUNAL     [2099] NZIPT 512345")
+    assert m and m.groups() == ("2099", "NZIPT", "512345")
+    assert caption.CITE_LINE.match("   [2099] NZIPT 512345  ")
+    assert caption.CITE.search("[2099] NZSC 12").groups() == ("2099", "NZSC", "12"), "the courts as before"
+    assert caption.CITE.search("[2099] NZIPT 51234567") is None, "eight digits is not a citation number"

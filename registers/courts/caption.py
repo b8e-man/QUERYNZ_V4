@@ -40,7 +40,7 @@ import datetime as dt
 import re
 from dataclasses import dataclass, field
 
-VERSION = "registers.courts.caption 2"
+VERSION = "registers.courts.caption 3"   # 3: a citation number of 6 or 7 digits (13 November 2026)
 
 COURTS = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC",
           "EMPLOYMENT COURT": "NZEmpC", "ENVIRONMENT COURT": "NZEnvC", "FAMILY COURT": "NZFC",
@@ -53,8 +53,9 @@ COURT_CODES = {c.upper(): c for c in ("NZSC", "NZCA", "NZHC", "NZDC", "NZFC", "N
 def court_code(code: str) -> str:
     """The court's code in its one spelling; a code not in the list as the citation printed it."""
     return COURT_CODES.get((code or "").upper(), code)
-CITE = re.compile(r"\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\b")
-CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\s*$")
+#: the number runs to 7 digits: the Immigration and Protection Tribunal's are 6 ([2024] NZIPT 506123; 5 until 13 November 2026)
+CITE = re.compile(r"\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,7})\b")
+CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,7})\s*$")
 FILE_CITE = re.compile(r"(\d{4})-(NZ[A-Za-z]{2,6})-(\d{1,5})(?:[^0-9].*)?\.pdf$", re.I)
 #: the court line; a hearing transcript's cover sheet prints the case number beside it on the same line
 COURT_LINE = re.compile(r"^\s*IN THE ([A-ZĀĒĪŌŪ ]+?) OF NEW ZEALAND\b[^\n]*$", re.M)

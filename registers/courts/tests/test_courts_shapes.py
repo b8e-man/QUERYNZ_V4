@@ -73,6 +73,13 @@ HRRT = page("IN THE HUMAN RIGHTS REVIEW TRIBUNAL" + " " * 30 + "[2099] NZHRRT 39
             L + "AND" + " " * 26 + "AN AGENCY", N + "DEFENDANT", "AT AUCKLAND", "BEFORE:", "A Chairperson", "A Member", "B Member",
             "REPRESENTATION:", "Sample Person in person", "P Q Rowe for defendant", "DATE OF HEARING: 1 June 2099", "DATE OF DECISION: 25 June 2099",
             "                 DECISION OF TRIBUNAL", "[1]  The plaintiff complained of an interference with privacy.", "[2]  Second.")
+# the Immigration and Protection Tribunal (13 November 2026): 12,833 decisions set aside as no shape, their 6-digit
+# citation number past caption.CITE's 5; shaped like the landed files (a 10% sample: the tribunal and its citation on
+# line 1, Before: and Date of Decision: labels, no court line, no BETWEEN/AND), every name invented
+IPT = page("IMMIGRATION AND PROTECTION TRIBUNAL" + " " * 20 + "[2099] NZIPT 512345", "NEW ZEALAND", "AT AUCKLAND",
+           "Appellant:                      AB (Examplestan)", "Before:                         A Member",
+           "Representative for the Appellant: P Q Rowe", "Date of Decision:               25 June 2099",
+           "                 RESIDENCE DECISION", "[1]  This is an appeal against a decision of a visa officer.", "[2]  Second.")
 LCDT = page("NEW ZEALAND LAWYERS AND CONVEYANCERS DISCIPLINARY TRIBUNAL", " " * 60 + "[2099] NZLCDT 12", " " * 66 + "LCDT 004/99",
             L + "IN THE MATTER" + " " * 10 + "OF THE LAWYERS AND CONVEYANCERS ACT 2006", L + "BETWEEN" + " " * 22 + "A STANDARDS COMMITTEE",
             N + "Applicant", L + "AND" + " " * 26 + "SAMPLE PERSON", N + "Respondent", "CHAIR", "Judge Able", "MEMBERS OF TRIBUNAL", "Mr Baker", "Ms Carter",
@@ -151,6 +158,7 @@ def test_the_kinds_of_30_and_31_october_are_recognised_by_their_own_shapes():
     assert R.recognise(e, pdf, _texts(ERA)) == (R.ERA, "the Authority's court line with its citation, its DETERMINATION heading or its labels")
     assert R.recognise(e, pdf, _texts(HRRT))[0] == R.HRRT
     assert R.recognise(e, pdf, _texts(LCDT))[0] == R.TRIBUNAL
+    assert R.recognise(e, pdf, _texts(IPT))[0] == R.TRIBUNAL, "the IPT's 6-digit citation is a tribunal's code"
     assert R.recognise(e, pdf, _texts(SSAA))[0] == R.TRIBUNAL
     assert R.recognise(e, pdf, _texts(NZDC))[0] == R.NZDC
     assert R.recognise(e, pdf, _texts(JUDGMENT))[0] == "courts-nzsc-judgment", "the senior courts as before"
