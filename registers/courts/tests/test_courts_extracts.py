@@ -16,7 +16,7 @@ READING_VERSIONS = {"courts-case-page": 2, "courts-case-synopsis": 2, "courts-co
                     "courts-judgment": 2, "courts-maori-court-judgment": 1, "courts-media-release": 2,
                     "courts-nzca-judgment": 3, "courts-nzdc-judgment": 1, "courts-nzhc-civil-judgment": 3,
                     "courts-nzhc-criminal-judgment": 3, "courts-nzsc-judgment": 3, "courts-scanned-document": 1,
-                    "courts-tribunal-decision": 1}
+                    "courts-tribunal-decision": 1, "courts-waitangi-record-document": 1, "courts-waitangi-report": 1}
 #: the fields iteration 3 moved or added: read.from_mcp
 MCP_FIELDS = ("citation", "judgment_date", "date_basis", "citation_basis")
 

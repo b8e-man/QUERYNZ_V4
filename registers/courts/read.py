@@ -73,6 +73,10 @@ CASE_PAGE, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, SCANNED = (
 ERA, HRRT, TRIBUNAL, NZDC = "courts-era-determination", "courts-hrrt-decision", "courts-tribunal-decision", "courts-nzdc-judgment"
 #: the Māori Land Court's and the Māori Appellate Court's judgments (ruling 140's JDO walk; measured 3 November 2026)
 MAORI = "courts-maori-court-judgment"
+#: the Waitangi Tribunal's record of inquiry (each document stamped with its inquiry's Wai number and its place on the
+#: record, "Wai 2700, #A16(a)") and its published reports ("Downloaded from www.waitangitribunal.govt.nz"); measured
+#: 13 November 2026 on 600 of the 4,946 Waitangi documents set aside as no shape
+WAI_RECORD, WAI_REPORT = "courts-waitangi-record-document", "courts-waitangi-report"
 JUDGMENT_PROFILES = {"SUPREME COURT": "courts-nzsc-judgment", "COURT OF APPEAL": "courts-nzca-judgment",
                      "HIGH COURT": None, "DISTRICT COURT": NZDC, "OTHER": "courts-judgment"}
 NZHC = {"civil": "courts-nzhc-civil-judgment", "criminal": "courts-nzhc-criminal-judgment"}
@@ -80,9 +84,10 @@ JUDGMENT_SLUGS = {"courts-nzsc-judgment", "courts-nzca-judgment", "courts-nzhc-c
                   "courts-nzhc-criminal-judgment", "courts-judgment", ERA, HRRT, TRIBUNAL, NZDC, MAORI}
 KIND_OF = {CASE_PAGE: "case page", RELEASE: "media release", TRANSCRIPT: "hearing transcript",
            SUBMISSION: "counsel submission", SYNOPSIS: "case synopsis", SCANNED: "scanned document",
-           **{s: "judgment" for s in JUDGMENT_SLUGS}, ERA: "determination", HRRT: "tribunal decision", TRIBUNAL: "tribunal decision"}
+           **{s: "judgment" for s in JUDGMENT_SLUGS}, ERA: "determination", HRRT: "tribunal decision", TRIBUNAL: "tribunal decision",
+           WAI_RECORD: "record of inquiry document", WAI_REPORT: "tribunal report"}
 #: every profile the text reader reads (every courts profile but the scanned one): each carries a reading rule
-TEXT_READ_SLUGS = {CASE_PAGE, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS} | JUDGMENT_SLUGS
+TEXT_READ_SLUGS = {CASE_PAGE, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, WAI_RECORD, WAI_REPORT} | JUDGMENT_SLUGS
 COURT_CODES = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC",
                "EMPLOYMENT COURT": "NZEmpC", "FAMILY COURT": "NZFC", "ENVIRONMENT COURT": "NZEnvC",
                "CORONERS COURT": "NZCorC", "MĀORI LAND COURT": "NZMLC", "MAORI LAND COURT": "NZMLC",
@@ -126,6 +131,28 @@ NOHOANGA = re.compile(r"^\s*Nohoanga:", re.M)
 #: Appellate Court's since 2023 the year in the book's place ("2024 Māori Appellate Court MB 84")
 MINUTE_BOOK = re.compile(r"(?<![\w\]])(?:[\[(](\d{4})[\])]\s+)?(?:(\d{1,4})\s+)?(M[āa]ori Appellate Court|Chief Judge[’']s|"
                          r"[A-ZĀĒĪŌŪ][a-zāēīōū]+(?: [A-ZĀĒĪŌŪ][a-zāēīōū]+){0,2})\s+MB\s+(\d{1,5})\b")
+#: the record of inquiry's stamp at the head of page 1: the inquiry's Wai number and the document's place on the record,
+#: "Wai 2700, #A16(a)", "Wai 2575, #6.1.1", "Wai 2180, #A8(a)(2)", "Wai 1200, 1.1.6(c)" (no #), "WAI 785: A9", and the text
+#: layer's "WA1894#A24" or "Wai894      #A3"; the place is a letter series (A–Z, evidence) or a dotted number (1.1 claims,
+#: 2.x the Tribunal's papers, 3.x submissions and memoranda, 4.x transcripts)
+WAI_STAMP = re.compile(r"\bWA[Il]?\s?(\d{1,5})\s*(?:,\s*#?|:|\s*#|,)\s?(#?\s?(?:[A-Z]{1,2}\d{1,4}|\d{1,2}(?:\.\d{1,4}){1,3})"
+                       r"(?:\s?\([a-z0-9]{1,3}\))*)", re.I)
+#: the Tribunal's published reports, every page headed with where they were downloaded from
+WAI_DOWNLOADED = re.compile(r"Downloaded from www\.waitangi-?tribunal\.govt\.nz", re.I)
+WAI_NUMBER = re.compile(r"\bWai\s?(\d{1,5})\b", re.I)
+#: the head of page 1 a stamp is looked for in (the stamp is the page's header: lines 1 to 3 in the 600 measured)
+WAI_HEAD_CHARS = 400
+
+
+def wai_stamp(p1: str):
+    """The record-of-inquiry stamp at the head of page 1, as "Wai 2700, #A16(a)", or None."""
+    m = WAI_STAMP.search(p1[:WAI_HEAD_CHARS])
+    if not m:
+        return None
+    place = re.sub(r"\s+", "", m.group(2)).lstrip("#")
+    return f"Wai {int(m.group(1))}, #{place}"
+
+
 #: a tribunal's opening with no court line: "BEFORE THE … TRIBUNAL|AUTHORITY", or "IN THE MATTER OF …" lines
 TRIBUNAL_OPEN = re.compile(r"^\s*(?:BEFORE THE (?!MATTER\b)[A-ZĀĒĪŌŪ' ]+?(?:TRIBUNAL|AUTHORITY|BOARD|COMMITTEE)\b|(?:AND )?IN THE MATTER\b)", re.M)
 #: the Human Rights Review Tribunal's and the tribunals' upper-case labels
@@ -317,6 +344,12 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
     if MAORI_COURT.search(p1) and (WHAKATAUNGA.search(head) or (NOHOANGA.search(head) and any(
             m.group(1) or m.group(2) for m in MINUTE_BOOK.finditer(head)))):
         return MAORI, "a Māori court's court line with its judgment-date label (Whakataunga) or its hearing label and minute-book citation"
+    # the Waitangi Tribunal's record of inquiry and its reports, by the stamp or the download line (before 13 November 2026
+    # 4,946 were set aside and 1,401 taken for counsel's submissions)
+    if wai_stamp(p1):
+        return WAI_RECORD, "the Waitangi Tribunal's record-of-inquiry stamp (Wai number and record place) at the head of page 1"
+    if WAI_DOWNLOADED.search(p1):
+        return WAI_REPORT, "the Waitangi Tribunal's download line on page 1: a published report"
     # the Employment Relations Authority and the Human Rights Review Tribunal, by their court lines (their labels and
     # 'Submissions received' took them for counsel's submissions before fix-2)
     if court_text == "EMPLOYMENT RELATIONS AUTHORITY" and ("NZERA" in cite_codes or heading or labels):
@@ -430,13 +463,19 @@ def sheet(texts: dict, slug: str) -> dict:
     """What a release, transcript, submission or synopsis prints on its
     face: citation, case numbers, the date it prints, a suppression marker."""
     head = (texts.get(1) or "") + "\n" + (texts.get(2) or "")
-    cite = caption.CITE.search(head) if slug != TRANSCRIPT else None
+    cite = caption.CITE.search(head) if slug not in (TRANSCRIPT, WAI_RECORD, WAI_REPORT) else None
     citation = f"[{cite.group(1)}] {cite.group(2)} {cite.group(3)}" if cite else None
+    if slug == WAI_RECORD:
+        citation = wai_stamp(texts.get(1) or "")
     if slug == TRANSCRIPT:
         t = TRANS_CITE.search(head)
         citation = f"[{t.group(1)}] NZSC Trans {t.group(2)}" if t else None
     nums = []
-    for c in caption.CASE_NO.findall(head):
+    if slug in (WAI_RECORD, WAI_REPORT):
+        for w in WAI_NUMBER.findall(head):
+            if f"Wai {int(w)}" not in nums:
+                nums.append(f"Wai {int(w)}")
+    for c in caption.CASE_NO.findall(head) if slug not in (WAI_RECORD, WAI_REPORT) else ():
         c = c.replace("  ", " ")
         if c not in nums:
             nums.append(c)

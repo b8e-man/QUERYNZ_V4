@@ -428,8 +428,9 @@ def waiting(conn, schema: str = "courts") -> list:
     """The documents waiting on the text reader, the kinds people ask about
     first: judgments and determinations, releases, transcripts, submissions,
     synopses, then case pages. [(sha256, profile, profile_version, url)]."""
-    from registers.courts.read import WAIT_TEXT, JUDGMENT_SLUGS, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, CASE_PAGE
-    rank = {**{s: 0 for s in JUDGMENT_SLUGS}, RELEASE: 1, TRANSCRIPT: 2, SUBMISSION: 3, SYNOPSIS: 4, CASE_PAGE: 5}
+    from registers.courts.read import WAIT_TEXT, JUDGMENT_SLUGS, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, CASE_PAGE, WAI_RECORD, WAI_REPORT
+    rank = {**{s: 0 for s in JUDGMENT_SLUGS}, RELEASE: 1, TRANSCRIPT: 2, SUBMISSION: 3, SYNOPSIS: 4, CASE_PAGE: 5,
+            WAI_REPORT: 6, WAI_RECORD: 7}   # the Waitangi Tribunal's record after the courts' own (13 November 2026)
     rows = conn.execute(f"SELECT DISTINCT document, profile, profile_version, url FROM {schema}.documents "
                         "WHERE outcome = %s AND document IS NOT NULL", (WAIT_TEXT,)).fetchall()
     return sorted(rows, key=lambda r: (rank.get(r[1], 9), r[3]))

@@ -489,3 +489,36 @@ def test_the_maori_profile_s_mutants_are_caught():
         assert j.citation != "519 Aotea MB 25"
     finally:
         R.MINUTE_BOOK = real_mb
+
+
+# the Waitangi Tribunal (13 November 2026): 4,946 documents set aside as no shape and 1,401 taken for counsel's
+# submissions; shaped like the landed files (a 600 sample: the record-of-inquiry stamp in the page's header, lines 1 to 3;
+# the published reports headed with their download line), every name invented
+WAI_MEMO = page("OFFICIAL" + " " * 20 + "Wai 2700, #3.1.122", "IN THE WAITANGI TRIBUNAL" + " " * 30 + "Wai 9999",
+                L + "CONCERNING" + " " * 20 + "the Treaty of Waitangi Act 1975", "MEMORANDUM OF COUNSEL FOR THE CLAIMANTS",
+                "Dated 1 June 2099", "1.  Counsel files these submissions in reply.")
+WAI_EVIDENCE = page("RECEIVED", "Waitangi Tribunal", "OFFICIAL" + " " * 12 + "Wai 2180, #A8(a)(2)", "Taihape Inquiry District",
+                    "Supporting Documents to Block Study")
+WAI_NO_HASH = page("Wai 1200, 1.1.6(c)", "WAITANGI TRIBUNAL", "Statement of claim", "1.  The claimants are members of an example hapū.",
+                   "2.  The claim concerns the Crown's purchase of an example block in the nineteenth century.")
+WAI_REPORT = page("Downloaded from www.waitangitribunal.govt.nz", "THE", "EXAMPLE INQUIRY", "REPORT", "Wai 9999",
+                  "Waitangi Tribunal Report 2099", "Chapter 1: the claims and the inquiry's course, and the Crown's response to them")
+
+
+def test_the_waitangi_tribunals_record_and_reports_are_their_own_profiles():
+    e = {"url": "https://www.waitangitribunal.govt.nz/search/Documents/opaque.pdf", "kind": "judgment_pdf"}
+    pdf = b"%PDF-1.4 fake"
+    assert R.recognise(e, pdf, _texts(WAI_MEMO))[0] == R.WAI_RECORD, "the stamp wins over the word submissions"
+    assert R.recognise(e, pdf, _texts(WAI_EVIDENCE))[0] == R.WAI_RECORD
+    assert R.recognise(e, pdf, _texts(WAI_NO_HASH))[0] == R.WAI_RECORD
+    assert R.recognise(e, pdf, _texts(WAI_REPORT))[0] == R.WAI_REPORT
+    assert R.wai_stamp(WAI_EVIDENCE) == "Wai 2180, #A8(a)(2)" and R.wai_stamp(WAI_NO_HASH) == "Wai 1200, #1.1.6(c)"
+    assert R.wai_stamp("WA1894#A24\nWaimana Kaaku") == "Wai 1894, #A24" and R.wai_stamp("WAI 785: A9: Vol 2") == "Wai 785, #A9"
+    # a stamp lower than the page's header is not one (a judgment citing the record)
+    assert R.wai_stamp("x" * R.WAI_HEAD_CHARS + "\nWai 2700, #A16") is None
+    sh = R.sheet(_texts(WAI_MEMO), R.WAI_RECORD)
+    assert sh["citation"] == "Wai 2700, #3.1.122" and sh["case_numbers"] == ["Wai 2700", "Wai 9999"] and sh["dated"]
+    assert R.sheet(_texts(WAI_REPORT), R.WAI_REPORT)["case_numbers"] == ["Wai 9999"]
+    # the courts' own shapes as before
+    assert R.recognise(e, pdf, _texts(SUBMISSION))[0] == "courts-counsel-submission"
+    assert R.recognise(e, pdf, _texts(IPT))[0] == R.TRIBUNAL
