@@ -875,7 +875,7 @@ pieces_command = ["python", "-m", "registers.courts.read", "--pages", "--pieces"
 requires = ["pdftoppm"]
 pieces = true
 can_share = false
-concurrency = 1
+concurrency = 6   # 1 until 13 November 2026: the night window loads the page reader on both of node2's cards (rule 9), 3 slots each, and one document at a time left card 1 idle (Arthur: "gpu1 is not under load")
 
 # ── step 5.3, limited partnerships and the Building Practitioners Board's decisions (sanctions-1; card the-partnerships-and-board-decisions-jobs-into-the-catalogue) ──
 # The sanctions lists' two jobs follow the Board's (ruling 132 lifted their hold).

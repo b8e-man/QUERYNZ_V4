@@ -234,6 +234,10 @@ def server_of(profs: dict[str, Profile], name: str) -> Profile:
     return profs.get(p.on, p) if p.on else p
 
 
+#: the cards a box has (node1 and node2, two each): a per-card server is loaded at most this many times on a box
+CARDS_A_BOX = 2
+
+
 def streams_of(profs: dict[str, Profile], name: str) -> int:
     """The pieces worth keeping in flight on `name` at once, across every
     row and every view on its server: the profile's measured `streams`, else
@@ -359,10 +363,15 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
             out.append(f"{jt.name}: threads says what one piece keeps open; the job is not cut into pieces")
         if jt.pieces and jt.profile and jt.profile in profs:
             streams = streams_of(profs, jt.profile)
-            if jt.concurrency * jt.threads > streams:
+            # a server the worker starts runs on ONE card, and the worker gives a row each card's streams
+            # (worker.in_flight_cap): its ceiling is a box's cards' worth; a standing server, or a view on one, is
+            # one server across its cards (13 November 2026: the page reader on both of node2's cards)
+            served = profs[profs[jt.profile].on] if profs[jt.profile].on in profs else profs[jt.profile]
+            ceiling = streams if served.standing else streams * CARDS_A_BOX
+            if jt.concurrency * jt.threads > ceiling:
                 out.append(f"{jt.name}: concurrency {jt.concurrency} x threads {jt.threads} = "
                            f"{jt.concurrency * jt.threads} pieces in flight on one row is over profile {jt.profile}'s "
-                           f"{streams} streams")
+                           f"{streams} streams" + ("" if served.standing else f" a card on {CARDS_A_BOX} cards"))
         for t in jt.then:
             if t not in jts:
                 out.append(f"{jt.name}: then names {t!r}, which is not in the catalogue")
