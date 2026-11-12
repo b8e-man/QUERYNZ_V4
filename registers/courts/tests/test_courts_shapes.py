@@ -522,3 +522,22 @@ def test_the_waitangi_tribunals_record_and_reports_are_their_own_profiles():
     # the courts' own shapes as before
     assert R.recognise(e, pdf, _texts(SUBMISSION))[0] == "courts-counsel-submission"
     assert R.recognise(e, pdf, _texts(IPT))[0] == R.TRIBUNAL
+
+
+# the Employment Relations Authority's determinations of 2001 to 2007 (13 November 2026): 1,385 set aside as no shape; shaped
+# like the landed files (300 sampled: the number label, the file number, the Act, the BEFORE THE court line), names invented
+ERA_EARLY = page("Determination Number: AA 194/02", "File Number: AEA 360/02", "Under the Employment Relations Act 2000",
+                 "BEFORE THE EMPLOYMENT RELATIONS AUTHORITY", "AUCKLAND OFFICE", "BETWEEN" + " " * 20 + "SAMPLE PERSON",
+                 " " * 30 + "Applicant", "AND" + " " * 24 + "EXAMPLE LIMITED", " " * 30 + "Respondent",
+                 "Member of Authority: A Able", "Representatives: P Rowe for the Applicant", "Determination: 25 June 2002",
+                 "                 DETERMINATION OF THE AUTHORITY", "[1]  The applicant says she was unjustifiably dismissed.")
+
+
+def test_the_authoritys_early_determinations_are_their_own_profile():
+    e = {"url": "https://determinations.era.govt.nz/assets/elawpdf/2002/opaque.pdf", "kind": "judgment_pdf"}
+    pdf = b"%PDF-1.4 fake"
+    assert R.recognise(e, pdf, _texts(ERA_EARLY))[0] == R.ERA_EARLY
+    banner = page("ATTENTION IS DRAWN TO THE ORDER PROHIBITING", "PUBLICATION OF CERTAIN INFORMATION") + "\n" + ERA_EARLY.replace("Number:", "Number;")
+    assert R.recognise(e, pdf, _texts(banner))[0] == R.ERA_EARLY, "the text layer's semicolon, under a banner"
+    assert R.era_number(ERA_EARLY) == "AA 194/02" and R.era_number("Determination Number: AA 230A/05") == "AA 230A/05"
+    assert R.recognise(e, pdf, _texts(ERA))[0] == R.ERA, "the later determinations keep theirs"

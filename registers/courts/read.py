@@ -77,14 +77,17 @@ MAORI = "courts-maori-court-judgment"
 #: record, "Wai 2700, #A16(a)") and its published reports ("Downloaded from www.waitangitribunal.govt.nz"); measured
 #: 13 November 2026 on 600 of the 4,946 Waitangi documents set aside as no shape
 WAI_RECORD, WAI_REPORT = "courts-waitangi-record-document", "courts-waitangi-report"
+#: the Employment Relations Authority's determinations of 2001 to 2007, before its neutral citation: "BEFORE THE EMPLOYMENT
+#: RELATIONS AUTHORITY" and a "Determination Number: AA 194/02" label (1,385 set aside as no shape on 13 November 2026)
+ERA_EARLY = "courts-era-early-determination"
 JUDGMENT_PROFILES = {"SUPREME COURT": "courts-nzsc-judgment", "COURT OF APPEAL": "courts-nzca-judgment",
                      "HIGH COURT": None, "DISTRICT COURT": NZDC, "OTHER": "courts-judgment"}
 NZHC = {"civil": "courts-nzhc-civil-judgment", "criminal": "courts-nzhc-criminal-judgment"}
 JUDGMENT_SLUGS = {"courts-nzsc-judgment", "courts-nzca-judgment", "courts-nzhc-civil-judgment",
-                  "courts-nzhc-criminal-judgment", "courts-judgment", ERA, HRRT, TRIBUNAL, NZDC, MAORI}
+                  "courts-nzhc-criminal-judgment", "courts-judgment", ERA, HRRT, TRIBUNAL, NZDC, MAORI, ERA_EARLY}
 KIND_OF = {CASE_PAGE: "case page", RELEASE: "media release", TRANSCRIPT: "hearing transcript",
            SUBMISSION: "counsel submission", SYNOPSIS: "case synopsis", SCANNED: "scanned document",
-           **{s: "judgment" for s in JUDGMENT_SLUGS}, ERA: "determination", HRRT: "tribunal decision", TRIBUNAL: "tribunal decision",
+           **{s: "judgment" for s in JUDGMENT_SLUGS}, ERA: "determination", ERA_EARLY: "determination", HRRT: "tribunal decision", TRIBUNAL: "tribunal decision",
            WAI_RECORD: "record of inquiry document", WAI_REPORT: "tribunal report"}
 #: every profile the text reader reads (every courts profile but the scanned one): each carries a reading rule
 TEXT_READ_SLUGS = {CASE_PAGE, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, WAI_RECORD, WAI_REPORT} | JUDGMENT_SLUGS
@@ -137,6 +140,18 @@ MINUTE_BOOK = re.compile(r"(?<![\w\]])(?:[\[(](\d{4})[\])]\s+)?(?:(\d{1,4})\s+)?
 #: 2.x the Tribunal's papers, 3.x submissions and memoranda, 4.x transcripts)
 WAI_STAMP = re.compile(r"\bWA[Il]?\s?(\d{1,5})\s*(?:,\s*#?|:|\s*#|,)\s?(#?\s?(?:[A-Z]{1,2}\d{1,4}|\d{1,2}(?:\.\d{1,4}){1,3})"
                        r"(?:\s?\([a-z0-9]{1,3}\))*)", re.I)
+#: the early determinations' court line and their number label ("Determination Number:", the text layer's "Number;" too):
+#: the office's two letters and the number of the year, "AA 194/02", "WA 113/05", "CA 4/07", "AA 230A/05"
+ERA_BEFORE = re.compile(r"^\s*BEFORE THE EMPLOYMENT RELATIONS AUTHORITY\b", re.M)
+ERA_NUMBER = re.compile(r"Determination\s+Numbe?r?\s*[:;]?\s*([A-Z]{2})\s?(\d{1,4}[A-Z]?)\s?/\s?(\d{2})\b")
+
+
+def era_number(head: str):
+    """The early determination's number, "AA 194/02", or None."""
+    m = ERA_NUMBER.search(head)
+    return f"{m.group(1)} {m.group(2)}/{m.group(3)}" if m else None
+
+
 #: the Tribunal's published reports, every page headed with where they were downloaded from
 WAI_DOWNLOADED = re.compile(r"Downloaded from www\.waitangi-?tribunal\.govt\.nz", re.I)
 WAI_NUMBER = re.compile(r"\bWai\s?(\d{1,5})\b", re.I)
@@ -350,6 +365,9 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
         return WAI_RECORD, "the Waitangi Tribunal's record-of-inquiry stamp (Wai number and record place) at the head of page 1"
     if WAI_DOWNLOADED.search(p1):
         return WAI_REPORT, "the Waitangi Tribunal's download line on page 1: a published report"
+    # the Authority's determinations of 2001 to 2007, by their court line and their number label
+    if court_text is None and ERA_BEFORE.search(head) and era_number(head):
+        return ERA_EARLY, "the Authority's 'BEFORE THE' court line with its Determination Number label: a determination of 2001 to 2007"
     # the Employment Relations Authority and the Human Rights Review Tribunal, by their court lines (their labels and
     # 'Submissions received' took them for counsel's submissions before fix-2)
     if court_text == "EMPLOYMENT RELATIONS AUTHORITY" and ("NZERA" in cite_codes or heading or labels):
@@ -621,6 +639,9 @@ def _read(entries, orders, store, data_of, now) -> Result:
             parsed.append((e, sha, slug, version, j, how))
             if slug == MAORI:
                 maori_citation(j, texts)
+            if slug == ERA_EARLY:
+                j.citation = j.citation or era_number((texts.get(1) or "") + "\n" + (texts.get(2) or ""))
+                j.court = j.court or "NZERA"
             from_mcp(j, mcp_of[sha])
             doc.update(citation=j.citation, case_numbers=j.case_numbers, dated=j.judgment_date)
         else:
