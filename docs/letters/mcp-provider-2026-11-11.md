@@ -79,3 +79,10 @@ sha256 we hold on its sites (`asks/held-<section>.tsv`): skip anything on it. In
   every kind, results included, except those on `held-electoral-commission.tsv`. A year we hold is
   not complete until its listings say so: take any document on them that is not on our list. The
   results of 1999 to 2025, which we hold only as figures, are asked.
+
+## 13 November: a requests channel in the MCP (our ruling 175)
+
+We ask you to add a requests channel to the MCP you serve us, so requests, amendments and replies
+stop travelling by hand: `asks_put`, `asks_get` and `asks_status`, as proposed in
+`asks/channel-request-2026-11-13.json` (request `estate-channel@2026-11-13`). Change the shapes if
+your side needs to, and tell us when it can answer.
