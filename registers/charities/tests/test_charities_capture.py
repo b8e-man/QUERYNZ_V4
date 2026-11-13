@@ -368,3 +368,8 @@ def test_nothing_the_capture_prints_is_a_row():
     for line in src.splitlines():
         if "print(" in line or "self.log(" in line:
             assert "rows[" not in line and "FullName" not in line and "Address" not in line
+
+
+def test_the_groups_are_copied_whole_on_every_run():
+    """The register renames a group without moving its ModifiedOn (13 November 2026), so a changes pass never sees it."""
+    assert "Groups" in C.WHOLE_EACH_RUN and all(n in {k for k, _, _ in C.KEYED} for n in C.WHOLE_EACH_RUN)

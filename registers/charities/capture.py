@@ -93,6 +93,10 @@ KEYED = (
     ("AnnualReturn", "AnnualReturnId", True),
     ("AnnualReturnCloseRelationshipTransaction", "AnnualReturnCloseRelationshipTransactionId", True),
 )
+#: the keyed sets copied whole on every run: Groups is one page (about 470 rows), and the register renames a group
+#: without moving its ModifiedOn (13 November 2026: group 397 renamed, its row still dated 1 January 2024, so the
+#: changes passes never saw it and the load's view check went red on the one charity in it)
+WHOLE_EACH_RUN = {"Groups"}
 #: the register's own count of registered charities, asked and landed once at the start of each full pass of
 #: Organisations, so the lane's check reads that day's count from a document, not from a note
 REGISTERED = "Organisations:Registered"
@@ -367,6 +371,8 @@ class Run:
         p = self.t.open_pass(entity_set)
         what, since = plan_pass(self.t.last_done(entity_set, "full")[0], self.t.last_done(entity_set)[1],
                                 p is not None, now, changes)
+        if entity_set in WHOLE_EACH_RUN and what in ("changes", "skip"):
+            what, since = "full", None
         if what == "skip":
             return
         if what != "resume":
