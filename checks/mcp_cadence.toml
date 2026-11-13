@@ -250,3 +250,23 @@ days = 14
 basis = "default"
 paused_until = "2026-12-01"
 reason = "papers are presented to the House on sitting days; few while Parliament is dissolved"
+
+# ── copied from 14 November 2026 (the pull takes every estate-* corpus the provider holds) ──
+
+[[corpus]]
+corpus = "estate-news"
+days = 1
+basis = "default"
+reason = "the news sites publish daily; the provider walks them forward from where our copy stopped (estate-media@2026-11-13)"
+
+[[corpus]]
+corpus = "estate-tenders"
+days = 7
+basis = "default"
+reason = "tender notices are published every working day across the councils it holds; weekly until measured"
+
+[[corpus]]
+corpus = "estate-elections"
+days = 30
+basis = "default"
+reason = "the Electoral Commission's pages change with each return round and event; monthly until measured"
