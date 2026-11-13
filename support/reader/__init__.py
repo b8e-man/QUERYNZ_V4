@@ -106,7 +106,7 @@ class Store:
     def put(self, reading: Reading) -> str:
         p = self._path(reading.key)
         os.makedirs(os.path.dirname(p), exist_ok=True)
-        tmp = p + ".tmp"
+        tmp = f"{p}.{os.getpid()}.tmp"     # 14 Nov 2026: two pieces of one document shared ".tmp" and one lost it
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(asdict(reading), f, ensure_ascii=False)
         os.replace(tmp, p)

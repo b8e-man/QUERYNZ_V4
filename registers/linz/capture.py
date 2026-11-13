@@ -236,6 +236,10 @@ class Blocked(Exception):
     pass
 
 
+class Transient(Exception):
+    """The server's own error (HTTP 5xx): the pull stops where it is and resumes on the next run."""
+
+
 def store_free() -> int:
     import shutil
     from support.docstore import landing
@@ -255,6 +259,8 @@ class Puller:
 
     def get(self, url: str):
         f = self.opener(url, timeout=300, headers=headers(self.key or api_key()), pacer=self.pacer)
+        if not f.blocked and 500 <= f.status < 600:
+            raise Transient(f"HTTP {f.status} at {url}")
         if f.blocked or f.status != 200:
             raise Blocked(f"a failed read at {url}: {f.blocked or f'HTTP {f.status}'}")
         return f
@@ -304,7 +310,12 @@ class Puller:
                 counts["stopped"] = f"the document store has under {STORE_FLOOR_BYTES / 1e9:.0f} GB free"
                 break
             url = wfs_url(source, start, PAGE)
-            f = self.get(url)
+            try:
+                f = self.get(url)
+            except (Transient, OSError) as exc:   # 13 Nov an HTTP 502, 14 Nov "no route to host", hours into a pull
+                self.conn.commit()
+                counts["stopped"] = f"a failed read in transport at row {start:,} ({str(exc)[:160]}); resumes next run"
+                break
             rows = rows_of(f.body)
             ref, _ = self.land_fn(f.body, name=url, source=SOURCE, conn=self.conn, name_kind="url",
                                   content_type="application/json")

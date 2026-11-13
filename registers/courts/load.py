@@ -18,6 +18,7 @@ so an order recorded today binds the next build.
 import argparse
 import os
 import sys
+import time
 
 from support import jobrun
 from registers.courts import capture, identifiers, read
@@ -156,11 +157,30 @@ def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> 
     return counts["read"]
 
 
-def publish(conn, staging: str) -> None:
+#: 14 November 2026: the DROP of a published table waited 10 minutes on a reader's open transaction and every reader
+#: queued behind it; now the publish waits at most LOCK_WAIT for its locks, and tries again PUBLISH_TRIES times
+LOCK_WAIT, PUBLISH_TRIES, PUBLISH_REST_S = "60s", 5, 60
+
+
+def publish(conn, staging: str, sleep=time.sleep) -> None:
     """The lane's reading wiped and refilled from the staged one, and the
     views refreshed, in one transaction (contract: the lane). The record is
-    not touched."""
+    not touched. A lock not had within LOCK_WAIT rolls the try back and
+    rests before the next."""
+    import psycopg
+    for n in range(1, PUBLISH_TRIES + 1):
+        try:
+            return _publish(conn, staging)
+        except psycopg.errors.LockNotAvailable:
+            if n == PUBLISH_TRIES:
+                raise
+            print(f"courts: publish try {n}: a lock not had within {LOCK_WAIT}; again in {PUBLISH_REST_S} s", file=sys.stderr)
+            sleep(PUBLISH_REST_S)
+
+
+def _publish(conn, staging: str) -> None:
     with conn.transaction():
+        conn.execute(f"SET LOCAL lock_timeout = '{LOCK_WAIT}'")
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {SCHEMA}.{t} SELECT * FROM {staging}.{t}")

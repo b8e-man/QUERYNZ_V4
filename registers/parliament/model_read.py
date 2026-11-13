@@ -583,7 +583,7 @@ def main(argv=None) -> int:
             return 2
         request = json.loads(os.environ.get("QV4_MODEL_REQUEST") or "{}")
         try:
-            conn = db.connect(db.OWNER_KEY, database)
+            conn = db.connect(db.OWNER_KEY, database, autocommit=True)   # 14 Nov 2026: no transaction held through the model call (it held the courts publish's DROP for 10 minutes)
             conn.execute("SET statement_timeout = '60s'")
         except Exception:  # noqa: BLE001 — a piece without the database still reads its one document
             conn = None

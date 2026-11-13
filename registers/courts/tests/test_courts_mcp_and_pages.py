@@ -214,3 +214,18 @@ def test_the_check_counts_agreements_disagreements_and_fills_with_keys_never_nam
     assert keys == {"date": ["courts/2"], "citation": ["courts/2"]}
     line = check.mcp_line({"mcp": out, "mcp disagreements": keys})
     assert "date agrees 1" in line and "date disagrees at courts/2" in line and "NZHC" not in line
+
+
+def test_the_publish_waits_a_minute_for_its_locks_and_tries_again(monkeypatch):
+    # 14 November 2026: the DROP waited 10 minutes on a reader's open transaction and readers queued behind it
+    import psycopg
+    from registers.courts import load as L
+    tries, rests = [], []
+
+    def once(conn, staging):
+        tries.append(1)
+        if len(tries) < 3:
+            raise psycopg.errors.LockNotAvailable("lock timeout")
+    monkeypatch.setattr(L, "_publish", once)
+    L.publish(None, "s", sleep=rests.append)
+    assert len(tries) == 3 and rests == [L.PUBLISH_REST_S] * 2 and L.LOCK_WAIT == "60s"

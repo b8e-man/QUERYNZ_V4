@@ -833,7 +833,7 @@ then = ["qv4-names-party-boards"]   # its names into pub.names (1 November)
 [jobs.qv4-courts-load]
 description = "Courts: rebuild the lane's tables from the MCP's courts corpus (every record a documents row: read, waiting on a reader, set aside or caught), replay the stored text-reader readings, publish pub.court_people and the rest on a green check. Nightly at 04:40 NZDT, after the pull."
 needs = "processor"
-memory_gb = 7.5   # 8 Nov 2026: row 2308 peaked at 6,734 MB with 49,575 records (5 Nov: 3,658 MB with 26,285; was 4.0)
+memory_gb = 13.0   # 14 Nov 2026: row 3419 peaked at 12,264 MB (113,629 records, the tribunals recognised on 13 Nov). Was 7.5: 8 Nov 2026: row 2308 peaked at 6,734 MB with 49,575 records (5 Nov: 3,658 MB with 26,285; was 4.0)
 deadline_s = 16200   # 8 Nov 2026: stopped at 10,800 s (row 2308, beside the JDO capture landing 4,854 files); 7,779 s alone on 7 November (row 2203). Before: 71 min on 4 November (22,402 records, 15:56 and 18:14); stopped at 5400 s on 5 November (row 1606, 26,285 records after the 01:00 pull); 29 min alone (3 November 07:57); a 50 min scratch build on 4 November (18,448 records, pdftotext the cost, load average 7-11); 30 min was overrun at 10:02 beside the Papers Past index
 query_timeout_s = 600
 class = "due"
@@ -1823,7 +1823,7 @@ nice = 10
 [jobs.qv4-linz-capture]
 description = "Step 8.3: the LINZ Data Service's WFS through the fetch gate with our key (linz.env, an Authorization header, never in a URL): each source whose newest pull is past its refresh or unfinished, first the five typed sources (place names, the private property spine (table 113970, layer 123113 read whole with its points, table 115638), titles, owners: small first, weekly), then every other land layer and table of the catalogue (ruling 142: registers/linz/catalogue.py, 166 read whole into linz_private, by tranche and size: parcels and the title-parcel association first; titles, memorials, properties, valuation weekly; the Full Landonline Dataset monthly; the survey's measurements quarterly), a source not yet surveyed surveyed first; 10,000 rows a page, one request at a time at the gate's floor, off-peak, each page landed once by hash, stopping when the document store has under 200 GB free; a failed read stops the night and holds the host (ruling 141) and the next resumes. Nightly 22:30 NZDT, at most 6 hours."
 needs = "processor"
-memory_gb = 0.5
+memory_gb = 2.5   # 14 Nov 2026: row 3365 peaked at 2,136 MB five hours into a pull (was 0.5)
 deadline_s = 22500
 query_timeout_s = 120
 class = "due"

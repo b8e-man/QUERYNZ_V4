@@ -608,3 +608,25 @@ def test_the_publish_locks_the_lane_s_views_before_it_empties_a_table(monkeypatc
     assert "pub.linz_titles" in conn.sent[lock] and "ACCESS EXCLUSIVE" in conn.sent[lock]
     first_write = next(i for i, q in enumerate(conn.sent) if q.split()[0] in ("TRUNCATE", "DROP", "ALTER", "DELETE"))
     assert lock < first_write
+
+
+@pytest.mark.parametrize("fault", ["502", "no route"])
+def test_a_server_error_or_a_lost_route_stops_the_pull_quietly_and_the_next_run_resumes(monkeypatch, fault):
+    # 13 November 2026 an HTTP 502, 14 November "no route to host", each hours into a pull: neither is a block
+    import urllib.error
+    monkeypatch.setattr(C, "PAGE", 4)
+    db, landed = FakeDB(), []
+    svc = FakeService(10)
+    real = svc.__call__
+
+    def flaky(url, timeout=300, headers=None, pacer=None):
+        if len(svc.asked) == 2:
+            svc.asked.append(url)
+            if fault == "502":
+                return Fetched(502, b"bad gateway")
+            raise urllib.error.URLError(OSError(113, "No route to host"))
+        return real(url, timeout, headers, pacer)
+    out = puller(db, flaky, landed).pull("owners")
+    assert not out["finished"] and out["rows"] == 4 and "resumes next run" in out["stopped"]
+    out = puller(db, FakeService(10), landed).pull("owners")
+    assert out["finished"] and out["rows"] == 6
