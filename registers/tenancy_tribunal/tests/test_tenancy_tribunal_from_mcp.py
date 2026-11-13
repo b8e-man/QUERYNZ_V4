@@ -129,6 +129,7 @@ def test_the_nightly_job_takes_the_mcp_copy_and_the_pull_brings_it():
     assert job.get("enabled", True) and "--from-mcp" in job["command"]
     pulled = jobs["qv4-mcp-pull"]["command"]
     assert set(C.MCP_CORPORA) <= {pulled[i + 1] for i, a in enumerate(pulled) if a == "--corpus"}
+    assert "courts" in C.MCP_CORPORA, "the provider files Tenancy Tribunal orders in its courts corpus too (13 November 2026)"
 
 
 def test_the_request_names_what_neither_copy_holds_soonest_first(tmp_path):

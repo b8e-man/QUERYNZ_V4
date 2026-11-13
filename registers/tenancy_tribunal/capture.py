@@ -243,8 +243,10 @@ class Stop(RuntimeError):
     """The run stops here: a block, a challenge, or the host not answering."""
 
 
-#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
-MCP_CORPORA = ("estate-tenancy_tribunal",)
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from; and its `courts` corpus, where the
+#: provider files Tenancy Tribunal orders too (13 November 2026: 5,861 orders the lane lists sit there by the same address,
+#: 5,479 of them orders the lane held no document for; the newest copy in either answers)
+MCP_CORPORA = ("estate-tenancy_tribunal", "courts")
 
 
 class NoPace:
@@ -427,7 +429,7 @@ def main(argv=None) -> int:
     ap.add_argument("--list-only", action="store_true")
     ap.add_argument("--anytime", action="store_true", help="run outside off-peak (by hand, on purpose)")
     ap.add_argument("--from-mcp", action="store_true",
-                    help="answer the walk from the ingest MCP's copies (estate-tenancy_tribunal), never the web")
+                    help="answer the walk from the ingest MCP's copies (estate-tenancy_tribunal and courts), never the web")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
     a = ap.parse_args(argv)
