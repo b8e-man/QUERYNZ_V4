@@ -130,3 +130,11 @@ with its timestamp. Challenges stay failed reads. The full body is handover/asks
 Arthur's yes. Kind collect, with held-council-minutes.tsv (990 documents, 21 councils, nearly all 2026): every
 meeting document of all 78 councils, every body, all years served, Wayback for older years, the 3,335 listed but
 unfetched documents, and a weekly check for new ones. Body: handover/asks/council-minutes-2026-11-13.sent.json.
+
+## 13 November, 08:00 UTC: NZME answered (estate-nzme@2026-11-13, message in-3af92be5be1fd2ba; held list in 7 parts, -held-0 to -6)
+
+Arthur: "find where our capture ends or becomes thin and get the mcp to fill in from there onward and get anything new".
+Option (c): nzherald.co.nz is held Dec 2011 to 18 Oct 2026, 4,000-6,000 a month to 2024, thin from January 2025
+(~3,000 a month, ~2,200 in 2026); walk the 2025-on sitemaps, skip the 61,176 held URLs, then every new article.
+BusinessDesk (2,885 held, thin throughout) gets its own walk from the site's first article. Before 2025 stays parked.
+The channel refused one 12 MB attachment (broken pipe); the held URLs went as seven gzip parts of about 500 KB.
