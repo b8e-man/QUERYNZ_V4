@@ -138,3 +138,8 @@ Option (c): nzherald.co.nz is held Dec 2011 to 18 Oct 2026, 4,000-6,000 a month 
 (~3,000 a month, ~2,200 in 2026); walk the 2025-on sitemaps, skip the 61,176 held URLs, then every new article.
 BusinessDesk (2,885 held, thin throughout) gets its own walk from the site's first article. Before 2025 stays parked.
 The channel refused one 12 MB attachment (broken pipe); the held URLs went as seven gzip parts of about 500 KB.
+
+## 13 November: BusinessDesk very slow (estate-nzme@2026-11-13b)
+
+Arthur: "make sure it is very slow in its business desk collection". One connection, at least 60 s between requests,
+01:00-06:00 NZ time only; a refusal or challenge stops it 24 hours then half rate; a second stops it and is reported.
