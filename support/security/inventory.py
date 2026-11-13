@@ -125,7 +125,7 @@ def inventoried(path: str = INVENTORY) -> dict:
             tok = tok.strip()
             if NAME.match(tok):
                 names.add(tok)
-            elif re.fullmatch(r"[A-Za-z0-9_./~-]*\.(env|key|json)", tok):
+            elif re.fullmatch(r"[A-Za-z0-9_./~%-]*\.(env|key|json)", tok):   # % : a systemd specifier (qv4-radiance-%H.env)
                 files.add(os.path.basename(tok))
     return {"names": names, "files": files}
 
