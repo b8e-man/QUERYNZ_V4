@@ -848,7 +848,156 @@ def compute(facts: dict, now: dt.datetime = None, regs: list = None) -> dict:
     now = now or dt.datetime.now(dt.timezone.utc)
     regs = regs if regs is not None else registers()
     lights = [light_of(r, held, facts, now) for r, _, held in regs]
-    return {"computed_at": now.astimezone(dt.timezone.utc).isoformat(timespec="seconds"), "lights": lights}
+    out = {"computed_at": now.astimezone(dt.timezone.utc).isoformat(timespec="seconds"), "lights": lights}
+    out["sources"] = sources(lights, facts, now, {r: plain for r, plain, _ in regs})
+    return out
+
+
+# ── every source, for the board's Sources tab (Arthur, 14 November 2026) ─────
+# "I want each source to be a link and I want a 1 line explanation of why its light is the colour it is when i hover":
+# a row for each register, each corpus the provider reports, each news site the old copy holds, and each request to
+# the provider still waiting; each with the publisher's link (checks/source_links.toml) and one line that begins with
+# its light's word.
+
+LINKS_FILE = os.path.join(REPO, "checks", "source_links.toml")
+WORDS = {RED: "Red", ORANGE: "Orange", GREEN: "Green", GREY: "Grey"}
+
+
+def links(path: str = None) -> dict:
+    try:
+        with open(path or LINKS_FILE, "rb") as f:
+            raw = tomllib.load(f)
+    except OSError:
+        return {"registers": {}, "corpora": {}, "requests": []}
+    return {"registers": raw.get("registers") or {}, "corpora": raw.get("corpora") or {},
+            "requests": raw.get("requests") or []}
+
+
+def pulled(registry: dict) -> set:
+    """The corpora qv4-mcp-pull copies: its command's --corpus names."""
+    job = registry.get(MCP_PULL)
+    cmd = list(getattr(job, "command", None) or ())
+    return {cmd[i + 1] for i, a in enumerate(cmd[:-1]) if a == "--corpus"}
+
+
+def _one(light: str, words: str) -> str:
+    return f"{WORDS[light]}: {words}"
+
+
+def _day(d) -> str:
+    return f"{d.day} {d:%b}"
+
+
+def corpus_url(corpus: str, ln: dict) -> str:
+    c = ln["corpora"]
+    if corpus in c:
+        return c[corpus]
+    if corpus.startswith("parliament-") and "parliament" in c:
+        return c["parliament"]
+    if corpus.startswith("estate-"):
+        return ln["registers"].get(corpus[len("estate-"):].replace("-", "_"), "")
+    return ""
+
+
+def copy_row(corpus: str, facts: dict, now: dt.datetime, taken: set, readers: dict, ln: dict) -> dict:
+    x = copy_state(corpus, facts, now)
+    row = x["row"] or {}
+    n = row.get("records")
+    held = f"{n:,} records" if isinstance(n, int) else "records not counted"
+    if corpus not in taken:
+        light, words = GREY, f"the provider holds it ({held}); our pull does not copy it yet"
+    elif not readers.get(corpus):
+        light, words = ORANGE, f"copied ({held}), but no register reads it yet"
+    elif x["state"] in (RED, ORANGE):
+        light, words = x["state"], _stale_line(x)
+    elif x["state"] == "fresh":
+        light, words = GREEN, (f"newest arrival {when(x['newest'])}, inside its source's {publishes(x['cadence']['days'])} "
+                               f"cadence; read by {', '.join(readers[corpus])}")
+    elif x["state"] == "paused":
+        light, words = GREY, f"a declared pause until {_day(x['cadence']['paused_until'])} (checks/mcp_cadence.toml)"
+    elif x["state"] == "closed":
+        light, words = GREEN, f"a closed set ({held}): nothing more is published"
+    elif x["state"] == "uncadenced":
+        light, words = GREY, f"copied and read ({held}), but no cadence is declared to judge it by"
+    else:
+        light, words = GREY, "copied and read, but the provider has given no freshness measure yet"
+    return {"kind": "copy", "name": corpus, "label": corpus, "url": corpus_url(corpus, ln), "light": light,
+            "line": _one(light, words)}
+
+
+def news_row(site: dict, copy: dict, now: dt.datetime) -> dict:
+    """A news site from the old copy: green when its newest article is within a week, else orange; the provider's
+    estate-news copy (asked 13 November) is what walks it forward."""
+    newest = site.get("newest")
+    host = site["host"]
+    n = site.get("articles") or 0
+    if not newest:
+        light, words = GREY, f"{n:,} articles held, none dated"
+    else:
+        d = dt.date.fromisoformat(newest)
+        age = (now.astimezone(ZONE).date() - d).days
+        span = f"{n:,} articles, {site.get('earliest') or '?'} to {newest}"
+        if age <= 7:
+            light, words = GREEN, f"{span}: newest {age} days old"
+        else:
+            words = f"{span}: nothing newer held ({age} days)"
+            if copy.get("asked"):
+                words += f"; the provider was asked on {_day(copy['asked'])} to walk it forward"
+            light = ORANGE
+    return {"kind": "news", "name": host, "label": host, "url": f"https://{host}", "light": light,
+            "line": _one(light, words)}
+
+
+def request_rows(ln: dict, facts: dict, now: dt.datetime) -> list:
+    out, today = [], now.astimezone(ZONE).date()
+    fresh = facts.get("freshness", {})
+    for r in ln["requests"]:
+        corpus = r.get("corpus") or ""
+        row = fresh.get(corpus) if corpus else None
+        until = r.get("until_records")
+        if row is not None and (until is None or (row.get("records") or 0) > until):
+            continue   # landed: the corpus's own row speaks for it
+        due, asked = r.get("due"), r.get("asked")
+        if due and today > due:
+            light, words = RED, f"asked {_day(asked)}, due {_day(due)}, nothing has landed"
+        else:
+            light = ORANGE
+            words = f"asked {_day(asked)}; " + (f"the provider's date for the first copies is {_day(due)}" if due
+                                                 else "the provider has not given a date yet")
+        out.append({"kind": "request", "name": r["id"], "label": r["title"], "url": r.get("url") or "",
+                    "light": light, "line": _one(light, words)})
+    return out
+
+
+def sources(lights: list, facts: dict, now: dt.datetime, plain: dict = None, ln: dict = None) -> list:
+    ln = ln if ln is not None else links()
+    plain = plain or {}
+    positions = facts.get("positions") or {}
+    out = []
+    for x in lights:
+        lane = LANES.get(x["register"])
+        url = ln["registers"].get(x["register"], "")
+        if not url and lane:
+            hosts = sorted(lane_hosts(lane, positions) | {_bare(h) for h in lane.mcp_hosts})
+            hosts = [h for h in hosts if not h.startswith("*.")]
+            url = f"https://{hosts[0]}" if hosts else ""
+        out.append({"kind": "register", "name": x["register"], "label": plain.get(x["register"], x["register"]),
+                    "url": url, "light": x["light"], "line": _one(x["light"], x["reason"])})
+    taken = pulled(facts.get("registry") or {})
+    readers = {}
+    for register, lane in LANES.items():
+        for k in lane.corpora:
+            readers.setdefault(k, []).append(register)
+    for corpus in sorted(set(facts.get("freshness", {})) | taken):
+        out.append(copy_row(corpus, facts, now, taken, readers, ln))
+    asked = {}
+    for r in ln["requests"]:
+        if r.get("corpus") == "estate-news" and r.get("asked"):
+            asked = {"asked": min(r["asked"], asked.get("asked", r["asked"]))}
+    for site in facts.get("news") or []:
+        out.append(news_row(site, asked, now))
+    out.extend(request_rows(ln, facts, now))
+    return out
 
 
 # ── the facts ────────────────────────────────────────────────────────────────
@@ -856,7 +1005,7 @@ def compute(facts: dict, now: dt.datetime = None, regs: list = None) -> dict:
 def empty_facts(registry: dict = None) -> dict:
     return {"registry": registry if registry is not None else reg.load(), "last_finished": {}, "last_done": {},
             "open": [], "timetable": {}, "refusals": {}, "positions": {}, "mcp_run": None, "waiting": {},
-            "coverage": {}, "gaps": [], "freshness": {}, "cadence": {}}
+            "coverage": {}, "gaps": [], "freshness": {}, "cadence": {}, "news": []}
 
 
 def gather(conn, schema: str = "scheduler") -> dict:
@@ -889,6 +1038,8 @@ def gather(conn, schema: str = "scheduler") -> dict:
     from support.mcpsource import freshness
     facts["freshness"] = freshness.latest(conn)
     facts["cadence"] = cadences()
+    from support.oldcopy import news_sites
+    facts["news"] = news_sites.read()   # written by qv4-news-sites on the owner login; counts and dates only
     return facts
 
 

@@ -802,3 +802,68 @@ def test_a_host_the_mcp_collects_for_a_lane_never_lights_it():
     from checks import source_lights as SL
     lane = SL.Lane(hosts=("www.odata.charities.govt.nz",), positions=("p",), mcp_hosts=("www.charities.govt.nz",))
     assert SL.lane_hosts(lane, {"p": ("www.charities.govt.nz", "www.odata.charities.govt.nz")}) == {"odata.charities.govt.nz"}
+
+
+# ── every source, a link and one line (Arthur, 14 November 2026) ──
+
+class _Pull:
+    command = ["python", "-m", "support.mcpsource", "--corpus", "estate-x", "--corpus", "unread-y"]
+
+
+def _src_facts(**kw):
+    f = sl.empty_facts(registry={sl.MCP_PULL: _Pull()})
+    f.update(kw)
+    return f
+
+
+LN = {"registers": {"x": "https://x.govt.nz"}, "corpora": {"held-z": "https://z.govt.nz"},
+      "requests": [{"id": "r1", "title": "White Pages whole", "corpus": "estate-w", "asked": dt.date(2026, 11, 1),
+                    "due": dt.date(2026, 11, 2), "url": "https://w.co.nz"},
+                   {"id": "r2", "title": "later", "corpus": "estate-v", "asked": dt.date(2026, 11, 1),
+                    "due": dt.date(2026, 11, 20), "url": "https://v.co.nz"},
+                   {"id": "r3", "title": "grown", "corpus": "estate-x", "asked": dt.date(2026, 11, 1),
+                    "until_records": 10, "url": "https://x.govt.nz"}]}
+
+
+def test_every_source_has_a_link_and_one_line_starting_with_its_light(monkeypatch):
+    monkeypatch.setattr(sl, "LANES", {"x": sl.Lane(update=("qv4-x-capture",), corpora=("estate-x",))})
+    fresh = {"estate-x": {"records": 50, "newest_arrival": NOW - dt.timedelta(hours=2)},
+             "unread-y": {"records": 5, "newest_arrival": NOW},
+             "held-z": {"records": 7, "newest_arrival": NOW}}
+    facts = _src_facts(freshness=fresh, cadence={"estate-x": {"days": 1, "basis": "m", "reason": "", "paused_until": None}},
+                       news=[{"host": "odt.co.nz", "articles": 9, "earliest": "2008-01-01", "newest": "2026-11-02"},
+                             {"host": "old.co.nz", "articles": 3, "earliest": "2001-01-01", "newest": "2026-10-01"}])
+    lights = [{"register": "x", "light": "green", "reason": "up to date: last good update 3 Nov"}]
+    rows = {(r["kind"], r["name"]): r for r in sl.sources(lights, facts, NOW, {"x": "The X register"}, LN)}
+    assert all(r["line"].split(":")[0] == sl.WORDS[r["light"]] and "\n" not in r["line"] for r in rows.values())
+    assert rows["register", "x"]["url"] == "https://x.govt.nz" and rows["register", "x"]["label"] == "The X register"
+    assert rows["copy", "estate-x"]["light"] == "green" and rows["copy", "estate-x"]["url"] == "https://x.govt.nz"
+    assert rows["copy", "unread-y"]["light"] == "orange" and "no register reads it" in rows["copy", "unread-y"]["line"]
+    assert rows["copy", "held-z"]["light"] == "grey" and "does not copy it" in rows["copy", "held-z"]["line"]
+    assert rows["news", "odt.co.nz"]["light"] == "green" and rows["news", "odt.co.nz"]["url"] == "https://odt.co.nz"
+    assert rows["news", "old.co.nz"]["light"] == "orange"
+    assert rows["request", "r1"]["light"] == "red" and "nothing has landed" in rows["request", "r1"]["line"]
+    assert rows["request", "r2"]["light"] == "orange" and "20 Nov" in rows["request", "r2"]["line"]
+    assert ("request", "r3") not in rows          # its corpus holds more than the request's mark: the copy row speaks
+
+
+def test_a_request_whose_corpus_has_not_grown_past_its_mark_still_stands(monkeypatch):
+    monkeypatch.setattr(sl, "LANES", {})
+    facts = _src_facts(freshness={"estate-x": {"records": 10, "newest_arrival": NOW}})
+    names = [r["name"] for r in sl.sources([], facts, NOW, {}, LN) if r["kind"] == "request"]
+    assert names == ["r1", "r2", "r3"]
+
+
+def test_the_links_file_reads_and_names_every_register_of_the_catalogue():
+    ln = sl.links()
+    missing = [r for r, _, _ in sl.registers() if r not in ln["registers"]]
+    assert not missing, f"checks/source_links.toml names no link for {missing}"
+    assert all(u.startswith(("https://", "/")) for u in list(ln["registers"].values()) + list(ln["corpora"].values()))
+    for r in ln["requests"]:
+        assert r["id"] and r["title"] and isinstance(r["asked"], dt.date)
+
+
+def test_compute_writes_the_sources_beside_the_lights(monkeypatch):
+    monkeypatch.setattr(sl, "LANES", {})
+    out = sl.compute(_src_facts(), NOW, regs=[("x", "X", True)])
+    assert [r["name"] for r in out["sources"] if r["kind"] == "register"] == ["x"]

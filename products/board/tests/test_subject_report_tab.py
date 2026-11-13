@@ -4,9 +4,9 @@ import pytest
 from products.board import assets, db, panes, subject_report as S
 
 
-def test_every_page_carries_four_tabs_each_named_for_the_script_and_the_on_one_marked():
+def test_every_page_carries_five_tabs_each_named_for_the_script_and_the_on_one_marked():
     html = panes.page("", [], [], tab="subject report")
-    for name, label in (("search", "search"), ("uses", "use cases"), ("papers past", "papers past"), ("subject report", "subject report")):
+    for name, label in (("search", "search"), ("uses", "use cases"), ("papers past", "papers past"), ("sources", "sources"), ("subject report", "subject report")):
         assert f'data-tab="{name}"' in html and f">{label}</a>" in html, name
     assert 'class="on" data-tab="subject report" href="/subject-report"' in html
     assert "target=" not in html.split("</nav>")[0]                       # a tab of this page, never a new window

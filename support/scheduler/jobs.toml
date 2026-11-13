@@ -1980,6 +1980,18 @@ command = ["python", "-m", "support.oldcopy", "files"]
 at_utc = "11:50"
 nice = 15
 
+[jobs.qv4-news-sites]
+description = "The old news copy one line a site, for the board's Sources tab (Arthur, 14 November 2026: a light for every source, news by site): old_incoming_news_private.articles grouped by its address's host, counts and dates only (never text or an address), written to <live>/checks/news-sites.json, which the source lights read. The owner login, read-only transaction (the read login has no grant on a _private schema). Daily at 06:00 NZDT, after the night's copy; about six seconds over 2.8 million rows."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 600
+query_timeout_s = 300
+class = "due"
+priority = 205   # unique (14 November 2026)
+command = ["python", "-m", "support.oldcopy.news_sites"]
+at_utc = "17:00"
+nice = 15
+
 [jobs.qv4-mcp-gaps]
 description = "Ruling 160: what the old estate held that the ingest MCP lacks, source by source (support/mcpsource/gaps.py): every old document's address or sha256 looked for in our copy of the MCP and, past our pull's cursor, the MCP's `records` (metadata only); a register held as rows compared by count; stream I's inventory adds any source not measured as `unmeasured` and leaves out what it marks OUT. Rewrites /home/user/querynzv4-work/handover/mcp-gaps.md and mcp-gaps.json (schema 1) for the provider; a gap moves to `closed` only when a later run finds nothing missing. Reads only: the old databases through the read-only old login, querynz_v4 through the read login. Daily at 05:20 NZDT, before the old estate's morning."
 needs = "processor"

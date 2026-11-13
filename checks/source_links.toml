@@ -1,0 +1,117 @@
+# Where each source lives, for the board's Sources tab (Arthur, 14 November 2026: "I want each source to be a
+# link"). The publisher's own home page, never a deep page that may move. A register built here from other
+# registers (links) links to the board itself.
+
+[registers]
+beehive = "https://www.beehive.govt.nz"
+building_practitioners = "https://www.lbp.govt.nz"
+candidate_returns = "https://elections.nz"
+charities = "https://www.charities.govt.nz"
+commerce_commission = "https://comcom.govt.nz"
+companies = "https://companies-register.companiesoffice.govt.nz"
+contract_disclosures = "https://catalogue.data.govt.nz"
+council_minutes = "https://www.localcouncils.govt.nz"
+council_procurement = "https://www.localcouncils.govt.nz"
+councillor_interests = "https://www.localcouncils.govt.nz"
+courts = "https://www.courtsofnz.govt.nz"
+disclosures = "https://elections.nz"
+expenses = "https://www.parliament.nz"
+fma = "https://www.fma.govt.nz"
+gazette = "https://gazette.govt.nz"
+grants = "https://www.communitymatters.govt.nz"
+hansard = "https://www.parliament.nz"
+hdc_decisions = "https://www.hdc.org.nz"
+house = "https://elections.nz"
+insolvency = "https://www.insolvency.govt.nz"
+iwi_directory = "https://www.tkm.govt.nz"
+limited_partnerships = "https://www.companiesoffice.govt.nz"
+links = "/"
+linz = "https://data.linz.govt.nz"
+local_elections = "https://www.localcouncils.govt.nz"
+ministers_diaries = "https://www.beehive.govt.nz"
+mp_interests = "https://www.parliament.nz"
+openlaw = "https://www.openlaw.nz"
+overseas_investment = "https://www.linz.govt.nz"
+papers_past = "https://paperspast.natlib.govt.nz"
+parliament = "https://www.parliament.nz"
+parties = "https://elections.nz"
+party_boards = "https://elections.nz"
+party_finance = "https://elections.nz"
+party_returns = "https://elections.nz"
+real_estate_authority = "https://www.rea.govt.nz"
+sanctions = "https://www.mfat.govt.nz"
+settlement_commitments = "https://www.tearawhiti.govt.nz"
+societies = "https://is-register.companiesoffice.govt.nz"
+tenancy_tribunal = "https://www.tenancy.govt.nz"
+tenders = "https://www.gets.govt.nz"
+worksafe = "https://www.worksafe.govt.nz"
+
+# the provider's corpora (its `corpora` names); an estate-<register> corpus not named here takes its register's link
+[corpora]
+beehive = "https://www.beehive.govt.nz"
+courts = "https://www.courtsofnz.govt.nz"
+court-mlc-data = "https://www.maorilandcourt.govt.nz"
+gets = "https://www.gets.govt.nz"
+estate-courts = "https://www.courtsofnz.govt.nz"
+estate-courts-era = "https://www.era.govt.nz"
+estate-courts-finder = "https://www.courtsofnz.govt.nz"
+estate-courts-jdo = "https://www.justice.govt.nz"
+estate-courts-survey = "https://www.courtsofnz.govt.nz"
+estate-elections = "https://elections.nz"
+estate-news = "/sources#news"
+estate-whitepages = "https://whitepages.co.nz"
+estate-yellow = "https://yellow.co.nz"
+parliament = "https://www.parliament.nz"     # every parliament-* corpus
+
+# requests sent to the provider whose copies have not landed: a row each until its corpus appears in `corpora`
+# (then the corpus's own row takes over). `due`: the provider's own date for the first copies (none: not given yet). A
+# request whose corpus already exists stands until the corpus holds more than `until_records`.
+[[requests]]
+id = "estate-directories@2026-11-13b"
+title = "White Pages: newest copies and every archived version"
+corpus = "estate-whitepages"
+asked = 2026-11-13
+due = 2026-11-16
+url = "https://whitepages.co.nz"
+
+[[requests]]
+id = "estate-directories@2026-11-13b"
+title = "Yellow: newest copies and every archived version"
+corpus = "estate-yellow"
+asked = 2026-11-13
+due = 2026-11-20
+url = "https://yellow.co.nz"
+
+[[requests]]
+id = "estate-council-minutes@2026-11-13"
+title = "Every council's minutes, all 78 councils, all years"
+corpus = "estate-council_minutes"
+asked = 2026-11-13
+due = 2026-11-24
+url = "https://www.localcouncils.govt.nz"
+until_records = 1990
+
+[[requests]]
+id = "estate-media@2026-11-13"
+title = "87 media sources walked forward, back and through their thin months"
+corpus = "estate-news"
+asked = 2026-11-13
+due = 2026-11-27
+url = "/sources#news"
+until_records = 5396
+
+[[requests]]
+id = "estate-nzme@2026-11-13"
+title = "NZ Herald from January 2025, and BusinessDesk whole"
+corpus = "estate-news"
+asked = 2026-11-13
+due = 2026-11-20
+url = "https://www.nzherald.co.nz"
+until_records = 5396
+
+[[requests]]
+id = "estate-current@2026-11-14"
+title = "Every source current: eleven sections (Hansard, diaries, grants, tenders, elections, expenses and more)"
+corpus = ""
+asked = 2026-11-14
+url = "/sources"

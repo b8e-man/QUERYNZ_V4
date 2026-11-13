@@ -93,6 +93,8 @@ span.light.green{border-color:#3fbf5f}
 span.light.orange{border-color:#f0a030}
 span.light.red{border-color:#f05050}
 span.light.grey{border-color:#8a919c}
+ul.sources{list-style:none;padding:0;columns:20rem}
+ul.sources li{break-inside:avoid;padding:.1rem 0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 mark{background:#4d3b00;color:#f3c969;padding:0}
 article.hit{border-top:1px solid #3a404c;padding:.4rem 0}
@@ -1712,6 +1714,46 @@ def uses_pane(rows: list, missing: str = "", source: str = "") -> str:
     return "\n".join(out)
 
 
+# ── the sources tab (Arthur, 14 November 2026) ──────────────────────────────
+
+def source_home_link(url: str, label: str) -> str:
+    """A source's name as its link: the publisher's own site in a new browser tab, a board address in this one."""
+    if not url:
+        return esc(label)
+    if url.startswith("/"):
+        return f'<a href="{esc(url)}">{esc(label)}</a>'
+    return f'<a href="{esc(url)}" target="_blank" rel="noopener noreferrer">{esc(label)}</a>'
+
+
+def sources_pane(rows: list, stale: str = "") -> str:
+    """Every source with its light: registers, the provider's copies, news by site, requests waiting. Each name is a
+    link to the source; hovering the dot or the name gives one line on why its light is the colour it is."""
+    out = ['<section class="pane sources" id="sources">', '<div class="reg">sources</div>', "<h2>Every source</h2>"]
+    if stale:
+        out.append(f'<p class="why">{esc(stale)}: every light below is as last written</p>')
+    if not rows:
+        out.append('<p class="why">no sources in the lights file yet (qv4-source-lights writes them)</p></section>')
+        return "\n".join(out)
+    counts = {k: sum(1 for x in rows if x["light"] == k) for k in board_lights.LIGHTS}
+    out.append('<p class="note">' + ", ".join(f"{n} {k}" for k, n in counts.items() if n)
+               + ". Hover a light or a name for why it is that colour; a name opens the source.</p>")
+    order = {k: i for i, k in enumerate(("red", "orange", "grey", "green"))}
+    for kind, title in board_lights.KINDS:
+        xs = sorted((x for x in rows if x["kind"] == kind), key=lambda x: (order[x["light"]], str(x.get("label"))))
+        if not xs:
+            continue
+        out.append(f'<h3 id="{esc(kind if kind != "news" else "news")}">{esc(title)} ({len(xs)})</h3><ul class="sources">')
+        for x in xs:
+            line = str(x.get("line") or board_lights.WORDS[x["light"]])
+            name = source_home_link(str(x.get("url") or ""), str(x.get("label") or x.get("name") or ""))
+            out.append(f'<li title="{esc(line)}"><span class="light {esc(x["light"])}" title="{esc(line)}" '
+                       f'data-light="{esc(x["light"])}"><span class="sr">{esc(x["light"])} light, {esc(line)}</span></span>'
+                       f"{name}</li>")
+        out.append("</ul>")
+    out.append("</section>")
+    return "\n".join(out)
+
+
 # ── the lists ───────────────────────────────────────────────────────────────
 
 def pins_pane(pins: list) -> str:
@@ -1806,7 +1848,7 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
     def tab_a(name: str, label: str, to: str) -> str:
         return f'<a class="{"on" if tab == name else ""}" data-tab="{esc(name)}" href="{esc(to)}">{esc(label)}</a>'
     tabs = ('<nav class="tabs">' + " ".join((tab_a("search", "search", href(q, [] if tab != "search" else path, boxes)),
-                                              tab_a("uses", "use cases", "/uses"), tab_a("papers past", "papers past", "/papers-past"),
+                                              tab_a("uses", "use cases", "/uses"), tab_a("papers past", "papers past", "/papers-past"), tab_a("sources", "sources", "/sources"),
                                               tab_a("subject report", "subject report", SUBJECT_REPORT_PATH)))
             + f'</nav><script src="{esc(assets.url("tabs.js"))}" defer></script>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"

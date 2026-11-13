@@ -27,6 +27,7 @@ Routes:
   POST /pin         pin a pane             POST /save     save the path walked
   GET  /doc/<sha256>  the captured document a row cites, its bytes read only from the store with its content type,
                     whatever its source (document.py, rulings 86 (4) and 88); 404 for anything else
+  GET  /sources     every source with its light, its name a link, one line on hover (Arthur, 14 November 2026);
   GET  /uses        the use cases tab (ruling 87): the plan's table, read at render time, with what the data holds for each;
                     each name opens its interface on its own server in a new browser tab (ruling 89)
   GET  /papers-past?q=&o=&s=&paper=&yf=&yt=&min=   the papers past tab (Arthur, 5 November 2026): the archive's keyword index searched
@@ -354,6 +355,12 @@ def render_uses(repo: str = uses.REPO, held: set = None, host: str = "", env=Non
     return panes.page("", [], [panes.uses_pane(rows, source=uses.TABLE)], tab="uses", db=answer)
 
 
+def render_sources() -> str:
+    """The sources tab: read from the lights file alone, no database."""
+    rows, stale = lights.sources()
+    return panes.page("", [], [panes.sources_pane(rows, stale)], tab="sources")
+
+
 def render_papers_past(q: str, offset: int = 0, key: str = "", asked: dict = None) -> str:
     """The papers past tab, or one article's text with `key`. Not under RENDER_LOCK: a cold search reads the index from
     a spinning disk for seconds, and the lane's module takes one search at a time itself; one session-reader connection."""
@@ -435,6 +442,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
+                return
+            if url.path == "/sources":   # every source, a link and its light (Arthur, 14 November 2026)
+                self.send_html(render_sources())
                 return
             if url.path == "/uses":
                 self.send_html(render_uses(host=self.headers.get("Host") or ""))

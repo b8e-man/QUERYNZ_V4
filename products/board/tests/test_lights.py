@@ -116,3 +116,24 @@ def test_an_mcp_fed_register_shows_its_copy_s_freshness_in_one_line(tmp_path):
     green = [(t, sr) for k, t, sr in got if k == "green"]
     assert any(t.endswith("up to date; " + line.replace("'", "&#x27;")) and sr.endswith("up to date; " + line.replace("'", "&#x27;"))
                for t, sr in green), green
+
+
+def test_the_sources_tab_links_each_name_and_gives_its_line_on_hover():
+    from products.board import panes
+    rows = [{"kind": "register", "name": "x", "label": "X & co", "url": "https://x.govt.nz", "light": "red",
+             "line": "Red: the last run failed"},
+            {"kind": "news", "name": "odt.co.nz", "label": "odt.co.nz", "url": "https://odt.co.nz", "light": "green",
+             "line": "Green: newest 2 days old"},
+            {"kind": "request", "name": "r", "label": "asked", "url": "/sources#news", "light": "orange",
+             "line": "Orange: asked 13 Nov"}]
+    html = panes.page("", [], [panes.sources_pane(rows)], tab="sources")
+    assert '<a href="https://x.govt.nz" target="_blank" rel="noopener noreferrer">X &amp; co</a>' in html
+    assert 'title="Red: the last run failed"' in html and 'title="Green: newest 2 days old"' in html
+    assert '<a href="/sources#news">asked</a>' in html                       # a board address stays in this tab
+    assert 'class="on" data-tab="sources" href="/sources"' in html
+    assert html.index("Registers") < html.index("News, by site") < html.index("Asked of the provider")
+
+
+def test_the_sources_tab_says_when_there_is_nothing_to_show():
+    from products.board import panes
+    assert "no sources in the lights file yet" in panes.sources_pane([], "the lights are stale: no lights file")

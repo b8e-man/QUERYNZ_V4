@@ -76,3 +76,21 @@ def light_for(lights: dict, register: str) -> tuple:
     if None in lights:
         return "grey", lights[None]
     return lights.get(register) or ("grey", UNKNOWN)
+
+
+# ── the Sources tab (Arthur, 14 November 2026): every source, a link and one line on hover ──
+KINDS = (("register", "Registers"), ("copy", "The provider's copies"), ("news", "News, by site (the old estate's copy)"),
+         ("request", "Asked of the provider, not landed yet"))
+
+
+def sources(path: str = None, now: dt.datetime = None, clock=time.monotonic) -> tuple:
+    """(rows, stale): the file's `sources` rows as written, each {kind, name, label, url, light, line}; `stale` is ""
+    or why every light is to be read as grey (the same rule as the register dots)."""
+    current(path, now, clock)
+    with _LOCK:
+        data = _CACHE["data"]
+    parsed = parse(data, now or dt.datetime.now(dt.timezone.utc))
+    stale = parsed.get(None, "")
+    rows = [x for x in ((data or {}).get("sources") or []) if isinstance(x, dict) and x.get("light") in LIGHTS
+            and x.get("kind") in dict(KINDS)]
+    return rows, stale
