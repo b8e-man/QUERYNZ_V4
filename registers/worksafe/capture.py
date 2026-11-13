@@ -221,6 +221,11 @@ def from_mcp(conn, read_bytes=None) -> dict:
     return {"opener": opener, "sleep": lambda s: None, "anytime": True}
 
 
+def _not_held(exc) -> bool:
+    from support.mcpsource import replay
+    return isinstance(exc, replay.NotHeld)
+
+
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_items: int = 100000, max_pages: int = 1000,
@@ -263,6 +268,9 @@ class Run:
         except fg.Refused:
             raise
         except Exception as exc:  # noqa: BLE001 — a transport failure is a failed read, never the end of the night
+            if _not_held(exc):    # the MCP's copy lacks the address: a gap in the copy, not a host in trouble
+                self.aside(pass_id, url, "fetch", f"not in the MCP's copy: {str(exc)[:200]}")
+                return None
             return self.failed(url, pass_id, f"transport: {type(exc).__name__}: {str(exc)[:200]}")
         if f.status in SERVER_ERRORS and not fg.looks_challenged(200, f.body):
             return self.failed(url, pass_id, f"HTTP {f.status}: the server's own error; set aside, the run rests")

@@ -71,3 +71,11 @@ def test_a_copy_that_is_a_challenge_page_is_a_block(monkeypatch):
     t, out = _run(Files(), monkeypatch)
     assert out["stopped"].startswith("stopped:") and out["pages"] == 0 and out["landed"] == 0
     assert t.asides[0][0] == "fetch" and "challenge" in t.asides[0][1]     # a block, before any reading of it
+
+
+def test_addresses_the_mcp_lacks_never_stop_the_run_however_many_in_a_row(monkeypatch):
+    # 13 November 2026: three items the copy lacked, one after another, stopped the night as "the host may be in
+    # trouble"; a gap in the copy is set aside and the run goes on
+    t, out = _run(Files(lacks=("a", "b", "c")), monkeypatch)
+    assert out["stopped"] == "" and out["landed"] == 0 and len(t.asides) == 3
+    assert capture.outcome(out)[0]
