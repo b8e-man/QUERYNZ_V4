@@ -541,3 +541,28 @@ def test_the_authoritys_early_determinations_are_their_own_profile():
     assert R.recognise(e, pdf, _texts(banner))[0] == R.ERA_EARLY, "the text layer's semicolon, under a banner"
     assert R.era_number(ERA_EARLY) == "AA 194/02" and R.era_number("Determination Number: AA 230A/05") == "AA 230A/05"
     assert R.recognise(e, pdf, _texts(ERA))[0] == R.ERA, "the later determinations keep theirs"
+
+
+# three tribunals that number their decisions their own way (13 November 2026: 375, 176 and 180 set aside as no shape);
+# shaped like the landed files, names invented
+ARLA = page("[2099] NZARLA PH 298-300", L + "IN THE MATTER" + " " * 6 + "of the Sale and Supply of Alcohol Act 2012", "AND",
+            L + "IN THE MATTER" + " " * 6 + "of an application pursuant to s 280 of the Act for suspension of an on-licence",
+            "BEFORE THE ALCOHOL REGULATORY AND LICENSING AUTHORITY", "                 DECISION", "[1]  The application is by the police.")
+NZTDT = page("BEFORE THE NEW ZEALAND TEACHERS DISCIPLINARY TRIBUNAL", "NZTDT 2099-69", "UNDER" + " " * 10 + "the Education and Training Act 2020",
+             L + "IN THE MATTER" + " " * 6 + "of a charge referred to the Tribunal", "BETWEEN" + " " * 10 + "THE COMPLAINTS ASSESSMENT COMMITTEE",
+             "AND" + " " * 14 + "SAMPLE PERSON", "                 DECISION OF THE TRIBUNAL", "[1]  The respondent is a registered teacher.")
+HPDT = page("Level 13, Example Tower, Wellington", "Website: www.hpdt.org.nz", "DECISION NO.: 181/Phar99/91P",
+            L + "IN THE MATTER" + " " * 6 + "of the Health Practitioners Competence Assurance Act 2003",
+            "BETWEEN" + " " * 10 + "A PROFESSIONAL CONDUCT COMMITTEE", "AND" + " " * 14 + "SAMPLE PERSON", "[1]  The charge concerns dispensing.")
+
+
+def test_three_tribunals_own_decision_numbers_are_their_citations():
+    e = {"url": "https://www.justice.govt.nz/assets/Documents/Decisions/opaque.pdf", "kind": "judgment_pdf"}
+    pdf = b"%PDF-1.4 fake"
+    for text, cite in ((ARLA, ("NZARLA", "[2099] NZARLA PH 298-300")), (NZTDT, ("NZTDT", "NZTDT 2099/69")),
+                       (HPDT, ("NZHPDT", "HPDT 181/Phar99/91P"))):
+        assert R.recognise(e, pdf, _texts(text))[0] == R.TRIBUNAL, cite
+        assert R.own_number(text) == cite
+    assert R.own_number("DECISION NO: 459/Nur 12/202P") == ("NZHPDT", "HPDT 459/Nur12/202P")
+    assert R.own_number("NZTDT 2099/06") == ("NZTDT", "NZTDT 2099/6")
+    assert R.recognise(e, pdf, _texts(LCDT))[0] == R.TRIBUNAL and R.recognise(e, pdf, _texts(JUDGMENT))[0] == "courts-nzsc-judgment"

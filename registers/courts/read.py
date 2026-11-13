@@ -152,6 +152,27 @@ def era_number(head: str):
     return f"{m.group(1)} {m.group(2)}/{m.group(3)}" if m else None
 
 
+#: three tribunals whose own numbering caption.CITE does not take (13 November 2026): the alcohol licensing authority's
+#: "[2014] NZARLA PH 207" (and "PH 298-300"), the teachers' tribunal's "NZTDT 2022-69" / "NZTDT 2024/06" and the health
+#: practitioners' tribunal's "DECISION NO: 181/Phar08/91P" / "HPDT NO 1130/Psy20/469P"
+OWN_NUMBERS = (
+    ("NZARLA", re.compile(r"\[(\d{4})\]\s+NZARLA\s+((?:PH\s+)?\d{1,4}(?:\s?(?:[-–]|and)\s?\d{1,4})?)\b"),
+     lambda m: f"[{m.group(1)}] NZARLA " + re.sub(r"\s+", " ", m.group(2))),
+    ("NZTDT", re.compile(r"\bNZTDT\s+(\d{4})\s?[-/]\s?(\d{1,3})\b"), lambda m: f"NZTDT {m.group(1)}/{int(m.group(2))}"),
+    ("NZHPDT", re.compile(r"(?:DECISION\s+NO|HPDT\s+NO)\.?\s*:?\s*(\d{1,4}/[A-Za-z]{2,5}\s?\d{2}/\d{1,4}[A-Z])"),
+     lambda m: "HPDT " + re.sub(r"\s+", "", m.group(1))),
+)
+
+
+def own_number(head: str):
+    """(court code, citation) of a tribunal that numbers its decisions its own way, or None."""
+    for code, rx, fmt in OWN_NUMBERS:
+        m = rx.search(head)
+        if m:
+            return code, fmt(m)
+    return None
+
+
 #: the Tribunal's published reports, every page headed with where they were downloaded from
 WAI_DOWNLOADED = re.compile(r"Downloaded from www\.waitangi-?tribunal\.govt\.nz", re.I)
 WAI_NUMBER = re.compile(r"\bWai\s?(\d{1,5})\b", re.I)
@@ -394,6 +415,11 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
         column = len(SPEAKER_COLUMN.findall(whole))
         if column >= SPEAKER_COLUMN_LINES and column >= 2 * len(texts):
             return TRANSCRIPT, "a cover sheet with the case number beside the court line and the speakers in a left column on every page: a hearing transcript of 2004–2008"
+    # a tribunal that numbers its decisions its own way, with its opening, labels or caption (before 13 November 2026 the
+    # alcohol licensing authority's, the teachers' and the health practitioners' tribunals' were set aside as no shape)
+    if court_text is None and own_number(head) and (TRIBUNAL_OPEN.search(head) or UPPER_LABELS.search(head) or labels
+                                                    or re.search(r"^\s*(?:UNDER|BETWEEN)\b", head, re.M)):
+        return TRIBUNAL, "a tribunal's own decision number (NZARLA PH, NZTDT, HPDT) with its opening, labels or caption"
     # a tribunal or authority with no court line, by a citation of its own code
     if ((court_text is None or court_text.endswith(("TRIBUNAL", "AUTHORITY"))) and cite_codes - COURT_CITE_CODES
             and (heading or TRIBUNAL_OPEN.search(p1) or UPPER_LABELS.search(head) or labels)):
@@ -639,6 +665,10 @@ def _read(entries, orders, store, data_of, now) -> Result:
             parsed.append((e, sha, slug, version, j, how))
             if slug == MAORI:
                 maori_citation(j, texts)
+            if slug == TRIBUNAL and not j.citation:
+                own = own_number((texts.get(1) or "") + "\n" + (texts.get(2) or ""))
+                if own:
+                    j.court, j.citation = j.court or own[0], own[1]
             if slug == ERA_EARLY:
                 j.citation = j.citation or era_number((texts.get(1) or "") + "\n" + (texts.get(2) or ""))
                 j.court = j.court or "NZERA"
