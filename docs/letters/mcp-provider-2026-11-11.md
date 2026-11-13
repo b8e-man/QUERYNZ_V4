@@ -115,3 +115,12 @@ Their question out-b0a417ce43d2b52b (both directories moved to Thryv; White Page
 included (ruling 174); Wayback for history, the open sitemaps collected, challenged pages stay failed reads; the print
 book and a data ask to Thryv are Arthur's to decide, neither done meanwhile. Their NZME backwalk question
 (out-2ab57f8b72914e01) waits on Arthur.
+
+## 13 November, 07:06 UTC: directories amended (estate-directories@2026-11-13b, message in-dc16f96e7e9ac323)
+
+Arthur: "forget thryv, forget print. what we want is to gather the full most recent copies of both white and yellow
+pages and record changes retrospectively". Sent as kind collect, amending estate-directories@2026-11-13: print book,
+Thryv ask and ebook probe withdrawn; the newest copy of every listing (open sitemaps and unchallenged pages kept current;
+the newest archived copy where the live page is challenged or removed); history from the Wayback CDX index (every URL on
+the three hosts, all years, each distinct digest fetched raw) and the Common Crawl index, every row and capture whole
+with its timestamp. Challenges stay failed reads. The full body is handover/asks/directories-2026-11-13b.sent.json.
