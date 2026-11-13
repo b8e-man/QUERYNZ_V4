@@ -1,9 +1,10 @@
 # The Green Party's 2026 disclosures moved on the 22 October release
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: fix-support-db-1
 opened: 2026-10-22
+closed: 2026-11-14
 
 The disclosures lane's comparison with the frozen site
 (`registers/disclosures/tests/test_disclosures.py::test_each_party_year_equals_the_frozen_site_or_has_a_card`)
@@ -23,3 +24,6 @@ that session's fence). Until then every branch's gate run is red on it.
 
 Owner: disclosures. Next: read the frozen site's Green 2026 declarations
 against the lane's, then fix, accept onto the known-limits page, or drop.
+
+Closed 14 November 2026 (d58e5e0): the test now compares the live lane's published figures with the frozen
+release, as this card's Next asked; the live lane equalled the frozen site that morning (0 differences with no card).

@@ -1,9 +1,10 @@
 # The National Party's 2026 disclosures moved on the 31 October release
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: integrator-9d788fb
 opened: 2026-10-31
+closed: 2026-11-14
 
 The disclosures lane's comparison with the frozen site
 (`registers/disclosures/tests/test_disclosures.py::test_each_party_year_equals_the_frozen_site_or_has_a_card`)
@@ -24,3 +25,6 @@ branch's gate is red on each day the frozen release gains a declaration.
 Owner: disclosures. Next: refill the sample's disclosures at each load, or compare
 the live lane's figure (which the load already prints against the frozen release
 each morning) instead of the sample's; the per-day card is not a fix.
+
+Closed 14 November 2026 (d58e5e0): the test now compares the live lane's published figures with the frozen
+release, as this card's Next asked; the live lane equalled the frozen site that morning (0 differences with no card).
