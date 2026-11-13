@@ -157,3 +157,9 @@ Amends estate-news@serve-67-from-2026-11-11 (whose "no backfill" line it replace
 handover/asks/media-sources-2026-11-13.json: 87 sources with held count, last fetch, earliest and latest month, and
 thin or empty months. NZME, Gazette, Beehive, Hansard, councils, courts, legislation and elections are left to their
 own requests.
+
+## 13 November: paywalls (estate-media@2026-11-13b, message in-0c61508ebf7747f6)
+
+Arthur: "there shouldnt be any paywalled articles as I have accounts". Paywalled articles to be fetched whole with
+his subscriber accounts; the logins reach the provider from Arthur directly, never through the channel. Until then
+stubs land marked as stubs, for a later refetch.
