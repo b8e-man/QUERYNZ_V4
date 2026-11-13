@@ -11,6 +11,9 @@ import subprocess
 import sys
 import tempfile
 
+#: the fence's environment overrides, dropped for the hook under test (node1's worker sets QV4_OLD_LIVE; 14 Nov 2026)
+FENCE_ENV = ("QV4_OLD_LIVE", "QV4_WORK", "QV4_REF_COPY", "QV4_UNIT_DIR", "QV4_MEMORY")
+
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -44,7 +47,7 @@ def run(repo, event, cwd=None):
     ev.setdefault("session_id", SESSION)
     ev.setdefault("cwd", cwd or repo)
     p = subprocess.run([sys.executable, HOOK], input=json.dumps(ev), capture_output=True,
-                       text=True, timeout=10, env={**os.environ, "CLAUDE_PROJECT_DIR": repo})
+                       text=True, timeout=10, env={**{k: v for k, v in os.environ.items() if k not in FENCE_ENV}, "CLAUDE_PROJECT_DIR": repo})
     return p.returncode, p.stderr
 
 

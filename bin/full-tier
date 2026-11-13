@@ -52,7 +52,7 @@ def main() -> int:
     where, head = snapshot(repo)
     try:
         p = subprocess.run([py, "-m", "pytest", "-p", "no:cacheprovider", "-rfE"], cwd=where, capture_output=True,
-                           text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": where})
+                           text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": where, "COLUMNS": "400"})   # each FAILED line keeps its message whole
     finally:
         subprocess.run(["git", "-C", repo, "worktree", "remove", "--force", where], capture_output=True)
     seconds = round(time.monotonic() - t0, 1)

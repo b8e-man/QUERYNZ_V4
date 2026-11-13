@@ -14,6 +14,14 @@ import pytest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, ".claude", "hooks", "safety.py")
 OLD = "/home/user/Git Repos/QueryNZ_V3"
+#: the fence reads these from the environment; node1's worker sets QV4_OLD_LIVE to its NFS mount of the old folder
+#: (support/frozen.py), and the nightly full tier on node1 then failed every old-folder test (14 November 2026)
+FENCE_ENV = ("QV4_OLD_LIVE", "QV4_WORK", "QV4_REF_COPY", "QV4_UNIT_DIR", "QV4_MEMORY")
+
+
+def _env(**extra):
+    env = {k: v for k, v in os.environ.items() if k not in FENCE_ENV}
+    return {**env, **extra}
 
 
 @pytest.fixture
@@ -31,7 +39,7 @@ def fake_repo(tmp_path):
 
 def run(event, repo=None, stop_list=None):
     data = event if isinstance(event, str) else json.dumps(event)
-    env = {**os.environ}
+    env = _env()
     if repo:
         env["CLAUDE_PROJECT_DIR"] = repo
     env["QV4_STOP_LIST"] = stop_list or os.path.join(tempfile.gettempdir(), "qv4-no-such-stop-list.md")

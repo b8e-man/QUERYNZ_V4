@@ -377,7 +377,11 @@ def test_the_form_s_own_total_never_differs_from_the_table_where_a_reading_is_he
 
 def test_each_party_year_equals_the_frozen_site_or_has_a_card(filled):
     assert os.path.exists(check.HOME_JSON), f"the frozen site's figures are read from {check.HOME_JSON}, which is not here"
-    out = check.compare(filled["rows"], *check.frozen())
+    # the live lane's published figures, not the sample's: the sample is fixed at the last fill while the frozen
+    # release moves daily, so the sample went red on each new declaration (cards of 21, 22 and 31 October; 14 November)
+    with db.connect(db.READ_KEY, "querynz_v4") as live:
+        rows = check.held(live, "disclosures.declarations")
+    out = check.compare(rows, *check.frozen())
     cards = " ".join(open(p, encoding="utf-8").read() for p in glob.glob(os.path.join(REPO, "cards", "*.md")))
     uncarded = [d for d in out["differ"] if f"{d['party']} {d['year']}" not in cards]
     assert uncarded == [], "differences from the frozen site with no card: " + "; ".join(
