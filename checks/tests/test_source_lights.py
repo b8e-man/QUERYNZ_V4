@@ -623,7 +623,7 @@ def test_every_corpus_the_pull_takes_is_some_lane_s_light():
     assert pulled - named == set()
 
 
-def test_the_nine_stopped_sources_on_the_real_lanes(monkeypatch):
+def test_the_stopped_sources_read_the_mcp_copy_on_the_real_lanes(monkeypatch):
     """9 November 2026 (3429166, d1e125c): every lane whose capture the boxes stopped is orange on the real catalogue,
     never green, with every job that still runs well; FMA's capture runs again from the MCP's copy, so it stays green;
     and a council host the gate holds no longer lights the two council lanes, whose captures ask nothing now."""
@@ -635,13 +635,9 @@ def test_the_nine_stopped_sources_on_the_real_lanes(monkeypatch):
         for j in lane.update + lane.read:
             f["last_done"][j] = f["last_finished"][j] = done(2)
     f["refusals"] = {"www.fndc.govt.nz": {"host": "www.fndc.govt.nz", "state": "held", "why": "HTTP 403", "at": None}}
-    stopped = ("worksafe",)   # 10 November 2026: the other six read the MCP's copy (--from-mcp) and are on again
-    for r in stopped:
-        x = sl.light_of(r, True, f, NOW)
-        assert x["light"] == "orange" and "switched off in the catalogue" in x["reason"], (r, x)
-        assert not any("fndc" in w for w in x["reasons"]), (r, x)
+    # 10 November 2026: six read the MCP's copy (--from-mcp) and are on again; WorkSafe the seventh, 13 November
     for r in ("fma", "commerce_commission", "building_practitioners", "council_minutes", "councillor_interests",
-              "local_elections"):
+              "local_elections", "worksafe"):
         x = sl.light_of(r, True, f, NOW)
         assert x["light"] == "green", (r, x)
         assert not any("fndc" in w for w in x["reasons"]), (r, x)

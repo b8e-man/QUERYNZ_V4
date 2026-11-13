@@ -1076,7 +1076,7 @@ nice = 10
 then = ["qv4-names-fma"]   # its names into pub.names (1 November)
 
 [jobs.qv4-worksafe-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-worksafe: 1,439 records (ours 772), newest 8 Nov, fetched by the provider); the boxes stop (the 5 November split). 10 November: `--from-mcp` is built; on again with it once qv4-mcp-pull has landed estate-worksafe's files (all 1,439 waiting that night) and the readings are proven the same (docs/research/step-9-mcp-lanes.md)
+# enabled again 13 November 2026 with --from-mcp: the provider's copy read pair by pair against our last capture, 663 of 665 the same reading (2 a page section WorkSafe has since edited), the hash aside (docs/research/step-9-mcp-lanes.md). Off 9 to 13 November (Arthur, 9 November: the ingest MCP gathers this source itself; the 5 November split)
 description = "Step 5.3: WorkSafe New Zealand's court summaries and enforceable undertakings, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:30 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.3
@@ -1084,7 +1084,7 @@ deadline_s = 18000
 query_timeout_s = 60
 class = "due"
 priority = 65
-command = ["python", "-m", "registers.worksafe.capture"]
+command = ["python", "-m", "registers.worksafe.capture", "--from-mcp"]   # 13 November 2026: the crawl is the MCP provider's; no request leaves the boxes
 at_utc = "10:30"
 nice = 10
 

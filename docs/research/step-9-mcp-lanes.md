@@ -170,3 +170,11 @@ abstracts only, so it is unchanged.
 after our gate held the host (because of connection resets, not a challenge). Ruling 159 settled this for the
 councils that blocked the boxes. Whether it reaches this host is your call; no default. The provider has listed
 but fetched no order PDF, so the 13,069 orders wait on it.
+
+## 13 November 2026: WorkSafe proven and on
+
+qv4-mcp-pull had landed 702 of estate-worksafe's 1,439 files. For each of the 665 addresses of our last capture the
+reader ran over both copies (ours, the provider's newest): 663 read the same, the document hash aside; 2 differ in a
+page section's text, edited by WorkSafe since our capture. qv4-worksafe-capture is on again with `--from-mcp`; the
+lane's light is no longer the "switched off" orange.
+
