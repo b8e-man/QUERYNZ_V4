@@ -210,7 +210,10 @@ SPEAKER_COLUMN = re.compile(r"^(?:(?:Mr|Ms|Mrs|Miss|Dr|Sir|Dame) )?[A-Z][A-Za-zÄ
 SPEAKER_COLUMN_LINES = 50
 #: case numbers as every court prints them: SC 6/2004, SC CIV 7/2004, CA94/05, CIV-2026-404-1, CIV2017-091-000902, EMPC 230/2021
 CASE_NUMBER = re.compile(r"\b(?:SC|CA|EMPC|SC CIV|SC CRI|CA CIV|CA CRI)\s?\d{1,4}/(?:\d{4}|\d{2})\b|"
-                         r"\b(?:CIV|CRI|CRC|CIVP)[- ]?\d{4}-\d{3}-\d{1,6}\b|\bCSU-\d{4}-[A-Z]{3}-\d{6}\b", re.I)
+                         r"\b(?:CIV|CRI|CRC|CIVP)[- ]?\d{4}-\d{3}-\d{1,6}\b|\bCSU-\d{4}-[A-Z]{3}-\d{6}\b|"
+                         # the High Court's older printings (the JDO's judgments of 1999 to 2010, 13 November 2026): spaces for the
+                         # hyphens, a colon or a full stop after the prefix, the appeal prefix AP, the year mistyped in three digits
+                         r"\b(?:CIV|CRI|CRC|CIVP|AP)\s?[:.]?\s?(?:19|20|2)\d{2}[- ]\d{3}[- ]\d{1,6}\b", re.I)
 DATE_LINE = re.compile(r"^\s*(\d{1,2}) (January|February|March|April|May|June|July|August|September|October|November|December) (\d{4})\s*$", re.M | re.I)
 CASE_HREF = re.compile(r"^https?://(?:www\.)?courtsofnz\.govt\.nz(?::80)?/cases/([^/?#]+)/?$")
 

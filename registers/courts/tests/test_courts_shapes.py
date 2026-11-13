@@ -587,3 +587,15 @@ def test_the_environment_courts_decisions_and_filed_papers_are_recognised_and_it
     assert R.recognise(e, pdf, _texts(ENVC))[0] == "courts-judgment"
     assert R.recognise(e, pdf, _texts(ENVC_PAPER))[0] == R.SUBMISSION
     assert R.recognise(e, pdf, _texts(ENVC_NOTICE))[0] is None
+
+
+def test_the_high_courts_older_case_number_printings_are_case_numbers():
+    """The JDO's High Court judgments of 1999 to 2010 (13 November 2026: 480 set aside as no shape) print their case
+    numbers with spaces, a colon or a full stop, the appeal prefix AP, or a mistyped year."""
+    e = {"url": "https://www.justice.govt.nz/jdo_documents/workspace___SpacesStore_opaque.pdf", "kind": "judgment_pdf"}
+    pdf = b"%PDF-1.4 fake"
+    for number in ("CIV 2007 409 2671", "CIV: 2006-485-1341", "CIV.2006-488-234", "AP 2006-485-19", "CIV205-404-2531"):
+        hc = JUDGMENT.replace("SUPREME COURT", "HIGH COURT").replace("SC 12/2099", number)
+        assert R.recognise(e, pdf, _texts(hc))[0] == "courts-nzhc-civil-judgment", number
+    hc = JUDGMENT.replace("SUPREME COURT", "HIGH COURT").replace("SC 12/2099", "CRI 2007 409 12")
+    assert R.recognise(e, pdf, _texts(hc))[0] == "courts-nzhc-criminal-judgment"
