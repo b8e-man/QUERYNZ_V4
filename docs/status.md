@@ -32,17 +32,15 @@ old ntfy.
 - Step 9 (150-162), 10 Nov: 1, 2, 6, 8, pane built; 7 waits on news;
   5: 6 lanes on the MCP, stale list lit. Old estate copied in nightly
   (oldcopy on); handover/mcp-gaps.md for the provider, daily.
-- 11 Nov (166-168): old API jobs moved to the new lanes; old backups
-  stopped; consumed READY (154 copied, 53 held, 58 let go). fyi removed
-  (171: quarantine deleted); NZME asked of the provider (169); GeoNames
-  out, tables dropped. Courts load past
-  its 4.5 h limit 10 and 11 Nov: text layers now cached (58970db), 91,942
-  filled. 170: the gap list asks only what we lack (0 backlog asks, 282
-  withdrawn); asks/collect.json: EC, legislation, Hansard, 73 sites.
-- 12 Nov (171): model server at 10 requests x 32k, 11.5 GiB pool a
-  rank, both boxes; node2 reads the n-gram table from the spare
-  drive (/mnt/ssd2), node1 from RAM. fyi quarantine removed on
-  Arthur's word. 172: the provider asked for the courts finder whole.
+- 11 Nov (166-170): old API jobs on the new lanes; consumed READY;
+  fyi out; NZME asked; GeoNames dropped; courts text layers cached.
+- 12 Nov (171-172): model server 10 x 32k both boxes, node2's n-gram
+  table on /mnt/ssd2; the provider asked for the courts finder.
+- 13 Nov (173-175): provider talks through the MCP's asks tools; 13b
+  and the answers sent. Courts: IPT, Waitangi record and reports,
+  early ERA, ARLA/NZTDT/HPDT, Environment Court, old HC numbers
+  recognised (~20,000 more read). Tenancy takes the courts corpus
+  (5,479 orders). Charities groups whole each run. WorkSafe on, MCP.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
