@@ -631,3 +631,23 @@ def test_a_document_landed_again_is_listed_once_and_is_not_absent_from_the_copy_
             assert [sha for sha, _ in read.pages(conn, "MainSector", schema)] == [a]
             assert [sha for sha, _ in read.pages(conn, "Groups", schema)] == [b, c]
             assert set(read.absent_since(conn, "Groups", schema)) == {b}
+
+
+def test_a_group_renamed_after_the_view_was_captured_is_counted_apart_not_as_a_difference():
+    # 14 November 2026: the register renamed a group without moving its ModifiedOn; the view row captured before
+    # the rename named it as it was, and the check called the build RED
+    import datetime as _dt
+    import json as _json
+    from registers.charities import check as _check
+    when = _dt.datetime(2026, 11, 9, tzinfo=_dt.timezone.utc)
+    view = {"v1": _json.dumps({"d": [{"OrganisationId": 1, "ModifiedOn": "2026-11-09T00:00:00Z", "GroupName": "Old Group"},
+                                     {"OrganisationId": 2, "ModifiedOn": "2026-11-09T00:00:00Z", "GroupName": "Other"}]}).encode()}
+
+    class Conn:
+        def execute(self, sql, *a):
+            return [(1, None, None, None, "New Group", when), (2, None, None, None, "Wrong", when)]
+    v_at = {"v1": _dt.datetime(2026, 11, 10, tzinfo=_dt.timezone.utc)}
+    seen = {"New Group": _dt.datetime(2026, 11, 13, tzinfo=_dt.timezone.utc),
+            "Wrong": _dt.datetime(2026, 11, 1, tzinfo=_dt.timezone.utc)}
+    got = _check.resolution(Conn(), "s", ["v1"], view.__getitem__, v_fetched=v_at, groups_seen=seen)
+    assert got["group renamed after the view was captured"] == 1 and got["GroupName differs"] == 1   # a name seen before the view still differs

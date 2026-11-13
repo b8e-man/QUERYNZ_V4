@@ -170,8 +170,23 @@ def counts(conn, schema: str, capture_conn, read_bytes, shared: bool = False) ->
     return out
 
 
-def resolution(conn, schema: str, v_pages: list, read_bytes, shared: bool = False) -> dict:
-    """Ours against the register's own `vOrganisations` names (check 4)."""
+def group_names_seen(capture_conn, read_bytes) -> dict:
+    """Group name → when a captured Groups page first held it (13 November 2026: the register renamed a group without
+    moving its ModifiedOn, so a view row captured before the rename names the group as it was)."""
+    at = dict(capture_conn.execute("SELECT sha256, fetched_at FROM charities.capture_pages WHERE entity_set = 'Groups'"))
+    seen = {}
+    for sha, _ in read.pages(capture_conn, "Groups"):
+        for r in read.parse_page(read_bytes(sha))[1]:
+            name, t = read.text(r.get("name") or r.get("Name")), at.get(sha)
+            if name and t and (name not in seen or t < seen[name]):
+                seen[name] = t
+    return seen
+
+
+def resolution(conn, schema: str, v_pages: list, read_bytes, shared: bool = False, v_fetched: dict = None,
+               groups_seen: dict = None) -> dict:
+    """Ours against the register's own `vOrganisations` names (check 4). A GroupName that differs because our group's
+    name first appeared in a Groups page captured after the view page is a rename since, counted apart."""
     T = lambda t: load.table(schema, t, shared)
     ours = {r[0]: r[1:] for r in conn.execute(
         f"SELECT organisation_id, main_sector, main_activity, main_beneficiary, group_name, source_modified_at "
@@ -192,7 +207,11 @@ def resolution(conn, schema: str, v_pages: list, read_bytes, shared: bool = Fals
             out["compared"] += 1
             for i, f in enumerate(fields):
                 if read.text(r.get(f)) != mine[i]:
-                    out[f"{f} differs"] += 1
+                    first, viewed = (groups_seen or {}).get(mine[i]), (v_fetched or {}).get(sha)
+                    if f == "GroupName" and first and viewed and first > viewed:
+                        out["group renamed after the view was captured"] += 1
+                    else:
+                        out[f"{f} differs"] += 1
     out["not in the view"] = len(set(ours) - seen)
     return dict(out)
 
@@ -215,7 +234,10 @@ def reading(conn, schema: str, capture_conn, read_bytes, shared: bool = False) -
     listed = load.listings(capture_conn)
     lines = reconcile(conn, schema, listed, shared)
     c = counts(conn, schema, capture_conn, read_bytes, shared)
-    v = resolution(conn, schema, [s for s, _ in read.pages(capture_conn, "vOrganisations")], read_bytes, shared)
+    v_fetched = dict(capture_conn.execute("SELECT sha256, fetched_at FROM charities.capture_pages "
+                                          "WHERE entity_set = 'vOrganisations'"))
+    v = resolution(conn, schema, [s for s, _ in read.pages(capture_conn, "vOrganisations")], read_bytes, shared,
+                   v_fetched=v_fetched, groups_seen=group_names_seen(capture_conn, read_bytes))
     differs = sum(n for k, n in v.items() if k.endswith("differs"))
     faults = names(conn, schema, shared)
     problems = list(lines)
