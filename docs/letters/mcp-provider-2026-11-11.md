@@ -163,3 +163,8 @@ own requests.
 Arthur: "there shouldnt be any paywalled articles as I have accounts". Paywalled articles to be fetched whole with
 his subscriber accounts; the logins reach the provider from Arthur directly, never through the channel. Until then
 stubs land marked as stubs, for a later refetch.
+
+## 13 November: logins in place (estate-media@2026-11-13c)
+
+Arthur: "i have given it the logins. I have spoken with them and they have told me it's okay". The publishers agreed
+to collection with his subscriber accounts. Paywalled articles fetched whole from now on; every stub so far refetched.
