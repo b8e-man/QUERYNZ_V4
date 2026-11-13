@@ -149,3 +149,11 @@ Arthur: "make sure it is very slow in its business desk collection". One connect
 Arthur: "I guess we want it". The open-data page, data dictionary, diagram, terms of use, copyright and restricting-
 information pages on www.charities.govt.nz (held by our fetch gate), whole, re-checked weekly. Our nightly run stops
 asking that host; the register still comes from www.odata.charities.govt.nz.
+
+## 13 November, 09:00 UTC: every media source, gaps filled (estate-media@2026-11-13, message in-8a2678c8a62516f5)
+
+Arthur: forward from where we stopped, back from our earliest record, and every new record, for all media sources.
+Amends estate-news@serve-67-from-2026-11-11 (whose "no backfill" line it replaces). Attached
+handover/asks/media-sources-2026-11-13.json: 87 sources with held count, last fetch, earliest and latest month, and
+thin or empty months. NZME, Gazette, Beehive, Hansard, councils, courts, legislation and elections are left to their
+own requests.
