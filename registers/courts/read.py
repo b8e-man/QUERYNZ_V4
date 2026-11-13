@@ -173,6 +173,13 @@ def own_number(head: str):
     return None
 
 
+#: the Environment Court's own court lines, which COURT ("IN THE … COURT" alone on its line) misses: "BEFORE THE ENVIRONMENT
+#: COURT", "ENVIRONMENT COURT OF NEW ZEALAND", "IN THE ENVIRONMENT COURT" beside its case number; and its case numbers,
+#: "ENV-2023-WLG-000005", "(ENV-2016-AKL-42)" (13 November 2026: 401 set aside as no shape)
+ENV_COURT = re.compile(r"^\s*(?:BEFORE THE ENVIRONMENT COURT|(?:THE )?ENVIRONMENT COURT OF NEW ZEALAND|IN THE ENVIRONMENT COURT)\b", re.M)
+ENV_NUMBER = re.compile(r"\bENV-\d{4}-[A-Z]{3}-\d{2,6}\b")
+
+
 #: the Tribunal's published reports, every page headed with where they were downloaded from
 WAI_DOWNLOADED = re.compile(r"Downloaded from www\.waitangi-?tribunal\.govt\.nz", re.I)
 WAI_NUMBER = re.compile(r"\bWai\s?(\d{1,5})\b", re.I)
@@ -415,6 +422,13 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
         column = len(SPEAKER_COLUMN.findall(whole))
         if column >= SPEAKER_COLUMN_LINES and column >= 2 * len(texts):
             return TRANSCRIPT, "a cover sheet with the case number beside the court line and the speakers in a left column on every page: a hearing transcript of 2004–2008"
+    # the Environment Court: a decision by its citation or heading, a filed paper by its case number with no heading;
+    # its notices of hearing and mediation stay set aside
+    if ENV_COURT.search(head) and not re.search(r"NOTICE OF (?:HEARING|MEDIATION)", head):
+        if "NZEnvC" in cite_codes or heading:
+            return JUDGMENT_PROFILES["OTHER"], "the Environment Court's court line with its citation or a judgment heading"
+        if ENV_NUMBER.search(head):
+            return SUBMISSION, "the Environment Court's court line and case number with no judgment heading: a filed document"
     # a tribunal that numbers its decisions its own way, with its opening, labels or caption (before 13 November 2026 the
     # alcohol licensing authority's, the teachers' and the health practitioners' tribunals' were set aside as no shape)
     if court_text is None and own_number(head) and (TRIBUNAL_OPEN.search(head) or UPPER_LABELS.search(head) or labels

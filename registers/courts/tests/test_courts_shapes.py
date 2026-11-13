@@ -566,3 +566,24 @@ def test_three_tribunals_own_decision_numbers_are_their_citations():
     assert R.own_number("DECISION NO: 459/Nur 12/202P") == ("NZHPDT", "HPDT 459/Nur12/202P")
     assert R.own_number("NZTDT 2099/06") == ("NZTDT", "NZTDT 2099/6")
     assert R.recognise(e, pdf, _texts(LCDT))[0] == R.TRIBUNAL and R.recognise(e, pdf, _texts(JUDGMENT))[0] == "courts-nzsc-judgment"
+
+
+# the Environment Court (13 November 2026: 401 set aside as no shape): its BEFORE THE court line, its citation beside a
+# Decision No. label, its ENV- case numbers; names invented
+ENVC = page("BEFORE THE ENVIRONMENT COURT", "I MUA I TE KOOTI TAIAO O AOTEAROA", "Decision No. [2099] NZEnvC 063",
+            L + "IN THE MATTER" + " " * 6 + "of the Resource Management Act 1991", "BETWEEN" + " " * 10 + "EXAMPLE SOCIETY INCORPORATED",
+            "(ENV-2099-AKL-42)", "Court:     Judge A Able", "Hearing:   1 June 2099", "          DECISION OF THE ENVIRONMENT COURT",
+            "[1]  The appeal concerns a plan change.")
+ENVC_PAPER = page("ENVIRONMENT COURT OF NEW ZEALAND", "WELLINGTON REGISTRY", "I MUA I TE KOOTI TAIAO O AOTEAROA", " " * 40 + "ENV-2099-WLG-000005",
+                  "Under the Resource Management Act 1991", "In the matter of the direct referral of applications for resource consents",
+                  "STATEMENT OF EVIDENCE OF SAMPLE PERSON ON BEHALF OF THE APPLICANT", "1.  My name is Sample Person.")
+ENVC_NOTICE = page("THE ENVIRONMENT COURT OF NEW ZEALAND", "NOTICE OF HEARING", "TAKE NOTICE that there is to be a sitting of the Court",
+                   "for the proceedings listed in the attached schedule", "COMMENCING: Tuesday, 5 November 2099")
+
+
+def test_the_environment_courts_decisions_and_filed_papers_are_recognised_and_its_notices_are_not():
+    e = {"url": "https://environmentcourt.govt.nz/assets/opaque.pdf", "kind": "judgment_pdf"}
+    pdf = b"%PDF-1.4 fake"
+    assert R.recognise(e, pdf, _texts(ENVC))[0] == "courts-judgment"
+    assert R.recognise(e, pdf, _texts(ENVC_PAPER))[0] == R.SUBMISSION
+    assert R.recognise(e, pdf, _texts(ENVC_NOTICE))[0] is None
