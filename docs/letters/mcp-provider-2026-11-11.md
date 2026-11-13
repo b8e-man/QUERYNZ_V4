@@ -143,3 +143,9 @@ The channel refused one 12 MB attachment (broken pipe); the held URLs went as se
 
 Arthur: "make sure it is very slow in its business desk collection". One connection, at least 60 s between requests,
 01:00-06:00 NZ time only; a refusal or challenge stops it 24 hours then half rate; a second stops it and is reported.
+
+## 13 November, 08:45 UTC: the six charities pages (estate-charities-pages@2026-11-13, message in-450573fd9ce788b9)
+
+Arthur: "I guess we want it". The open-data page, data dictionary, diagram, terms of use, copyright and restricting-
+information pages on www.charities.govt.nz (held by our fetch gate), whole, re-checked weekly. Our nightly run stops
+asking that host; the register still comes from www.odata.charities.govt.nz.

@@ -114,6 +114,10 @@ DOCS = {
     "copyright": "https://www.charities.govt.nz/copyright",
     "restricting-information": "https://www.charities.govt.nz/im-a-registered-charity/restricting-information",
 }
+#: the pages on www.charities.govt.nz: collected by the MCP provider since 13 November 2026 (Arthur: "I guess we want
+#: it"; request estate-charities-pages@2026-11-13), as the fetch gate holds that host (ruling 141). A run asks for
+#: them only when named in --sets; every other run asks only the feed's own host.
+FROM_MCP = frozenset(n for n, u in DOCS.items() if "//www.charities.govt.nz/" in u)
 CONTENT_TYPES = {"$metadata": "application/xml", "open-data-page": "text/html",
                  "data-dictionary": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                  "erd": "application/pdf", "terms-of-use": "text/html", "copyright": "text/html",
@@ -305,7 +309,9 @@ class Run:
         self.stopped = ""
 
     def wanted(self, name) -> bool:
-        return self.sets is None or name in self.sets
+        if self.sets is None:
+            return name not in FROM_MCP
+        return name in self.sets
 
     def time_left(self) -> bool:
         if self.clock() - self.started >= self.budget_s:

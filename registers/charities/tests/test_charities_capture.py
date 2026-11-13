@@ -373,3 +373,10 @@ def test_nothing_the_capture_prints_is_a_row():
 def test_the_groups_are_copied_whole_on_every_run():
     """The register renames a group without moving its ModifiedOn (13 November 2026), so a changes pass never sees it."""
     assert "Groups" in C.WHOLE_EACH_RUN and all(n in {k for k, _, _ in C.KEYED} for n in C.WHOLE_EACH_RUN)
+
+
+def test_a_default_run_asks_nothing_of_the_site_whose_pages_the_mcp_collects():
+    feed = FakeFeed({"Groups": [{"GroupId": 1}]})
+    run(FakeTables(), feed, FakeStore())
+    assert C.FROM_MCP == {"open-data-page", "data-dictionary", "erd", "terms-of-use", "copyright", "restricting-information"}
+    assert feed.asked and not any("//www.charities.govt.nz/" in u for u in feed.asked)
