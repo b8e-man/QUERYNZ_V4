@@ -124,3 +124,9 @@ Thryv ask and ebook probe withdrawn; the newest copy of every listing (open site
 the newest archived copy where the live page is challenged or removed); history from the Wayback CDX index (every URL on
 the three hosts, all years, each distinct digest fetched raw) and the Common Crawl index, every row and capture whole
 with its timestamp. Challenges stay failed reads. The full body is handover/asks/directories-2026-11-13b.sent.json.
+
+## 13 November, 07:57 UTC: every council's minutes (estate-council-minutes@2026-11-13, message in-1e32a592db7633f4)
+
+Arthur's yes. Kind collect, with held-council-minutes.tsv (990 documents, 21 councils, nearly all 2026): every
+meeting document of all 78 councils, every body, all years served, Wayback for older years, the 3,335 listed but
+unfetched documents, and a weekly check for new ones. Body: handover/asks/council-minutes-2026-11-13.sent.json.
