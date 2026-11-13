@@ -121,6 +121,7 @@ class Lane:
     waiting: tuple = ()     # (pub view, SQL condition) counting its documents waiting on a reader
     coverage: str = ""      # a key of COVERAGE: the lane's own count against the source's
     note: str = ""          # why there is no update job
+    mcp_hosts: tuple = ()   # hosts its positions name that its own run no longer asks: the MCP provider collects them
 
 
 MERGE_GATE = "loaded by the merge gate's staging step"
@@ -144,8 +145,9 @@ LANES = {
     "companies": Lane(update=("qv4-companies-monitor", "qv4-companies-history"),
                       hosts=("companiesoffice.govt.nz", "api.business.govt.nz"), positions=("nzbn-register-entities",)),
     "societies": Lane(update=("qv4-societies-capture",), hosts=("api.business.govt.nz",)),
-    "charities": Lane(update=("qv4-charities-capture", "qv4-charities-load"), hosts=("charities.govt.nz",),
-                      positions=("charities-register",)),
+    "charities": Lane(update=("qv4-charities-capture", "qv4-charities-load"), hosts=("www.odata.charities.govt.nz",),
+                      positions=("charities-register",),
+                      mcp_hosts=("www.charities.govt.nz",)),   # 14 Nov 2026: its six pages are the MCP's (estate-charities-pages@2026-11-13)
     "candidate_returns": Lane(update=("qv4-candidate-returns-load",), read=("qv4-read-pages-candidates",),
                               corpora=("estate-candidate_returns",)),
     "gazette": Lane(update=("qv4-gazette-capture", "qv4-gazette-load"), hosts=("gazette.govt.nz", "api.digitalnz.org"),
@@ -285,7 +287,8 @@ def _bare(host: str) -> str:
 
 
 def lane_hosts(lane: Lane, positions: dict) -> set:
-    return {_bare(h) for h in lane.hosts} | {_bare(h) for p in lane.positions for h in positions.get(p, ())}
+    hosts = {_bare(h) for h in lane.hosts} | {_bare(h) for p in lane.positions for h in positions.get(p, ())}
+    return hosts - {_bare(h) for h in lane.mcp_hosts}
 
 
 def host_matches(held: str, hosts: set) -> bool:

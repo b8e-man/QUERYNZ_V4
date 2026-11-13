@@ -795,3 +795,10 @@ def test_a_lane_s_request_reaches_the_provider_page_and_feed(tmp_path):
     assert "| estate-tenders | 9 | 9 | ? |" in page
     assert "What is asked for estate-tenancy_tribunal: gather these orders." in page      # each lane's own words
     assert "What is asked for estate-tenders: gather the GETS award-notice files." in page
+
+
+def test_a_host_the_mcp_collects_for_a_lane_never_lights_it():
+    # 14 November 2026: charities stayed red on the www.charities.govt.nz hold after its six pages went to the MCP
+    from checks import source_lights as SL
+    lane = SL.Lane(hosts=("www.odata.charities.govt.nz",), positions=("p",), mcp_hosts=("www.charities.govt.nz",))
+    assert SL.lane_hosts(lane, {"p": ("www.charities.govt.nz", "www.odata.charities.govt.nz")}) == {"odata.charities.govt.nz"}
