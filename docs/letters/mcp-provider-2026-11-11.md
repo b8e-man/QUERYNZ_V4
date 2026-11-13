@@ -106,3 +106,12 @@ Our second put, in-145e39a8cf689599: estate-collect@2026-11-13c, kind answer (`a
 on Arthur's word: no route to the Commission's challenged documents, so they stay failed reads; legislation is ours
 through the PCO keyed API (the key is Arthur's to apply for); Hansard before 2003 accepted as not served by
 parliament.nz and kept as our own gap, Papers Past not used.
+
+## 13 November: Yellow and White Pages, and the NZME backwalk
+
+Their question out-b0a417ce43d2b52b (both directories moved to Thryv; White Pages residential off the web since 13 July
+2026; detail pages behind /ycaptcha, yellow.co.nz behind Cloudflare) answered as estate-directories@2026-11-13
+(in-5c70aa8ae4fa67b8, `asks/directories-2026-11-13.sent.json`): we hold none and want both, everything, historic
+included (ruling 174); Wayback for history, the open sitemaps collected, challenged pages stay failed reads; the print
+book and a data ask to Thryv are Arthur's to decide, neither done meanwhile. Their NZME backwalk question
+(out-2ab57f8b72914e01) waits on Arthur.
