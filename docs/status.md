@@ -43,7 +43,9 @@ old ntfy.
   (5,479 orders). Charities groups whole each run. WorkSafe on, MCP.
 - 14 Nov: asks for directories, councils, NZME, 87 media sources sent;
   fixes: charities group rename, WorkSafe MCP gaps, courts publish
-  locks, LINZ transport stops (2103819).
+  locks, LINZ transport stops (2103819). Board Sources tab: 265 sources,
+  each a link and a light with one line on hover; the pull takes 11 more
+  estate-* corpora (news, charities, grants, three courts and more).
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
