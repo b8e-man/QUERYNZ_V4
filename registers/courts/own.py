@@ -495,10 +495,11 @@ class FinderWalk(Walk):
 
 
 # ── from 9 November 2026: the two walks are the MCP provider's (the 5 November split; commit 3429166) ─────────────────
-#: the ingest MCP's copy of each walk, which `--from-mcp` takes the ledger from; the finder (tranche 2) has none
-MCP_CORPORA = {SOURCE: "estate-courts-jdo", ERA_SOURCE: "estate-courts-era"}
+#: the ingest MCP's copy of each walk, which `--from-mcp` takes the ledger from; the finder's copy from 14 November
+#: 2026 (estate-courts-finder, pulled on Arthur's "do it"): each record names its jurisdiction in `listed`
+MCP_CORPORA = {SOURCE: "estate-courts-jdo", ERA_SOURCE: "estate-courts-era", FINDER_SOURCE: "estate-courts-finder"}
 #: the court a file no listing of the copy names is recorded under (the ledger's court is NOT NULL)
-UNLISTED = {SOURCE: "(no listing in the MCP's copy)", ERA_SOURCE: ERA_COURT}
+UNLISTED = {SOURCE: "(no listing in the MCP's copy)", ERA_SOURCE: ERA_COURT, FINDER_SOURCE: "(no jurisdiction in the MCP's copy)"}
 TAKE_BATCH = 500
 
 
@@ -506,6 +507,8 @@ def listing_of(source: str, url: str, body: bytes):
     """(court, year, [pdf addresses]) from one listing page of the MCP's copy, as the walk would have read it; None for
     a page that is not one of the walk's listings (the taxonomy). ValueError for a listing that does not read."""
     q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
+    if source == FINDER_SOURCE:     # the finder's records name their jurisdiction themselves (record_court)
+        return None
     if source == SOURCE:
         if "/jdo-search-api" not in url:
             return None
@@ -516,6 +519,15 @@ def listing_of(source: str, url: str, body: bytes):
         return None
     _, hrefs = era_listing(body.decode("utf-8", "replace"))
     return ERA_COURT, int(q["DateFrom"][:4]), [urllib.parse.urljoin(ERA_BASE, h) for h in hrefs]
+
+
+def record_court(source: str, rec: dict):
+    """(court, year) a record of the copy names for itself: the finder's `listed.jurisdiction`, the year 0 as the
+    finder's walk recorded it; None for the other copies (their listing pages name it) or a record that names none."""
+    if source != FINDER_SOURCE:
+        return None
+    court = ((rec or {}).get("listed") or {}).get("jurisdiction")
+    return (str(court).strip(), 0) if court and str(court).strip() else None
 
 
 def take_from_mcp(conn, source: str, *, schema: str = SCHEMA, mcp_schema: str = "mcpsource", read_bytes=None,
@@ -571,14 +583,15 @@ def take_from_mcp(conn, source: str, *, schema: str = SCHEMA, mcp_schema: str = 
         if not body.startswith(b"%PDF"):
             counts["not_pdf"] += 1
             continue
-        court, year, listing = named.get(url) or (UNLISTED[source], None, None)
-        if url not in named:
-            counts["unlisted"] += 1
         try:
             rec = json.loads(read_bytes(record))
             fetched = (rec.get("capture") or {}).get("fetched_at") or rec.get("fetched_at")
         except (OSError, ValueError):
-            fetched = None
+            rec, fetched = None, None
+        own = record_court(source, rec)
+        court, year, listing = named.get(url) or ((own[0], own[1], None) if own else (UNLISTED[source], None, None))
+        if url not in named and not own:
+            counts["unlisted"] += 1
         conn.execute(f"INSERT INTO {schema}.own_files (url, source, court, year, listing, sha256, bytes, status) "
                      f"VALUES (%s, %s, %s, %s, %s, %s, %s, 'landed') ON CONFLICT (url) DO NOTHING",
                      (url, source, court, year, listing, sha, len(body)))
@@ -629,8 +642,8 @@ def job(argv=None, log=print) -> int:
     ap.add_argument("--year", type=int, action="append")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--from-mcp", action="store_true",
-                    help="take the ledger from the ingest MCP's copy (estate-courts-jdo or estate-courts-era), never the "
-                         "web (9 November 2026); the finder has no copy and is not walked")
+                    help="take the ledger from the ingest MCP's copy (estate-courts-jdo, estate-courts-era or, from 14 "
+                         "November 2026, estate-courts-finder), never the web (9 November 2026)")
     a = ap.parse_args(argv)
     from registers.courts import load as L
     started = jobrun.now()
@@ -639,12 +652,10 @@ def job(argv=None, log=print) -> int:
         conn.commit()
         W = EraWalk if a.era else FinderWalk if a.finder else Walk
         if a.from_mcp:      # the crawl is the MCP provider's (the 5 November split); no request leaves the boxes
-            if W is FinderWalk:
-                ap.error("the finder has no copy in the MCP: --from-mcp takes --jdo or --era")
             conn.execute("SET statement_timeout = '300s'")
             out = take_from_mcp(conn, W.SOURCE, log=log)
             detail = ", ".join(f"{k} {v}" for k, v in out.items() if k != "ok")
-            jobrun.record(W.JOB, out["ok"], detail[:2000], started,
+            jobrun.record("qv4-courts-finder-capture" if W is FinderWalk else W.JOB, out["ok"], detail[:2000], started,
                           {k: v for k, v in out.items() if isinstance(v, int) and not isinstance(v, bool)})
             return 0 if out["ok"] else 1
         t0 = time.monotonic()

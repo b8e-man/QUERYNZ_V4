@@ -1947,6 +1947,18 @@ command = ["python", "-m", "registers.courts.own", "--era", "--from-mcp"]   # 10
 at_utc = "15:20"
 nice = 10
 
+[jobs.qv4-courts-finder-capture]
+description = "Courts: the ledger of the Ministry of Justice's decisions finder (ruling 140, tranche 2: its tribunals and courts, www.justice.govt.nz), from 14 November 2026 taken from the ingest MCP's copy (estate-courts-finder, copied by qv4-mcp-pull), never the web: each PDF the copy holds that the MCP's courts corpus and the ledger lack becomes a courts.own_files row (source courts-finder, its court the jurisdiction the copy's record names, year 0 as the finder's walk recorded it) with its line in courts.own_from_mcp; red when a file of the copy is unaccounted for in the tables read back or a row taken holds other bytes. Nightly at 04:30 NZDT, after the JDO and ERA takes, before the 04:40 courts load; seconds."
+needs = "processor"
+memory_gb = 0.5   # as qv4-courts-jdo-capture's take
+deadline_s = 1800
+query_timeout_s = 300
+class = "due"
+priority = 206   # unique (14 November 2026)
+command = ["python", "-m", "registers.courts.own", "--finder", "--from-mcp"]
+at_utc = "15:30"
+nice = 10
+
 # ── ruling 160: the old estate's corpora copied in (support/oldcopy, stream J, 10 November 2026) ──
 # Switched on 10 November 2026 by the integrator: stream I's inventory reviewed (e6b1fa1), the disk checked (about
 # 45 GB of tables into querynz_v4: node1 /home 59%, node2 75%; about 4 GB of files into /mnt/hdd2/qv4-docs). The

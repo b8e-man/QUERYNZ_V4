@@ -517,6 +517,29 @@ def test_the_ledger_is_taken_from_the_mcp_s_copy_each_file_once_and_accounted_fo
         == {(own.ERA_SOURCE, own.ERA_COURT, 2015)}
 
 
+def test_the_finder_s_copy_names_each_decision_s_jurisdiction_itself(env, copy):
+    # 14 November 2026: estate-courts-finder's records carry `listed.jurisdiction`; its listing pages are not read
+    fin = own.MCP_CORPORA[own.FINDER_SOURCE]
+    url = "https://www.justice.govt.nz/assets/Documents/Decisions/2026-NZHRRT-1-Invented-v-Other.pdf"
+    sha = copy.add(fin, url, pdf(901))
+    seq = copy.seq
+    rec = json.dumps({"capture": {"fetched_at": "2026-11-13T00:14:57+00:00", "sha256": sha}, "url": url,
+                      "listed": {"jurisdiction": "Human Rights Review Tribunal", "title": "Invented v Other"}}).encode()
+    copy.store[_sha(rec)] = rec
+    env.conn.execute(f"UPDATE {C}.files SET record_sha256 = %s WHERE seq = %s", (_sha(rec), seq))
+    nameless = "https://www.justice.govt.nz/assets/Documents/Decisions/no-listing.pdf"
+    copy.add(fin, nameless, pdf(902))
+    copy.add(fin, "https://www.justice.govt.nz/tribunals/human-rights/hrrt-decisions/?Filter_Jurisdiction=35",
+             b"<html>a finder page</html>", "text/html")
+    out = copy.take(own.FINDER_SOURCE)
+    assert out["ok"] and out["taken"] == 2 and out["unlisted"] == 1 and out["listings_unread"] == 0, out
+    rows = dict((u, (s, c, y)) for u, s, c, y in env.conn.execute(
+        f"SELECT url, source, court, year FROM {S}.own_files WHERE url LIKE '%%Decisions%%'"))
+    assert rows[url] == (own.FINDER_SOURCE, "Human Rights Review Tribunal", 0)
+    assert rows[nameless] == (own.FINDER_SOURCE, own.UNLISTED[own.FINDER_SOURCE], None)
+    assert {c for (c,) in env.conn.execute(f"SELECT corpus FROM {S}.own_from_mcp WHERE url LIKE '%%Decisions%%'")} == {fin}
+
+
 def test_the_take_s_check_reads_the_tables_back_and_fails_on_a_lost_row(env, copy):
     class Drops:
         """A connection whose inserts into the ledger never arrive (the mutant)."""

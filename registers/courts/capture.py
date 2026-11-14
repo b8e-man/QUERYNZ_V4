@@ -110,7 +110,10 @@ MCP_NOTE = {"courts-jdo": ("a decision of Judicial Decisions Online (www.justice
                           "the pull; the boxes asked the host nothing (9 November 2026)"),
             "courts-era": ("a determination of the Employment Relations Authority (determinations.era.govt.nz), fetched by "
                            "the MCP's provider (corpus estate-courts-era) and taken from its copy by the pull; the boxes "
-                           "asked the host nothing (9 November 2026)")}
+                           "asked the host nothing (9 November 2026)"),
+            "courts-finder": ("a decision of the Ministry of Justice's decisions finder (www.justice.govt.nz), its tribunals "
+                              "and courts, fetched by the MCP's provider (corpus estate-courts-finder) and taken from its "
+                              "copy by the pull; the boxes asked the host nothing (14 November 2026)")}
 
 
 def own_records(conn, schema: str = "courts", until=None) -> list:
