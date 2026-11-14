@@ -3,7 +3,9 @@ files: one layout per society's export, each a profile recognised by shape
 and read from the text layer by word boxes (`pdftable`). The society is both
 the publisher and the grantor of every row. A recipient is kept as printed
 (a name the society cut short with '…' stays cut short) and never looked
-up; no layout read prints an address. Decisions from 2017 on (ruling 71).
+up. Milestone's contact person and the applicant's description are kept
+privately (`private`, grants_private), never on a published table or view.
+Decisions from 2017 on (ruling 71).
 
 Each layout in `LAYOUTS` says: the society; the title lines that mark it and
 give its period or decision date; the column heads, left to right; the anchor
@@ -78,7 +80,8 @@ PELORUS_PUBLISHED_SKIP = [r"^\d{1,2} [A-Za-z]{3} \d{4} \d{1,2}:\d{2}:\d{2}\b", r
 PELORUS_PUBLISHED_STOP = [r"^Reasons for partial or declined funding\b"]
 #: Milestone's export of 2022 to 2026 (grants system, one month a file): its second column is the applicant's contact
 #: person, and its short description is the applicant's own prose (it names people and venues' streets): both are
-#: read for their edges only and never kept (`never_read`); the purpose is the system's own word for it ("App Purpose")
+#: kept privately (`private`: grants_private, never a published column; Arthur, 15 November 2026), each value with
+#: a flag where its shape names a street address; the purpose is the system's own word for it ("App Purpose")
 _MSF_TITLE = (r"^(?:Milestone|MSF)(?: NPC)? Grant (?:Outcomes?|Details)(?: Outcome)?(?: (?:of|in|for))? "
               r"(?P<m>[A-Za-z]{3,9}) (?P<y4>20\d\d)$")
 
@@ -216,7 +219,7 @@ LAYOUTS = {
         "society": "milestone-foundation",
         "title": [_MSF_TITLE],
         "heads": _msf_heads()[0], "heads_also": _msf_heads()[1:],
-        "never_read": ["contact", "description"],
+        "private": ["contact", "description"],
         "skip": [r"^NPC$"],
         "head_tail": r"^(?:(?:App|Amount|Interest|Of|Name|Description|Outcome|Conflict|Approved|Requested|"
                      r"Compliant)\s*)+$",                         # the head's own lines, up to four under its row
@@ -229,7 +232,7 @@ LAYOUTS = {
         "society": "milestone-foundation",
         "title": [_MSF_OLD_TITLE],
         "heads": _msf_old_heads()[0], "heads_also": _msf_old_heads()[1:],
-        "never_read": ["contact", "description"], "shift": ["contact", "recipient", "description", "reason", "interest"],
+        "private": ["contact", "description"], "shift": ["contact", "recipient", "description", "reason", "interest"],
         "anchor": "requested", "align": "top", "purpose": None, "totals": True,
         "total_is": ["requested", "compliant", "granted"],
         "status": lambda row, layout: "Accepted" if money(row.get("granted")) else "Declined",
@@ -374,6 +377,27 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "")).strip()
 
 
+#: the private row's columns: the grant it belongs to, and each private column as printed with its address flag
+PRIVATE_COLUMNS = ("grant_key", "document", "page", "place", "application_as_published", "contact_as_published",
+                   "contact_address_shaped", "description_as_published", "description_address_shaped", "reader",
+                   "profile", "profile_version")
+
+
+def private_row(grant: dict, cells: dict, cols) -> dict:
+    """One row of `grants_private.society_row_details` for a grant read from a layout with private columns: each
+    value as printed (whitespace closed up, as every published cell), null where the row printed none, and a flag
+    where its shape names a street address (check.STREET, the published views' own test)."""
+    from registers.grants import check
+    out = {"grant_key": grant["key"], **{k: grant[k] for k in ("document", "page", "place",
+                                                                 "application_as_published", "reader", "profile",
+                                                                 "profile_version")}}
+    for col in ("contact", "description"):
+        v = _clean(cells.get(col)) or None if col in cols else None
+        out[f"{col}_as_published"] = v
+        out[f"{col}_address_shaped"] = bool(v and check.STREET.search(v))
+    return out
+
+
 def read_file(data: bytes, sha: str, slug: str) -> read.Reading:
     layout = LAYOUTS[slug]
     p = read.profile(slug)
@@ -388,9 +412,10 @@ def read_file(data: bytes, sha: str, slug: str) -> read.Reading:
                        anchor_kind=layout.get("anchor_kind", "money"), mode=layout.get("edge_mode", "left"),
                        total_lines=layout.get("total_lines", "figures"), head_tail=layout.get("head_tail"),
                        shift=tuple(layout.get("shift", ())))
-    for row in t.rows:                                     # a column read for its edge only: never kept
-        for col in layout.get("never_read", ()):
-            row.pop(col, None)
+    for row in t.rows:                                     # a column kept privately: off the row, into its own
+        row["private"] = {}
+        for col in layout.get("private", ()):
+            row["private"][col] = row.pop(col, None)
             row["anchor_cells"].pop(col, None)
     decided = a_day(title["d"]) if title.get("d") else None
     start, end = (a_day(title.get("a")), a_day(title.get("b"))) if title.get("a") else (decided, decided)
@@ -404,7 +429,9 @@ def read_file(data: bytes, sha: str, slug: str) -> read.Reading:
     if start is None or end is None:
         raise ValueError(f"{slug}: the title gives no period or decision date")
     period = decided.isoformat() if decided else f"{start.isoformat()}/{end.isoformat()}"
-    out.stated = {"title": " / ".join(_clean(ln.text) for ln in first_lines[:4]), "period": period,
+    found = None if layout.get("edges") else _head(first_lines, heads, layout)
+    above = first_lines[:4] if found is None else first_lines[:min(4, max(found[0], 1))]
+    out.stated = {"title": " / ".join(_clean(ln.text) for ln in above), "period": period,   # never a row's cell
                   "pages": t.pages, "pages_with_head": t.pages_with_head, "other_lines": len(t.other)}
     for _, figures in t.totals:                            # the list's own total, printed as a line of figures
         if layout.get("total_is") and len(figures) == len(layout["total_is"]):
@@ -480,6 +507,8 @@ def read_file(data: bytes, sha: str, slug: str) -> read.Reading:
             "document": sha, "page": row["page"], "place": place, "read_from": "text", "reader": READER,
             "profile": slug, "profile_version": out.version,
         })
+        if layout.get("private"):
+            out.private.append(private_row(out.grants[-1], row["private"], layout["private"]))
     counted = [m for m in measured if layout["total_not_section"] not in (m[2] or "")] \
         if layout.get("total_not_section") else measured
     for k, col in enumerate(("requested", "granted")):

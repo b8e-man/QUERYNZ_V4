@@ -1,8 +1,9 @@
 -- registers/grants: every table the lane owns (contract: the lane). Two parts. The capture's record comes first and is
 -- never wiped: the runs, every document landed with the list it came from, and the catch log. The reading's tables
--- follow the marker line below; load.py drops and makes them again at every load, inside one transaction. No table
--- here, and none in `grants_private`, holds an address: none of the layouts read prints one (hard limit 15), so the
--- private twin is made empty, for the contract's shape.
+-- follow the marker line below; load.py drops and makes them again at every load, inside one transaction. No table in
+-- `grants` holds an address (hard limit 15). `grants_private` holds what a society printed of a person beside a grant
+-- (Milestone's contact person, the applicant's own description: Arthur, 15 November 2026, ruling 142): never on a
+-- published table or view, each value whole with a flag where its shape names a street address (ruling 102).
 
 CREATE SCHEMA IF NOT EXISTS grants;
 CREATE SCHEMA IF NOT EXISTS grants_private;
@@ -186,4 +187,24 @@ CREATE TABLE grants.read_notes (
     document  text NOT NULL,
     note      text NOT NULL,
     count     integer NOT NULL
+);
+
+-- one per grant read from a society layout with private columns (society.LAYOUTS[...]["private"]): the grant it
+-- belongs to (its key, the document's sha256, the row's place, the application number as printed), the contact
+-- person and the description as printed (null where the row printed none), and for each a flag where the value's
+-- shape names a street address (check.STREET). Never joined into a view (publish.sql)
+CREATE TABLE grants_private.society_row_details (
+    grant_key                   text PRIMARY KEY,
+    document                    text NOT NULL,
+    page                        integer,
+    place                       text NOT NULL,
+    application_as_published    text,
+    contact_as_published        text,
+    contact_address_shaped      boolean NOT NULL,
+    description_as_published    text,
+    description_address_shaped  boolean NOT NULL,
+    reader                      text NOT NULL,
+    profile                     text NOT NULL,
+    profile_version             integer NOT NULL,
+    loaded_at                   timestamptz NOT NULL DEFAULT now()
 );

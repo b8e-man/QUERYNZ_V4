@@ -14,7 +14,10 @@ figures are the documents' own: exit 1 on any of
      whose grants do not count up, a grantor with no publisher row), or a
      view carries an address column, a text value shaped like a street
      address (reported by key, never by value), or a row with no licence or
-     attribution
+     attribution; or grants_private does not hold one row per grant read
+     from a layout with private columns (Milestone's contact person and
+     description), holds one that is no grant's, or flags a value other
+     than its shape says (the private table is outside the views' test)
   6. the national file's newest decision is more than 15 months old (the
      Department updates it once a year)
 
@@ -95,6 +98,33 @@ def reading(conn, schema: str = SCHEMA) -> list:
     n = one(f"SELECT count(*) FROM {T('grants')} WHERE period < '{read.WINDOW_FROM}'")
     if n:
         out.append(f"{n} grants before {read.WINDOW_FROM} (ruling 71)")
+    return out + private(conn, schema)
+
+
+def private(conn, schema: str = SCHEMA) -> list:
+    """grants_private against the reading: one row per grant read from a layout with private columns, none for any
+    other grant, and every address flag what its value's shape says. Counts only; no value is printed."""
+    from registers.grants import load, society
+    P = load.private_table(schema, "society_row_details")
+    G = capture.table(schema, "grants")
+    out = []
+    one = lambda q, a=(): conn.execute(q, a).fetchone()[0]
+    slugs = [s for s, lay in society.LAYOUTS.items() if lay.get("private")]
+    want = one(f"SELECT count(*) FROM {G} WHERE profile = ANY(%s)", (slugs,))
+    held = one(f"SELECT count(*) FROM {P}")
+    if held != want:
+        out.append(f"{held} private rows against {want} grants read from the layouts with private columns")
+    n = one(f"SELECT count(*) FROM {P} p WHERE NOT EXISTS (SELECT 1 FROM {G} g WHERE g.key = p.grant_key "
+            "AND g.document = p.document AND g.place = p.place "
+            "AND g.application_as_published IS NOT DISTINCT FROM p.application_as_published)")
+    if n:
+        out.append(f"{n} private rows that are no grant's (by key, document, place and application number)")
+    wrong = 0
+    for col in ("contact", "description"):
+        for v, flag in conn.execute(f"SELECT {col}_as_published, {col}_address_shaped FROM {P}"):
+            wrong += bool(v and STREET.search(v)) != flag
+    if wrong:
+        out.append(f"{wrong} private values whose address flag is not what their shape says")
     return out
 
 

@@ -5,7 +5,8 @@ society's grants, approved and declined, in one national file ("Grants from Gami
 the Lottery committees' records of grants as pages on Community Matters. Both are captured verbatim by hash through
 the fetch gate under the four questions, read by profile into one row per grant and one per recipient as published,
 and checked against the documents' own counts and the Department's own list of societies. A recipient is kept as
-printed and never looked up; no address is read.
+printed and never looked up. Milestone's contact person and the applicant's description are kept privately
+(`grants_private`), never on a published table or view.
 
 The societies' own lists (Gambling Act 2003 s 110(4)) are read where they are files (class A of
 `cards/the-societies-own-grants-lists-by-class.md`): each society's grants pages walked two links deep, every grants

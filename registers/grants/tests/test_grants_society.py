@@ -85,23 +85,35 @@ def _docs():
     return {s: read_bytes(s) for s in shas}
 
 
-def contact_kept(soc, data, slug, out, col) -> bool:
-    """Whether a cell of the column `col` (Milestone's contact person, its short description) reaches a kept field:
-    whole anywhere in a name, a number, a purpose, a reason or a conflict, or opening any field. Nothing of a cell is
-    printed."""
+def _private_cells(soc, data, slug, col):
+    """The column `col`'s cells, by row number (the grant key's last part), read afresh by the layout's heads, or
+    None where the file prints no such column. Nothing of a cell is printed."""
     lay = soc.LAYOUTS[slug]
     ws = soc.pdftable.words(data)
     first = next(iter(soc.pdftable.pages_of([w for w in ws if w.page == 1]).values()), [])
     heads = next(h for h in soc._heads(lay) if soc._head(first, h, lay) is not None)
     if col not in heads:
-        return False
+        return None
     t = soc.pdftable.table(data, heads, lay["anchor"], lay["align"], ws=ws, skip=lay.get("skip", ()),
                            stop=lay.get("stop", ()), mode=lay.get("edge_mode", "left"),
                            total_lines=lay.get("total_lines", "figures"), head_tail=lay.get("head_tail"),
                            shift=tuple(lay.get("shift", ())))
-    cells = {soc._clean(r.get(col)) for r in t.rows} - {""}
+    return {i: soc._clean(r.get(col)) for i, r in enumerate(t.rows, 1)}
+
+
+def private_leaked(soc, data, slug, out, col) -> bool:
+    """Whether a cell of the private column `col` (Milestone's contact person, its description) reaches a
+    published field: whole anywhere in a name, a number, a purpose, a reason or a conflict, or opening any field
+    of a grant (the grant rows are what the published tables and views are made of), or in what the ledger says
+    the document states of itself (its title lines, never a row)."""
+    by_row = _private_cells(soc, data, slug, col)
+    if by_row is None:
+        return False
+    cells = set(by_row.values()) - {""}
     if not cells:
         return True                    # the column's cells were read into another: its edge was lost
+    if any(isinstance(v, str) and any(len(cc) >= 8 and cc in v for cc in cells) for v in out.stated.values()):
+        return True                    # the ledger's line (read_documents.stated) carries a cell
     for g in out.grants:
         if any(k == col or col in k for k in g):
             return True
@@ -116,6 +128,26 @@ def contact_kept(soc, data, slug, out, col) -> bool:
     return False
 
 
+def private_kept(soc, data, slug, out, col) -> bool:
+    """Whether every grant has its private row, and the row holds its own row's cell of `col` whole (null where
+    the row printed none, or the file prints no such column), flagged exactly where its shape names a street."""
+    if len(out.private) != len(out.grants) or [p["grant_key"] for p in out.private] != [g["key"] for g in out.grants]:
+        return False
+    by_row = _private_cells(soc, data, slug, col) or {}
+    for g, p in zip(out.grants, out.private):
+        want = by_row.get(int(g["key"].rsplit("/", 1)[1])) or None
+        if p[f"{col}_as_published"] != want or (p["document"], p["place"], p["application_as_published"]) != (
+                g["document"], g["place"], g["application_as_published"]):
+            return False
+        if p[f"{col}_address_shaped"] != bool(want and check.STREET.search(want)):
+            return False
+    return True
+
+
+#: a made-up value of an address's shape, and one of a person's name: the flag's own test (no real value)
+SHAPED = ("Contact at 12 Example Street", "A. Person")
+
+
 def _read(soc, data, sha):
     slug = soc.recognise(data)
     if slug is None:
@@ -126,6 +158,12 @@ def _read(soc, data, sha):
 def society_properties(soc=society, docs=None) -> list:
     """The rules, as a list of the ones a society reader `soc` (with its `pdftable`) breaks on the sample files."""
     broken = set()
+    fake = {"key": "k", "document": "d", "page": 1, "place": "page 1, row 1", "application_as_published": None,
+            "reader": "r", "profile": "p", "profile_version": 1}
+    flags = [soc.private_row(fake, {"contact": v, "description": v}, ["contact", "description"]) for v in SHAPED]
+    if [(f["contact_address_shaped"], f["description_address_shaped"]) for f in flags] != [(True, True),
+                                                                                          (False, False)]:
+        broken.add("a value shaped like a street address is flagged, and only such a value")
     docs = docs if docs is not None else _docs()
     for sha, data in docs.items():
         want = PINS[sha[:16]]
@@ -157,9 +195,13 @@ def society_properties(soc=society, docs=None) -> list:
         whole = WHOLE_NUMBERS.get(slug)
         if whole and not all(re.fullmatch(whole, g["application_as_published"] or "") for g in out.grants):
             broken.add("an application number wrapped over two lines is read whole")
-        for col in soc.LAYOUTS[slug].get("never_read", ()):
-            if contact_kept(soc, data, slug, out, col):
-                broken.add("a column never read reaches no kept field")
+        for col in soc.LAYOUTS[slug].get("private", ()):
+            if private_leaked(soc, data, slug, out, col):
+                broken.add("a private column reaches no published field")
+            if not private_kept(soc, data, slug, out, col):
+                broken.add("a private column is kept whole, flagged, in its grant's private row")
+        if not soc.LAYOUTS[slug].get("private") and out.private:
+            broken.add("a layout with no private column keeps no private row")
         names = {g["recipient_as_published"] for g in out.grants}
         apps = {g["application_as_published"]: g["recipient_as_published"] for g in out.grants}
         for (pre, app), name in NAMES.items():
@@ -250,21 +292,58 @@ def test_a_name_centred_on_its_row_is_one_row_with_its_application_number():
     assert "MARLBOROUGH INCORPORATED" not in by.values() and "CCS DISABILITY ACTION NELSON" not in by.values()
 
 
-def test_the_contact_person_is_never_kept():
-    """Milestone prints its applicants' contact persons in a column of their own (2020 to 2026). The column is read
-    for its edge only: no grant carries a field for it, and no cell of it reaches a name, a number, a purpose, a
-    reason or a conflict, nor opens any field. Nothing of a cell is printed."""
+def test_the_contact_and_description_are_kept_privately():
+    """Milestone prints its applicants' contact persons and their own descriptions (2020 to 2026). Both are kept
+    (Arthur, 15 November 2026), one private row per grant, each cell whole beside its grant's key, document, place
+    and application number; no grant carries a field for either. Nothing of a cell is printed."""
     docs = _docs()
-    checked = 0
+    checked = {"contact": 0, "description": 0}
     for sha, data in docs.items():
         slug = society.recognise(data)
-        if slug is None or "contact" not in society.LAYOUTS[slug].get("never_read", ()):
+        if slug is None or not society.LAYOUTS[slug].get("private"):
             continue
         out = society.read_file(data, sha, slug)
-        first = next(iter(pdftable.pages_of([w for w in pdftable.words(data) if w.page == 1]).values()))
-        heads = next(h for h in society._heads(society.LAYOUTS[slug]) if society._head(first, h, society.LAYOUTS[slug]))
-        if "contact" in heads:
-            checked += 1
-        assert not contact_kept(society, data, slug, out, "contact")
-        assert all("contact" not in k for g in out.grants for k in g)
-    assert checked >= 3          # the 2022 to 2026 export (two months) and April 2022 print the column
+        for col in society.LAYOUTS[slug]["private"]:
+            assert private_kept(society, data, slug, out, col)
+            checked[col] += sum(1 for p in out.private if p[f"{col}_as_published"])
+        assert all("contact" not in k and "description" not in k for g in out.grants for k in g)
+        assert set(out.private[0]) == set(society.PRIVATE_COLUMNS)
+    assert checked["contact"] >= 50 and checked["description"] >= 50
+
+
+def test_the_private_columns_never_reach_a_published_column_or_view():
+    """No cell of a private column reaches a grant's field, and the views read nothing of grants_private: the
+    published SQL names no private table, and no view column is a private one."""
+    docs = _docs()
+    for sha, data in docs.items():
+        slug = society.recognise(data)
+        if slug is None:
+            continue
+        out = society.read_file(data, sha, slug)
+        for col in society.LAYOUTS[slug].get("private", ()):
+            assert not private_leaked(society, data, slug, out, col)
+    published = load.sql("publish.sql")
+    assert "_private" not in published and "society_row_details" not in published
+    assert not set(society.PRIVATE_COLUMNS) - {"document", "page", "place", "application_as_published", "reader",
+                                                "profile", "profile_version"} & set(load.COLUMNS["grants"])
+    assert all(t not in load.TABLES for t in load.PRIVATE_TABLES)
+    assert load.private_table("grants", "society_row_details") == "grants_private.society_row_details"
+    assert load.private_table("staging_grants_load", "society_row_details") == \
+        "staging_grants_load.grants_society_row_details"
+
+
+def test_the_address_flag_is_set_on_an_address_shaped_value():
+    """A made-up value shaped like a street address is flagged; a name is not; a row that printed nothing has no
+    value and no flag."""
+    fake = {"key": "k", "document": "d", "page": 1, "place": "page 1, row 1", "application_as_published": "A-1",
+            "reader": "r", "profile": "p", "profile_version": 1}
+    shaped, name = (society.private_row(fake, {"contact": v, "description": v}, ["contact", "description"])
+                    for v in SHAPED)
+    assert shaped["contact_address_shaped"] and shaped["description_address_shaped"]
+    assert shaped["contact_as_published"] == SHAPED[0]
+    assert not name["contact_address_shaped"] and not name["description_address_shaped"]
+    empty = society.private_row(fake, {"contact": "  ", "description": None}, ["contact", "description"])
+    assert (empty["contact_as_published"], empty["contact_address_shaped"]) == (None, False)
+    assert society.private_row(fake, {}, ["contact"])["description_as_published"] is None
+
+

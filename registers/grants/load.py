@@ -28,7 +28,7 @@ import time
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.grants import capture, read
+from registers.grants import capture, read, society
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "grants"
@@ -53,6 +53,15 @@ COLUMNS = {
     "read_notes": ("document", "note", "count"),
 }
 table = capture.table
+#: grants_private's tables, rebuilt with the reading's: never read by publish.sql, never on a view
+PRIVATE_TABLES = ("society_row_details",)
+PRIVATE_COLUMNS = {"society_row_details": society.PRIVATE_COLUMNS}
+
+
+def private_table(schema: str, t: str) -> str:
+    """`grants_private.t` for the lane; in any other schema (staging, a session's scratch) `schema.grants_t`, as
+    sql() rewrites tables.sql."""
+    return f"{SCHEMA}_private.{t}" if schema == SCHEMA else f"{schema}.{SCHEMA}_{t}"
 _NAMES = re.compile(rf"(?<![A-Za-z0-9_]){SCHEMA}(_private)?\.")
 #: an address that says it is a record of grants, recognised or not
 RECORD_ADDRESS = re.compile(r"(?i)record-of-grants|grants-made|record-of-grant")
@@ -70,8 +79,8 @@ def sql(name: str, schema: str = SCHEMA) -> str:
 
 def create_tables(conn, schema: str) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    for t in TABLES:
-        conn.execute(f"DROP TABLE IF EXISTS {table(schema, t)} CASCADE")
+    for name in [table(schema, t) for t in TABLES] + [private_table(schema, t) for t in PRIVATE_TABLES]:
+        conn.execute(f"DROP TABLE IF EXISTS {name} CASCADE")
     conn.execute(sql("tables.sql", schema))
 
 
@@ -105,12 +114,14 @@ def build(conn, schema: str, docs: list, read_bytes=read_bytes, only=None) -> di
     t0 = time.monotonic()
     create_tables(conn, schema)
     T = lambda t: table(schema, t)
-    grants, ledger, asides, notes = [], [], [], []
+    grants, ledger, asides, notes, private = [], [], [], [], []
     applications = {}
     for lst, url, sha in docs:
         out = read.read_document(read_bytes(sha), sha, (only or {}).get(sha))
         repeat(out, applications)
         grants += out.grants
+        kept = {g["key"] for g in out.grants}             # a repeat set aside takes its private row with it
+        private += [p for p in out.private if p["grant_key"] in kept]
         asides += out.set_aside
         notes += [{"document": sha, "note": k, "count": v} for k, v in sorted(out.notes.items())]
         ledger.append({"document": sha, "list": lst, "url": url, "profile": out.slug, "records": out.records,
@@ -137,6 +148,8 @@ def build(conn, schema: str, docs: list, read_bytes=read_bytes, only=None) -> di
             "documents": _copy(conn, T("read_documents"), COLUMNS["read_documents"], ledger),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "notes": _copy(conn, T("read_notes"), COLUMNS["read_notes"], notes),
+            "private": _copy(conn, private_table(schema, "society_row_details"),
+                             PRIVATE_COLUMNS["society_row_details"], private),
             "seconds": round(time.monotonic() - t0, 1)}
 
 
@@ -186,6 +199,10 @@ def publish(conn, staging: str, log=print) -> None:
         for t in TABLES:
             cols = ", ".join(COLUMNS[t])
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} ({cols}) SELECT {cols} FROM {table(staging, t)}")
+        for t in PRIVATE_TABLES:
+            cols = ", ".join(PRIVATE_COLUMNS[t])
+            conn.execute(f"INSERT INTO {private_table(SCHEMA, t)} ({cols}) "
+                         f"SELECT {cols} FROM {private_table(staging, t)}")
         conn.execute(sql("publish.sql"))
     log(f"{SCHEMA}: published from {staging}")
 

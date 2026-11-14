@@ -179,6 +179,7 @@ class Reading:
     records: int = 0
     stated: dict = field(default_factory=dict)      # what the document states of itself (a count, a total)
     notes: collections.Counter = field(default_factory=collections.Counter)
+    private: list = field(default_factory=list)     # grants_private rows (society.private_row)
 
 
 def profile(slug: str) -> dict:
