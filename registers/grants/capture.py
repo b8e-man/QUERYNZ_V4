@@ -43,7 +43,15 @@ not asked again this run, and the run moves to the next list. A 500, 502,
 aside, the run rests `REST_S` and goes on; three in a row stop that host. A
 gate refusal is never caught.
 
-    python -m registers.grants.capture [--anytime] [--list dia-file|lottery-page|about|society-file] [--society KEY] [--max-requests N] [--budget-s N]
+From 5 November 2026 the crawl is the ingest MCP provider's (the split; Arthur, 9 November 2026): it runs this walk
+in its own store and serves it as corpus `estate-grants`, which the nightly pull copies into `mcpsource.files`.
+`--from-mcp` answers every address the walk would ask with the newest copy held (`support.mcpsource.replay`): no
+request leaves the boxes, so the gate, its holds and the pacing are not asked and any hour serves; an address the
+copy lacks is set aside and the walk goes on (a gap in the copy, never a host in trouble); a copy that is a
+challenge page stops that host for the run, set aside, and holds nothing at the gate (the lane sent nothing). The
+walk, the frontier, the ledger and the reading are the same either way.
+
+    python -m registers.grants.capture [--anytime] [--list dia-file|lottery-page|about|society-file] [--society KEY] [--max-requests N] [--budget-s N] [--from-mcp]
 """
 import argparse
 import datetime as dt
@@ -248,6 +256,38 @@ def fetch_once(url: str, timeout: int):
         return e.code, body, url, urllib.parse.urljoin(url, loc) if loc else ""
 
 
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
+MCP_CORPORA = ("estate-grants",)
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's transport and pacing when the crawl is the MCP provider's: `fetch(url, timeout)` answered with the
+    newest copy of the address (status 200, no redirect), `replay.NotHeld` where the copy lacks it. The walk keeps a
+    page by its canonical address, without a trailing slash; the provider keeps it at the address the site answered
+    on, which for three class A societies' grants pages has one (`/grant-distributions/`, `/grants-list/`,
+    `/approved-grants/`), so an address the copy lacks is asked once more with its trailing slash turned the other
+    way."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def fetch(url, timeout=None):
+        try:
+            f = open_copy(url, timeout)
+        except replay.NotHeld:
+            path = urllib.parse.urlsplit(url).path
+            if urllib.parse.urlsplit(url).query or len(path) <= 1:
+                raise
+            other = url[:-1] if url.endswith("/") else url + "/"
+            f = open_copy(other, timeout)
+        return f.status, f.body, f.final_url or url, ""
+    return {"fetch": fetch, "sleep": lambda s: None, "anytime": True, "mcp": True}
+
+
+def _not_held(exc) -> bool:
+    from support.mcpsource import replay
+    return isinstance(exc, replay.NotHeld)
+
+
 # ── the lane's capture tables ─────────────────────────────────────────────────
 
 class Tables:
@@ -330,8 +370,9 @@ class Blocked(RuntimeError):
 class Run:
     def __init__(self, tables, *, land_fn, fetch=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_requests: int = 100000, anytime: bool = False,
-                 lists=LISTS, societies=(), log=print):
+                 lists=LISTS, societies=(), mcp: bool = False, log=print):
         self.t, self.land_fn, self.log = tables, land_fn, log
+        self.mcp = mcp          # answered from the MCP's copy: nothing asked of the web, the gate or its holds
         self.fetch = fetch or fetch_once
         self.clock = clock or time.monotonic
         self.pacer = fg.Pacer(now=self.clock, sleep=sleep or time.sleep)
@@ -367,6 +408,8 @@ class Run:
         failed read. Raises Blocked on a 403, 429 or challenge, or after three failed reads in a row."""
         if host in self.blocked:
             raise Blocked(self.blocked[host], asked=False)
+        if self.mcp:
+            return self.get_copy(url, host)
         if (held := fg.refused_by(host)) is not None:      # ruling 141: a held host is sent nothing until a person clears it
             self.blocked[host] = f"held by the fetch gate: {held}"
             raise Blocked(self.blocked[host], asked=False)
@@ -389,6 +432,26 @@ class Run:
             fg.hold(host, f"{why} on {url}", by="qv4-grants-capture")
             self.blocked[host] = why
             raise Blocked(why, status)
+        return status, body, location
+
+    def get_copy(self, url: str, host: str):
+        """One address answered from the MCP's copy: (status, body, location), or None where the copy lacks it (set
+        aside, never counted towards stopping the host). A copy that is a challenge page raises Blocked for the run;
+        the gate holds nothing, because nothing was sent to the host."""
+        self.counts["requests"] += 1
+        try:
+            status, body, _, location = self.fetch(url, 60)
+        except Exception as exc:  # noqa: BLE001 — a gap in the copy, or bytes not in the store: a failed read
+            if _not_held(exc):
+                self.aside(url, "fetch", f"not in the MCP's copy: {str(exc)[:200]}")
+                return None
+            return self.failed(url, host, f"the copy: {type(exc).__name__}: {str(exc)[:200]}")
+        why = challenged(status, body)
+        if why:
+            self.aside(url, "fetch", f"the MCP's copy is {why}")
+            self.blocked[host] = f"the MCP's copy: {why}"
+            raise Blocked(why, status)
+        self.failures[host] = 0
         return status, body, location
 
     def failed(self, url, host, why):
@@ -622,6 +685,8 @@ def main(argv=None) -> int:
     ap.add_argument("--budget-s", type=float, default=DEFAULT_BUDGET_S)
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-grants), never the web")
     a = ap.parse_args(argv)
     from support import db, jobrun
     started = jobrun.now()
@@ -632,8 +697,9 @@ def main(argv=None) -> int:
         if not t.try_lock():
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             return 0
-        out = Run(t, land_fn=landing(conn), anytime=a.anytime, max_requests=a.max_requests, budget_s=a.budget_s,
-                  lists=tuple(a.list or LISTS), societies=a.society or ()).run()
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; no request leaves the boxes
+        out = Run(t, land_fn=landing(conn), anytime=mcp.pop("anytime", a.anytime), max_requests=a.max_requests,
+                  budget_s=a.budget_s, lists=tuple(a.list or LISTS), societies=a.society or (), **mcp).run()
     ok, last = outcome(out)
     detail = (f"{out['requests']} requests, {out['landed']} landed, {out['already_held']} already held, "
               f"{out['records_of_grants']} records of grants met, {out['society_lists']} society lists landed, "

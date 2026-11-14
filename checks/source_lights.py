@@ -157,7 +157,8 @@ LANES = {
     "overseas_investment": Lane(update=("qv4-overseas-investment-capture", "qv4-overseas-investment-load"),
                                 hosts=("linz.govt.nz",), positions=("overseas-investment-decisions",)),
     "grants": Lane(update=("qv4-grants-capture", "qv4-grants-load"),
-                   positions=("dia-gambling-and-lottery-grants", "class-4-society-grant-publications")),
+                   positions=("dia-gambling-and-lottery-grants", "class-4-society-grant-publications"),
+                   corpora=("estate-grants",), mcp_hosts=("*",)),   # 14 November 2026: the walk is answered from the copy
     "commerce_commission": Lane(update=("qv4-commerce-commission-capture", "qv4-commerce-commission-load"),
                                 hosts=("comcom.govt.nz",), positions=("commerce-commission-case-register",),
                                 asks=("qv4-commerce-commission-capture",), corpora=("estate-commerce_commission",)),
@@ -294,6 +295,8 @@ def _bare(host: str) -> str:
 
 
 def lane_hosts(lane: Lane, positions: dict) -> set:
+    if "*" in lane.mcp_hosts:       # every host the lane reads under is the MCP provider's: its run asks none
+        return set()
     hosts = {_bare(h) for h in lane.hosts} | {_bare(h) for p in lane.positions for h in positions.get(p, ())}
     return hosts - {_bare(h) for h in lane.mcp_hosts}
 

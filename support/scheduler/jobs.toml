@@ -1139,7 +1139,7 @@ priority = 69
 # 9 November 2026 (Arthur, the 5 November split: website crawls go to the ingest MCP, the boxes keep the APIs): the
 # national file from data.govt.nz only. The Lottery records of grants (Community Matters, which blocks us and is held)
 # and the societies' own lists are the MCP provider's, handed over in docs/research/mcp-handover-inventory-2026-11-05.md
-command = ["python", "-m", "registers.grants.capture", "--list", "dia-file"]
+command = ["python", "-m", "registers.grants.capture", "--from-mcp"]   # 14 November 2026: every list answered from estate-grants, never the web (the 416 society files, 415 our bytes plus Milestone's October 2026; the DIA file our bytes); the Lottery records of grants are not in the copy yet (asked, estate-grants-lottery@2026-11-14)
 at_utc = "09:45"
 nice = 10
 

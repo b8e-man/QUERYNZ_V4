@@ -890,3 +890,8 @@ def test_a_copy_held_another_way_is_grey_with_its_reason_not_orange(monkeypatch)
     facts = _src_facts(freshness={"unread-y": {"records": 5, "newest_arrival": NOW}})
     row = next(r for r in sl.sources([], facts, NOW, {}, ln) if r["name"] == "unread-y")
     assert row["light"] == "grey" and row["line"].endswith("every file held by the courts lane")
+
+
+def test_a_lane_whose_every_host_the_mcp_collects_is_lit_by_no_hold():
+    lane = sl.Lane(positions=("p",), mcp_hosts=("*",))
+    assert sl.lane_hosts(lane, {"p": ("a.govt.nz", "b.org.nz")}) == set()
