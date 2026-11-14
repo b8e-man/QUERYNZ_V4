@@ -324,7 +324,8 @@ def night_window(path: pathlib.Path | None = None) -> night.Window | None:
         return None
     return night.Window(start=str(b.get("start_local") or ""), end=str(b.get("end_local") or ""),
                         timezone=str(b.get("timezone") or "Pacific/Auckland"), standing=str(b.get("standing") or ""),
-                        profile=str(b.get("profile") or ""), card=int(b.get("card", -1)))
+                        profile=str(b.get("profile") or ""), card=int(b.get("card", -1)),
+                        always=b.get("always") is True)
 
 
 def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | None = None) -> list[str]:

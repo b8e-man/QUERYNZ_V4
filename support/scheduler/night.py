@@ -45,6 +45,7 @@ class Window:
     standing: str       # the standing profile whose unit may be stopped (flash-next)
     profile: str        # the profile loaded in its place (page-reader)
     card: int           # the card index the profile is loaded on; the standing server's other card stays free
+    always: bool = False  # ruling 177 (15 November 2026): open at every hour; the hours are not read
 
     @property
     def zone(self) -> dt.tzinfo:
@@ -55,7 +56,8 @@ class Window:
         return _minutes(self.end) <= _minutes(self.start)
 
     def __str__(self) -> str:
-        return f"{self.start} to {self.end} {self.timezone}: {self.standing} stopped for {self.profile} on card {self.card}"
+        hours = "every hour (ruling 177)" if self.always else f"{self.start} to {self.end} {self.timezone}"
+        return f"{hours}: {self.standing} stopped for {self.profile} on card {self.card}"
 
 
 def _minutes(hhmm: str) -> int:
@@ -88,6 +90,8 @@ def in_window(now: dt.datetime, w: Window) -> bool:
     """Whether `now` falls inside the window: from its start, inclusive, to
     its end, exclusive, on the local clock; a window that crosses midnight
     wraps."""
+    if w.always:
+        return True                        # ruling 177: the cards are never left idle for the clock
     t = local(now, w)
     m = t.hour * 60 + t.minute
     s, e = _minutes(w.start), _minutes(w.end)
@@ -101,7 +105,10 @@ def in_window(now: dt.datetime, w: Window) -> bool:
 def closes_at(now: dt.datetime, w: Window) -> dt.datetime:
     """The next moment the window closes, at or after `now`, in UTC. Inside
     the window that is the current window's end; outside it, the end of the
-    next window."""
+    next window. A window open at every hour never closes by the clock: a day on, so a word (`night close`)
+    holds a day."""
+    if w.always:
+        return local(now, w).astimezone(dt.timezone.utc) + dt.timedelta(days=1)
     t = local(now, w)
     e = _minutes(w.end)
     end_today = t.replace(hour=e // 60, minute=e % 60, second=0, microsecond=0)
@@ -112,6 +119,8 @@ def closes_at(now: dt.datetime, w: Window) -> dt.datetime:
 
 def opens_at(now: dt.datetime, w: Window) -> dt.datetime:
     """The next moment the window opens, at or after `now`, in UTC."""
+    if w.always:
+        return local(now, w).astimezone(dt.timezone.utc)
     t = local(now, w)
     s = _minutes(w.start)
     start_today = t.replace(hour=s // 60, minute=s % 60, second=0, microsecond=0)

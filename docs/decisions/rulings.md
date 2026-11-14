@@ -1580,3 +1580,13 @@ flag where ruling 102 asks for one; nothing is dropped at reading. The one excep
 details of people who submit Official Information Act requests, which the estate does not hold.
 Restates rulings 142 and the 3 November word on identifying information; built first in the grants
 lane (b54ee7f, grants_private.society_row_details).
+
+177. Arthur, 15 November, on the page reader waiting for 22:00 while node2's cards sat idle: "this
+makes no sense it should always be working". The standing server's window (ruling 129) is open at
+every hour (`always = true` in jobs.toml's `[night_window]`; the 22:00 to 05:45 hours are kept,
+unread for opening). Outside those hours text work comes first: while any text-reader or review
+piece is queued, of any class, the standing server stays up or is brought back, and the page
+reader takes the cards only while no text work waits. Inside those hours the night is the page
+reader's as ruling 129 says. The board's chat says the model is not running while the page reader
+holds the cards (ruling 122). Amends ruling 129 and the clause of ruling 121 that the standing
+server is never touched outside the window.

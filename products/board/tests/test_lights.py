@@ -132,6 +132,12 @@ def test_the_sources_tab_links_each_name_and_gives_its_line_on_hover():
     assert '<a href="/sources#news">asked</a>' in html                       # a board address stays in this tab
     assert 'class="on" data-tab="sources" href="/sources"' in html
     assert html.index("Registers") < html.index("News, by site") < html.index("Asked of the provider")
+    grey = {"kind": "register", "name": "g", "label": "Greyed", "url": "https://g.govt.nz", "light": "grey",
+            "line": "Grey: no update job"}
+    html = panes.sources_pane(rows + [grey])
+    assert html.index("Asked of the provider") < html.index("Grey: not judged (1)") < html.index(">Greyed</a>"), \
+        "the greys apart, at the foot of the list"
+    assert "Registers (1)" in html and '<span class="meta">Registers</span>' in html
 
 
 def test_the_sources_tab_says_when_there_is_nothing_to_show():

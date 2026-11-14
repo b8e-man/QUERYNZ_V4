@@ -80,6 +80,7 @@ the stop line names who gave it. Nothing in jobs.toml moves for it.
 """
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import json
 import os
@@ -618,6 +619,21 @@ class Manager:
                 return f"{n} is due in {max(0.0, d.due_at - now_s):.0f}s"
         return None
 
+    def _text_first(self, worker, demands: dict, standing: str, now: dt.datetime) -> str | None:
+        """Ruling 177 (15 November 2026): the window is open at every hour, but outside the ruling-129 hours text work
+        comes first. Any text-reader or review piece queued, of any class, keeps the standing server up (or brings it
+        back); the page reader takes the cards only while no text work waits. Inside the old hours the night is the
+        page reader's as before (a bulk `whenever` text queue does not close it)."""
+        w = self.window
+        if w is None or not w.always or night.in_window(now, dataclasses.replace(w, always=False)):
+            return None
+        views = self._views(worker, standing)
+        for n in sorted(self._jobs_on(worker, views)):
+            d = demands.get(n)
+            if d is not None and d.depth > 0:
+                return f"{n} has {d.depth} piece(s) queued, and outside {w.start} to {w.end} text work comes first (ruling 177)"
+        return None
+
     def _once(self, key: str, msg: str) -> None:
         if key not in self.night_logged:
             self.night_logged.add(key)
@@ -673,7 +689,7 @@ class Manager:
             depth = self._page_depth(worker, demands)
             if depth <= 0:
                 return
-            busy = self._views_busy(worker, demands, prof.name)
+            busy = self._views_busy(worker, demands, prof.name) or self._text_first(worker, demands, prof.name, now)
             if busy:
                 self._once("busy", f"night window: {depth} page piece(s) wait but {busy}; {prof.unit} stays up")
                 return
@@ -689,7 +705,7 @@ class Manager:
             elif self._page_depth(worker, demands) <= 0:
                 reason = "the page queue is empty"
             else:
-                reason = self._views_due(worker, demands, prof.name, now_s)
+                reason = self._views_due(worker, demands, prof.name, now_s) or self._text_first(worker, demands, prof.name, now)
             if reason is None:
                 return
             self.night_state, self.night_reason = "closing", reason

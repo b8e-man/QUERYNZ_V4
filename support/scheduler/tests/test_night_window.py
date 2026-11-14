@@ -270,6 +270,8 @@ def kit(tmp_path, monkeypatch):
     for wgt in ("glm.gguf", "mmproj.gguf", "other.gguf"):
         (tmp_path / wgt).write_text("weights")
     monkeypatch.setattr(cards, "LOGS", str(tmp_path / "logs"))
+    shipped = reg.night_window
+    monkeypatch.setattr(reg, "night_window", lambda path=None: shipped(path or tmp_path / "jobs.toml"))   # the word's CLI reads the kit's hours
     monkeypatch.setattr(cards.runs, "LEDGER", tmp_path / "runs.jsonl")
     box = Box()
     w = W(tmp_path / "jobs.toml", tmp_path / "profiles.toml")
@@ -310,16 +312,22 @@ def hip(box):
 
 # ── the catalogue ────────────────────────────────────────────────────────────
 
-def test_the_shipped_window_is_22_00_to_05_45_nzdt_for_the_page_reader_on_card_1():
+def test_the_shipped_window_is_open_at_every_hour_for_the_page_reader_on_card_1():
+    """Ruling 177 (15 November 2026): "it should always be working". The ruling-129 hours stay in the file, unread."""
     w = reg.night_window()
     assert (w.start, w.end, w.timezone, w.standing, w.profile, w.card) == ("22:00", "05:45", "Pacific/Auckland", "flash-next",
                                                                             "page-reader", 1)
+    assert w.always is True
+    for when in (nz(30, 12, 0), nz(30, 21, 59), nz(31, 5, 45), nz(31, 6, 15)):
+        assert night.in_window(when, w) and night.opens_at(when, w) == when
+        assert night.closes_at(when, w) == when + dt.timedelta(days=1)     # a `night close` word holds a day
+    assert "every hour" in str(w)
     assert reg.problems() == []
     assert reg.profiles()[w.profile].memory_gb == 4.8 and reg.profiles()[w.standing].load_seconds == 21.6
 
 
 def test_the_window_opens_and_closes_by_the_local_clock_in_summer_and_winter():
-    w = dataclasses.replace(reg.night_window(), start="22:00")     # the ruling's hours, whatever start the catalogue carries today
+    w = dataclasses.replace(reg.night_window(), start="22:00", always=False)     # the ruling-129 hours, as the clock reads them
     assert not night.in_window(nz(30, 21, 59), w)
     assert night.in_window(nz(30, 22, 0), w)
     assert night.in_window(nz(31, 2, 0), w)
@@ -748,7 +756,7 @@ def test_a_torn_or_stale_word_is_silence_and_nothing_outside_the_window_moves(ki
 
 
 def test_the_word_is_pure_about_its_hours():
-    w = reg.night_window()
+    w = dataclasses.replace(reg.night_window(), always=False)     # the ruling-129 hours, which the word is about
     wd = night.word("open", nz(30, 15, 12), w, "arthur")
     assert wd["until"] == nz(31, 5, 45).isoformat(timespec="seconds") and wd["until_local"] == "05:45 NZDT"
     wd = night.word("open", nz(30, 15, 12), w, "arthur", until_local="23:30")
@@ -786,3 +794,45 @@ def test_a_box_whose_worker_never_takes_page_work_never_opens_the_window(kit):
     w.only_profiles = frozenset()
     m.tick(w, nz(31, 3, 5))
     assert m.night_state == "page", "the same queue opens it on a box that takes every job"
+
+
+# ── ruling 177: open at every hour, text first by day ─────────────────────────
+
+def _always(kit):
+    m, w, box = kit
+    m.window = dataclasses.replace(m.window, always=True)
+    return m, w, box
+
+
+def test_at_noon_with_pages_queued_and_no_text_work_the_page_reader_takes_the_cards(kit):
+    """Ruling 177 (Arthur, 15 November 2026: "it should always be working"): idle cards read pages at any hour."""
+    m, w, box = _always(kit)
+    pages_queued(w)
+    m.tick(w, nz(30, 12, 0))
+    assert m.night_state == "page" and ("stop", "qv4-radiance.service") in box.calls, w.logs
+    assert card(w, 1)["profile"] == "page-reader"
+
+
+def test_at_noon_any_queued_text_work_keeps_the_standing_server_up(kit):
+    m, w, box = _always(kit)
+    w.queue(("qv4-pages", "queued", "whenever", nz(30, 11, 0), None, 12),
+            ("qv4-read", "queued", "whenever", nz(30, 11, 30), None, 400))
+    m.tick(w, nz(30, 12, 0))
+    assert m.night_state == "standing" and box.calls == []
+    assert any("text work comes first (ruling 177)" in l for l in w.logs)
+
+
+def test_by_day_queued_text_work_takes_the_cards_back_and_by_night_it_does_not(kit):
+    m, w, box = _always(kit)
+    pages_queued(w)
+    m.tick(w, nz(30, 12, 0))
+    assert m.night_state == "page"
+    w.queue(("qv4-pages", "queued", "whenever", nz(30, 11, 0), None, 12),
+            ("qv4-read", "queued", "whenever", nz(30, 12, 5), None, 400))
+    m.tick(w, nz(30, 12, 10))
+    assert m.night_state in ("closing", "standing") and any("closing (" in l and "text work comes first" in l for l in w.logs), w.logs
+    # the same queue inside the ruling-129 hours: the night stays the page reader's
+    m2, w2, box2 = _always(kit)
+    m2.night_state, m2.night_reason = "page", None
+    m2.window = dataclasses.replace(m2.window, always=True)
+    assert m2._text_first(w2, {}, "flash-next", nz(30, 23, 0)) is None

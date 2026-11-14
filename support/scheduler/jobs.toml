@@ -78,7 +78,11 @@ policy = "priority-ordered-round-robin"
 # Outside the window the standing server is never stopped or planned (ruling
 # 121). The frozen release runs at 06:15 NZDT and never calls Flash-Next. The
 # hours are local time in `timezone`, so the clock change moves nothing here.
+# RULING 177 (Arthur, 15 November 2026: "this makes no sense it should always be working"): `always = true`
+# opens the window at every hour. The hours below are kept but not read. The rule is otherwise the same: page work
+# takes the cards only while no text-reader or review piece is running or due, and gives them back the moment one is.
 [night_window]
+always = true
 start_local = "22:00"   # ruling 129 (opened from 15:00 on Arthur's word on 30 October for the page backlog; restored 21:20)
 end_local = "05:45"
 timezone = "Pacific/Auckland"

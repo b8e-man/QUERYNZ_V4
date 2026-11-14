@@ -1737,18 +1737,29 @@ def sources_pane(rows: list, stale: str = "") -> str:
     counts = {k: sum(1 for x in rows if x["light"] == k) for k in board_lights.LIGHTS}
     out.append('<p class="note">' + ", ".join(f"{n} {k}" for k, n in counts.items() if n)
                + ". Hover a light or a name for why it is that colour; a name opens the source.</p>")
-    order = {k: i for i, k in enumerate(("red", "orange", "grey", "green"))}
+    order = {k: i for i, k in enumerate(("red", "orange", "green"))}
+
+    def item(x: dict, tag: str = "") -> str:
+        line = str(x.get("line") or board_lights.WORDS[x["light"]])
+        name = source_home_link(str(x.get("url") or ""), str(x.get("label") or x.get("name") or ""))
+        return (f'<li title="{esc(line)}"><span class="light {esc(x["light"])}" title="{esc(line)}" '
+                f'data-light="{esc(x["light"])}"><span class="sr">{esc(x["light"])} light, {esc(line)}</span></span>'
+                f"{name}{tag}</li>")
+    # the greys apart, at the foot of the list (Arthur, 15 November 2026): each section holds what is judged
     for kind, title in board_lights.KINDS:
-        xs = sorted((x for x in rows if x["kind"] == kind), key=lambda x: (order[x["light"]], str(x.get("label"))))
+        xs = sorted((x for x in rows if x["kind"] == kind and x["light"] != "grey"),
+                    key=lambda x: (order.get(x["light"], 9), str(x.get("label"))))
         if not xs:
             continue
-        out.append(f'<h3 id="{esc(kind if kind != "news" else "news")}">{esc(title)} ({len(xs)})</h3><ul class="sources">')
-        for x in xs:
-            line = str(x.get("line") or board_lights.WORDS[x["light"]])
-            name = source_home_link(str(x.get("url") or ""), str(x.get("label") or x.get("name") or ""))
-            out.append(f'<li title="{esc(line)}"><span class="light {esc(x["light"])}" title="{esc(line)}" '
-                       f'data-light="{esc(x["light"])}"><span class="sr">{esc(x["light"])} light, {esc(line)}</span></span>'
-                       f"{name}</li>")
+        out.append(f'<h3 id="{esc(kind)}">{esc(title)} ({len(xs)})</h3><ul class="sources">')
+        out.extend(item(x) for x in xs)
+        out.append("</ul>")
+    rank = {k: i for i, (k, _) in enumerate(board_lights.KINDS)}
+    greys = sorted((x for x in rows if x["light"] == "grey"), key=lambda x: (rank.get(x["kind"], 9), str(x.get("label"))))
+    if greys:
+        out.append(f'<h3 id="grey">Grey: not judged ({len(greys)})</h3><ul class="sources">')
+        out.extend(item(x, f' <span class="meta">{esc(dict(board_lights.KINDS).get(x["kind"], x["kind"]).split(",")[0].split(" (")[0])}</span>')
+                   for x in greys)
         out.append("</ul>")
     out.append("</section>")
     return "\n".join(out)
