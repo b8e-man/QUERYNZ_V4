@@ -1570,3 +1570,13 @@ counts). No credential crosses it; every exchange is kept by both sides and reco
 docs/letters/; Arthur approves what is sent. Arthur, the same day: "let's just do the asks tools and then send the unsent
 communicae accross it": the channel request is the only file sent by hand; estate-collect@2026-11-13b
 waits for the channel and is its first asks_put.
+
+176. Arthur, 14 and 15 November, on the columns a grants reader dropped because they name people
+(Milestone's contact person and applicants' descriptions): "we want to keep these"; then "yea we
+want to keep all identifying information except oia submitter requests which we dont hold". Every
+lane keeps every identifying detail its source gives (names, contact people, addresses, dates of
+birth, emails, phones, descriptions), verbatim, in the lane's _private schema, with an address-shape
+flag where ruling 102 asks for one; nothing is dropped at reading. The one exception is the
+details of people who submit Official Information Act requests, which the estate does not hold.
+Restates rulings 142 and the 3 November word on identifying information; built first in the grants
+lane (b54ee7f, grants_private.society_row_details).
