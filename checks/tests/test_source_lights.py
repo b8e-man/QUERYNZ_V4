@@ -882,3 +882,11 @@ def test_a_news_site_gathered_another_way_is_left_off_and_a_standing_request_sta
     assert sorted(r["name"] for r in rows if r["kind"] == "news") == ["notgazette.govt.nz", "odt.co.nz"]
     req = [r for r in rows if r["kind"] == "request"]
     assert len(req) == 1 and req[0]["light"] == "orange" and "5,418 records" in req[0]["line"]
+
+
+def test_a_copy_held_another_way_is_grey_with_its_reason_not_orange(monkeypatch):
+    monkeypatch.setattr(sl, "LANES", {})
+    ln = {**LN, "covered": {"unread-y": "every file held by the courts lane"}}
+    facts = _src_facts(freshness={"unread-y": {"records": 5, "newest_arrival": NOW}})
+    row = next(r for r in sl.sources([], facts, NOW, {}, ln) if r["name"] == "unread-y")
+    assert row["light"] == "grey" and row["line"].endswith("every file held by the courts lane")

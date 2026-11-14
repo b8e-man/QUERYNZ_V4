@@ -140,3 +140,12 @@ other_means = [
  "assets.national.org.nz", "assets.nationbuilder.com", "cdn.opportunity.org.nz", "res.cloudinary.com",
  "cdn.prod.website-files.com",      # file hosts behind the party and site pages the media request names
 ]
+
+# copies no register reads because what they hold is held another way (14 November 2026): grey with the reason, not
+# orange. Checked when written; a corpus here that gains something new needs its entry looked at again.
+[covered]
+estate-courts = "its 372 decisions are all held by their bytes: 293 at the same address in the courts corpus, the other 79 under other addresses (checked 14 Nov)"
+estate-courts-survey = "reference pages of a one-off survey of the courts' sites (3 Nov), not records"
+estate-elections = "the Electoral Commission's home page and site maps only; its records come through the election registers' own copies"
+estate-charities = "the provider's copy of the Charities Services' open-data feed, which the charities lane reads from the feed itself"
+estate-council_procurement = "the four councils' terms pages the procurement watch re-reads; the watch is off every schedule (ruling 136)"

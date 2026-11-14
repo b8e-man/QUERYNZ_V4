@@ -871,9 +871,10 @@ def links(path: str = None) -> dict:
         with open(path or LINKS_FILE, "rb") as f:
             raw = tomllib.load(f)
     except OSError:
-        return {"registers": {}, "corpora": {}, "requests": [], "other_means": []}
+        return {"registers": {}, "corpora": {}, "requests": [], "other_means": [], "covered": {}}
     return {"registers": raw.get("registers") or {}, "corpora": raw.get("corpora") or {},
-            "requests": raw.get("requests") or [], "other_means": (raw.get("news") or {}).get("other_means") or []}
+            "requests": raw.get("requests") or [], "other_means": (raw.get("news") or {}).get("other_means") or [],
+            "covered": raw.get("covered") or {}}
 
 
 def other_means(host: str, patterns: list) -> bool:
@@ -920,6 +921,8 @@ def copy_row(corpus: str, facts: dict, now: dt.datetime, taken: set, readers: di
     held = f"{n:,} records" if isinstance(n, int) else "records not counted"
     if corpus not in taken:
         light, words = GREY, f"the provider holds it ({held}); our pull does not copy it yet"
+    elif not readers.get(corpus) and corpus in ln.get("covered", {}):
+        light, words = GREY, f"copied ({held}), read by no register: {ln['covered'][corpus]}"
     elif not readers.get(corpus):
         light, words = ORANGE, f"copied ({held}), but no register reads it yet"
     elif x["state"] in (RED, ORANGE):
