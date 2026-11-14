@@ -1164,7 +1164,7 @@ deadline_s = 10800
 query_timeout_s = 60
 class = "due"
 priority = 71
-command = ["python", "-m", "registers.iwi_directory.capture", "--budget-s", "7200"]
+command = ["python", "-m", "registers.iwi_directory.capture", "--budget-s", "7200", "--from-mcp"]   # 14 November 2026: answered from estate-iwi_directory, never the web (229 of 229 addresses held, the same bytes as our last walk)
 at_utc = "09:30"
 nice = 10
 
@@ -1189,7 +1189,7 @@ deadline_s = 900
 query_timeout_s = 60
 class = "due"
 priority = 73
-command = ["python", "-m", "registers.settlement_commitments.capture"]
+command = ["python", "-m", "registers.settlement_commitments.capture", "--from-mcp"]   # 14 November 2026: answered from estate-settlement_commitments, never the web (5 of 5 addresses held; the records address read as the login wall)
 at_utc = "10:15"
 nice = 10
 

@@ -191,7 +191,8 @@ LANES = {
                    waiting=(("court_documents", "outcome LIKE 'waiting%'"),),
                    asks=("qv4-courts-jdo-capture", "qv4-courts-era-capture")),
     "iwi_directory": Lane(update=("qv4-iwi-directory-capture", "qv4-iwi-directory-load"),
-                          positions=("iwi-and-hapu-directory",)),
+                          positions=("iwi-and-hapu-directory",), corpora=("estate-iwi_directory",),
+                          mcp_hosts=("tkm.govt.nz",)),   # 14 November 2026: the walk is answered from the copy
     "contract_disclosures": Lane(update=("qv4-contract-disclosures-refresh", "qv4-contract-disclosures-load"),
                                  hosts=("catalogue.data.govt.nz", "acc.co.nz")),
     "council_minutes": Lane(update=("qv4-council-minutes-capture", "qv4-council-minutes-load"),
@@ -216,7 +217,9 @@ LANES = {
     "tenancy_tribunal": Lane(update=("qv4-tenancy-tribunal-capture",), hosts=("forms.justice.govt.nz",),
                              positions=("tenancy-tribunal-decisions",), asks=("qv4-tenancy-tribunal-capture",),
                              corpora=("estate-tenancy_tribunal",)),
-    "settlement_commitments": Lane(update=("qv4-settlement-commitments-watch",), positions=("treaty-settlement-commitments",)),
+    "settlement_commitments": Lane(update=("qv4-settlement-commitments-watch",), positions=("treaty-settlement-commitments",),
+                                   corpora=("estate-settlement_commitments",),
+                                   mcp_hosts=("tehaeata.govt.nz",)),   # 14 November 2026: the watch is answered from the copy
     "council_procurement": Lane(update=("qv4-council-procurement-watch",), hosts=("vendorpanel.nz",),
                                 positions=("council-procurement-platforms",)),
 }

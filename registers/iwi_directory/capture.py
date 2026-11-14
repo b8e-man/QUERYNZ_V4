@@ -26,7 +26,12 @@ redirect to another host is not followed. A gate refusal is never caught. A
 run that stops early after landing something exits green with a "stopped
 early" line; red only when nothing landed.
 
-    python -m registers.iwi_directory.capture [--anytime] [--max-pages N] [--budget-s N]
+    python -m registers.iwi_directory.capture [--anytime] [--max-pages N] [--budget-s N] [--from-mcp]
+
+From 14 November 2026 the crawl is the ingest MCP provider's (the 5 November split): `--from-mcp` answers every
+address of the walk from the newest copy in `estate-iwi_directory` (taken by qv4-mcp-pull) and asks the web for
+nothing. An address the copy lacks is set aside in the frontier and the walk goes on: a gap in the copy, not a host
+in trouble, so it never counts toward the three failed reads that stop a run.
 """
 import argparse
 import datetime as dt
@@ -184,6 +189,29 @@ class Stop(RuntimeError):
     """The run stops here: a block, a challenge, the host not answering."""
 
 
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
+MCP_CORPORA = ("estate-iwi_directory",)
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's opener and pacing when the crawl is the MCP provider's: every address answered with the newest copy
+    the MCP holds, an address it lacks set aside, and no request leaving the boxes, so no pacing and no off-peak
+    hours. A copy that is a challenge page is a block, as it would be from the web (hard limit 6)."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def opener(url, timeout=None, **_):
+        f = open_copy(url, timeout)
+        why = fg.looks_challenged(f.status, f.body)
+        return fg.Fetched(url=f.url, status=f.status, body=f.body, final_url=f.final_url, blocked=why) if why else f
+    return {"opener": opener, "sleep": lambda s: None, "anytime": True}
+
+
+def _not_held(exc) -> bool:
+    from support.mcpsource import replay
+    return isinstance(exc, replay.NotHeld)
+
+
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_pages: int = MAX_PAGES_A_WALK, anytime: bool = False,
@@ -219,6 +247,12 @@ class Run:
         except fg.Refused:
             raise
         except Exception as exc:  # noqa: BLE001 — a transport failure is a failed read, never the end of the night
+            if _not_held(exc):    # the MCP's copy lacks the address: a gap in the copy, not a host in trouble
+                why = f"not in the MCP's copy: {str(exc)[:200]}"
+                self.t.mark(pid, url, "set aside", why=why)
+                self.t.set_aside(pid, url, "fetch", why)
+                self.counts["set_aside"] += 1
+                return None
             return self.failed(url, pid, f"transport: {type(exc).__name__}: {str(exc)[:200]}")
         if f.status in SERVER_ERRORS and not fg.looks_challenged(200, f.body):
             return self.failed(url, pid, f"HTTP {f.status}: the server's own error; set aside, the run rests")
@@ -315,6 +349,8 @@ def main(argv=None) -> int:
     ap.add_argument("--budget-s", type=float, default=DEFAULT_BUDGET_S)
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-iwi_directory), never the web")
     a = ap.parse_args(argv)
     from support import db, jobrun
     started = jobrun.now()
@@ -325,7 +361,9 @@ def main(argv=None) -> int:
         if not t.try_lock():
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             return 0
-        out = Run(t, land_fn=landing(conn), anytime=a.anytime, max_pages=a.max_pages, budget_s=a.budget_s).run()
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the crawl is the MCP provider's; no request leaves the boxes
+        out = Run(t, land_fn=landing(conn), anytime=mcp.pop("anytime", a.anytime), max_pages=a.max_pages,
+                  budget_s=a.budget_s, **mcp).run()
     ok, last = outcome(out)
     detail = (f"{out['requests']} requests, {out['landed']} landed, {out['already_held']} already held, "
               f"{out['set_aside']} set aside, {out['found']} links found, {out['finished']} walks finished; {last}")

@@ -17,7 +17,12 @@ Politeness (hard limit 7): one request at a time, `FLOOR_S` apart,
 off-peak unless `--anytime`; a 403, 429 or a challenge stops the run (a
 failed read, not retried); a gate refusal is never caught.
 
-    python -m registers.settlement_commitments.capture [--anytime]
+    python -m registers.settlement_commitments.capture [--anytime] [--from-mcp]
+
+From 14 November 2026 the pages are the ingest MCP provider's to fetch (the 5 November split): `--from-mcp` answers
+each address from the newest copy in `estate-settlement_commitments` (taken by qv4-mcp-pull) and asks the web for
+nothing. An address the copy lacks is recorded in `capture_watch` as set aside and the watch goes on, as a failed
+read is today; the records address missing from the copy leaves the run red, since the wall was not seen.
 """
 import argparse
 import datetime as dt
@@ -87,6 +92,29 @@ class Stop(RuntimeError):
     pass
 
 
+#: the ingest MCP's copy of this lane's pages, which `--from-mcp` answers the watch from
+MCP_CORPORA = ("estate-settlement_commitments",)
+
+
+def from_mcp(conn, read_bytes=None) -> dict:
+    """The run's opener and pacing when the fetching is the MCP provider's: every address answered with the newest
+    copy the MCP holds, an address it lacks set aside, and no request leaving the boxes, so no pacing and no
+    off-peak hours. A copy that is a challenge page is a block, as it would be from the web (hard limit 6)."""
+    from support.mcpsource import replay
+    open_copy = replay.opener(conn, MCP_CORPORA, read_bytes=read_bytes)
+
+    def opener(url, timeout=None, **_):
+        f = open_copy(url, timeout)
+        why = fg.looks_challenged(f.status, f.body)
+        return fg.Fetched(url=f.url, status=f.status, body=f.body, final_url=f.final_url, blocked=why) if why else f
+    return {"opener": opener, "sleep": lambda s: None, "anytime": True}
+
+
+def _not_held(exc) -> bool:
+    from support.mcpsource import replay
+    return isinstance(exc, replay.NotHeld)
+
+
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None, anytime=False, log=print):
         self.t, self.land_fn, self.log = tables, land_fn, log
@@ -107,7 +135,9 @@ class Run:
         except fg.Refused:
             raise
         except Exception as exc:  # noqa: BLE001 — a transport failure is a failed read
-            self.t.add(url, purpose, None, None, f"set aside: transport: {type(exc).__name__}")
+            why = (f"not in the MCP's copy: {str(exc)[:200]}" if _not_held(exc)
+                   else f"transport: {type(exc).__name__}")
+            self.t.add(url, purpose, None, None, f"set aside: {why}")
             self.counts["set_aside"] += 1
             return
         if f.blocked:
@@ -155,6 +185,8 @@ def main(argv=None) -> int:
     ap.add_argument("--anytime", action="store_true", help="outside off-peak (by hand: a proof)")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the watch from the ingest MCP's copies (estate-settlement_commitments), never the web")
     a = ap.parse_args(argv)
     from support import db, jobrun
     started = jobrun.now()
@@ -162,7 +194,8 @@ def main(argv=None) -> int:
         conn.execute("SET statement_timeout = '60s'")
         t = Tables(conn, a.schema)
         t.create()
-        out = Run(t, land_fn=landing(conn), anytime=a.anytime).run()
+        mcp = from_mcp(conn) if a.from_mcp else {}   # the fetching is the MCP provider's; no request leaves the boxes
+        out = Run(t, land_fn=landing(conn), anytime=mcp.pop("anytime", a.anytime), **mcp).run()
     ok = bool(out["records"])
     detail = (f"{out['requests']} requests, the records address answered with "
               f"{dict(wall='the login wall', open='NO WALL: the records may be open').get(out['records'], 'nothing readable')}; "
