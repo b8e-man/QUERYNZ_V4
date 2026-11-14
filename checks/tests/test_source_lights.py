@@ -592,7 +592,7 @@ def test_the_council_lanes_and_the_tenancy_tribunal_on_the_real_lanes_and_gaps(m
                                                     "tenancy_tribunal")}
     assert {r: x["light"] for r, x in L.items()} == {"local_elections": "orange", "councillor_interests": "orange",
                                                      "council_procurement": "grey", "tenancy_tribunal": "orange"}
-    assert all(r.endswith("(declared 2026-11-05)") for r in L["tenancy_tribunal"]["reasons"])   # the gap, not the gate's line
+    assert all(r.endswith("(declared 2026-11-14)") for r in L["tenancy_tribunal"]["reasons"])   # the gap, not the gate's line
 
 
 def test_a_gap_s_hosts_are_a_list(tmp_path):
