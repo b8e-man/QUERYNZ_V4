@@ -50,8 +50,8 @@ source = "registers/insolvency/capture.py, SEARCH_FROM; Arthur, 4 November 2026"
 
 [[gap]]
 register = "tenancy_tribunal"
-reason = "the fetch gate holds forms.justice.govt.nz since 4 November (it reset every order PDF from 25 October), so the nightly capture asks it nothing until a person clears the hold: 20,778 of the listing's 33,847 orders held, 13,069 wait"
-since = "2026-11-05"
+reason = "the fetch gate holds forms.justice.govt.nz since 4 November, so the boxes ask it nothing; the orders come from the ingest MCP's copies (estate-tenancy_tribunal and its courts corpus): 26,662 of the listing's 34,189 orders held, 7,527 wait, asked of the provider in estate-current@2026-11-14 (14 November)"
+since = "2026-11-14"
 source = "ruling 141; the gate's ledger, 4 November 00:24; commit 560df5c (13,069 orders wait); Arthur, 4 November 2026"
 hosts = ["forms.justice.govt.nz"]
 
