@@ -14,6 +14,7 @@ row's status is told; and which column is the purpose as printed, if any.
     read_file(data, sha, slug)      Reading (read.Reading)
 """
 import datetime as dt
+import itertools
 import re
 
 from registers.grants import pdftable, read
@@ -47,10 +48,11 @@ def money(text: str):
 
 def status_by_word(row: dict, layout: dict) -> str:
     """Air Rescue to June 2023 and Milestone to 2020 print the decision as a word: APPROVED, FULLY APPROVED,
-    APPROVED-PARTIAL, PARTIALLY APPROVED or PARTIALLY DECLINED (a part granted), DECLINED; DEFERRED is no decision. Two words in one row are two applications the text layer ran together: no status."""
+    APPROVED-PARTIAL, PARTIALLY APPROVED or PARTIALLY DECLINED (a part granted), DECLINED; DEFERRED is no decision.
+    Milestone's 2016 and 2017 lists say APPROVED IN FULL, APPROVED IN PART, PARTIAL APPROVED or PARTIAL APPROVAL. Two words in one row are two applications the text layer ran together: no status."""
     w = _clean(row.get("decision")).upper()
     if w in ("APPROVED", "PARTIALLY DECLINED", "PARTIALLY APPROVED", "APPROVED-PARTIAL", "FULLY APPROVED",
-             "CONDITIONALLY APPROVED"):
+             "CONDITIONALLY APPROVED", "PARTIAL APPROVED", "PARTIAL APPROVAL", "APPROVED IN FULL", "APPROVED IN PART"):
         return "Accepted"
     return "Declined" if w in ("DECLINED", "DECLINE") else ""
 
@@ -66,6 +68,65 @@ def status_by_code(row: dict, layout: dict) -> str:
 PELORUS_STOP = [r"^Reasons for (?:Partial )?Decline\b"]
 PELORUS_SKIP = [r"^Pelorus Trust$", r"^\w+day, \d{1,2} \w+ \d{4}$", r"^Pelorus Trust \|", r"^Powered by\b",
                 r"^\d+ of \d+$"]
+PELORUS_PUBLISHED_HEADS = {"app": "App No", "recipient": "Applicant Name", "category": "Grant Category",
+                           "requested": "Requested", "compliant": "Compliant", "granted": "Approved",
+                           "declined": "Declined", "reason": "Reason for", "interest": "Relationship"}
+#: no head for "Declined Partial or Full": its words stand on the head's third line, and a head found there would put
+#: the table's first line (a wrapped name's first half) under the head (pdftable takes one more line after the head);
+#: "Partial" or "Full" is read into the declined cell, beside its figure
+PELORUS_PUBLISHED_SKIP = [r"^\d{1,2} [A-Za-z]{3} \d{4} \d{1,2}:\d{2}:\d{2}\b", r"^Page \d+ of \d+$"]
+PELORUS_PUBLISHED_STOP = [r"^Reasons for partial or declined funding\b"]
+#: Milestone's export of 2022 to 2026 (grants system, one month a file): its second column is the applicant's contact
+#: person, and its short description is the applicant's own prose (it names people and venues' streets): both are
+#: read for their edges only and never kept (`never_read`); the purpose is the system's own word for it ("App Purpose")
+_MSF_TITLE = (r"^(?:Milestone|MSF)(?: NPC)? Grant (?:Outcomes?|Details)(?: Outcome)?(?: (?:of|in|for))? "
+              r"(?P<m>[A-Za-z]{3,9}) (?P<y4>20\d\d)$")
+
+
+def _msf_heads():
+    """The head rows the export printed, each left to right: the contact column (first, so a file that prints one is
+    never read by a head without it), the outcome, the compliant amount and the short description come and go from
+    month to month."""
+    out = []
+    for contact, desc, outcome, compliant in itertools.product((True, False), ("App Short Description", "App Description"),
+                                                               (True, False), (True, False)):
+        h = {"app": "App Ref", "contact": "Applicant"} if contact else {"app": "App Ref"}
+        h.update({"recipient": "Org Trading Name", "purpose": "App Purpose", "description": desc})
+        if outcome:
+            h["reason"] = "Outcome"
+        h["requested"] = "Requested"
+        if compliant:
+            h["compliant"] = "Compliant"
+        h["granted"] = "Approved"
+        h["interest"] = ["Conflict", "Confilict", "Of"]        # "Conflict" may stand two lines above the head row
+        out.append(h)
+    return out
+
+
+#: Milestone's lists of 2020 to 2022 (a spreadsheet, one month a file): heads centred over left-set text, so the
+#: text-columns' edges are where their text starts (`shift`); a contact column in some months, and the applicant's own
+#: prose under "Purpose" (it names people and streets: 17 street-shaped of 679), both read for their edges only
+_MSF_OLD_TITLE = r"^(?:Milestone(?: Foundation)?|MSF) Grants? ?(?:Details)? (?P<m>[A-Za-z]{3,9}) (?P<y4>20\d\d)$"
+
+
+def _msf_old_heads():
+    out = []
+    for contact, compliant, outcome, interest in itertools.product((True, False), repeat=4):
+        h = {"app": "Grant"}
+        if contact:
+            h["contact"] = "Contact"
+        h.update({"recipient": ["Applicant's Name", "Applicants Name"], "description": "Purpose", "requested": "Requested"})
+        if compliant:
+            h["compliant"] = "Compliance"
+        h["granted"] = "Approved"
+        if outcome:
+            h["reason"] = "Outcome"
+        if interest:
+            h["interest"] = ["Conflict", "Relationship"]
+        out.append(h)
+    return out
+
+
 LAYOUTS = {
     "society-air-rescue-decisions-pdf": {
         "society": "air-rescue-services",
@@ -111,6 +172,25 @@ LAYOUTS = {
         "anchor": "requested", "align": "top", "status": lambda row, layout: "Declined", "purpose": None,
         "totals": True, "total_is": ["requested"],
     },
+    # the Pelorus export of October 2020 to September 2023 ("Published Approved Report" / "Published Declined Report"): one meeting, a
+    # head over three lines, names wrapped about their row's middle (the application number and the figures on the
+    # middle line), the head repeated on every page with its own edges, a "Meeting Total:" line, a legend of reasons
+    "society-pelorus-published-approved-pdf": {
+        "society": "pelorus-trust",
+        "title": [r"^Published Approved Report for Pelorus Trust$", r"^Meeting date: (?P<d>" + _DAY + r")$"],
+        "heads": PELORUS_PUBLISHED_HEADS,
+        "skip": PELORUS_PUBLISHED_SKIP, "stop": PELORUS_PUBLISHED_STOP,
+        "anchor": "requested", "align": "centred", "purpose": None, "totals": True,
+        "status": lambda row, layout: "Accepted" if money(row.get("granted")) else "Declined",
+    },
+    "society-pelorus-published-declined-pdf": {
+        "society": "pelorus-trust",
+        "title": [r"^Published Declined Report for Pelorus Trust$", r"^Meeting date: (?P<d>" + _DAY + r")$"],
+        "heads": PELORUS_PUBLISHED_HEADS,
+        "skip": PELORUS_PUBLISHED_SKIP, "stop": PELORUS_PUBLISHED_STOP,
+        "anchor": "requested", "align": "centred", "purpose": None, "totals": True,
+        "status": lambda row, layout: "Accepted" if money(row.get("granted")) else "Declined",
+    },
     "society-milestone-recipients-pdf": {
         "society": "milestone-foundation",
         "title": [r"^Milestone Foundation Recipients$", r"^(?P<m>[A-Za-z]{3,9}) (?P<y4>20\d\d)\b"],
@@ -132,6 +212,44 @@ LAYOUTS = {
         "anchor": "requested", "align": "middle", "purpose": None, "total_lines": "word", "totals": True,
         "status": status_by_word,
     },
+    "society-milestone-grant-outcomes-pdf": {
+        "society": "milestone-foundation",
+        "title": [_MSF_TITLE],
+        "heads": _msf_heads()[0], "heads_also": _msf_heads()[1:],
+        "never_read": ["contact", "description"],
+        "skip": [r"^NPC$"],
+        "head_tail": r"^(?:(?:App|Amount|Interest|Of|Name|Description|Outcome|Conflict|Approved|Requested|"
+                     r"Compliant)\s*)+$",                         # the head's own lines, up to four under its row
+        "anchor": "requested", "align": "middle", "purpose": "purpose", "totals": True,
+        "total_is": ["requested", "granted"], "total_lines": "word", "app_wraps": True,
+        "status": lambda row, layout: (status_by_code(row, layout) or
+                                       ("Accepted" if money(row.get("granted")) else "Declined")),
+    },
+    "society-milestone-grant-details-pdf": {
+        "society": "milestone-foundation",
+        "title": [_MSF_OLD_TITLE],
+        "heads": _msf_old_heads()[0], "heads_also": _msf_old_heads()[1:],
+        "never_read": ["contact", "description"], "shift": ["contact", "recipient", "description", "reason", "interest"],
+        "anchor": "requested", "align": "top", "purpose": None, "totals": True,
+        "total_is": ["requested", "compliant", "granted"],
+        "status": lambda row, layout: "Accepted" if money(row.get("granted")) else "Declined",
+    },
+    # Milestone's monthly lists of 2016 and 2017: the 2018 to 2020 list's columns, its reason head over two lines
+    # ("Reason for full/part" / "decline"), its conflict head "Relationship" or "Interest", the compliant amount not
+    # always printed
+    "society-milestone-recipients-2017-pdf": {
+        "society": "milestone-foundation",
+        "title": [r"^Milestone Foundation Recipients$", r"^(?P<m>[A-Za-z]{3,9}) (?P<y4>201[67])\b"],
+        "heads": {"recipient": "Organisation Name", "app": "Grant No", "category": "Category",
+                  "requested": "Requested", "compliant": "Compliant", "granted": "Approved",
+                  "decision": "Decision", "reason": "Reason for full/part", "interest": ["Relationship", "Interest"]},
+        "heads_also": [{"recipient": "Organisation Name", "app": "Grant No", "category": "Category",
+                        "requested": "Requested", "granted": "Approved", "decision": "Decision",
+                        "reason": "Reason for full/part", "interest": ["Relationship", "Interest"]}],
+        "absent": ["Reason for full/part decline"],
+        "anchor": "requested", "align": "middle", "purpose": None, "total_lines": "word", "totals": True,
+        "status": status_by_word,
+    },
     "society-we-care-quarter-approved-pdf": {
         "society": "we-care-community-trust",
         "title": [r"^Grants Approved for the period (?P<a>" + _DAY + r") - (?P<b>" + _DAY + r")$"],
@@ -141,6 +259,18 @@ LAYOUTS = {
         "anchor": "requested", "align": "bottom", "purpose": None, "totals": True, "total_is": ["requested",
                                                                                                 "granted", "declined"],
         "status": lambda row, layout: "Accepted" if money(row.get("granted")) else "Declined",
+    },
+    # We Care's declined lists of 2022 and 2023, quarter by quarter: the approved list's form, a decision word beside
+    # the amount declined ("Fully Declined"), a reason by number and its legend after the table
+    "society-we-care-quarter-declined-pdf": {
+        "society": "we-care-community-trust",
+        "title": [r"^Grants Declined for the period (?P<a>" + _DAY + r") - (?P<b>" + _DAY + r")$"],
+        "heads": {"recipient": "Organisation", "category": "Category", "requested": "Requested",
+                  "declined": "Declined", "reason": "Reason"},
+        "stop": [r"^\w+ for Declined Applications$"],
+        "anchor": "requested", "align": "bottom", "purpose": None, "totals": True,
+        "total_is": ["requested", "declined"],
+        "status": lambda row, layout: "Declined",
     },
     "society-new-horizon-approved-pdf": {
         "society": "new-horizon-community-trust",
@@ -256,7 +386,12 @@ def read_file(data: bytes, sha: str, slug: str) -> read.Reading:
     t = pdftable.table(data, heads, layout["anchor"], layout["align"], ws=ws, edges=layout.get("edges"),
                        skip=layout.get("skip", ()), stop=layout.get("stop", ()), sections=layout.get("sections", ()),
                        anchor_kind=layout.get("anchor_kind", "money"), mode=layout.get("edge_mode", "left"),
-                       total_lines=layout.get("total_lines", "figures"))
+                       total_lines=layout.get("total_lines", "figures"), head_tail=layout.get("head_tail"),
+                       shift=tuple(layout.get("shift", ())))
+    for row in t.rows:                                     # a column read for its edge only: never kept
+        for col in layout.get("never_read", ()):
+            row.pop(col, None)
+            row["anchor_cells"].pop(col, None)
     decided = a_day(title["d"]) if title.get("d") else None
     start, end = (a_day(title.get("a")), a_day(title.get("b"))) if title.get("a") else (decided, decided)
     if title.get("m") and title["m"][:3].lower() in MONTHS:
@@ -338,7 +473,8 @@ def read_file(data: bytes, sha: str, slug: str) -> read.Reading:
             "amount_refunded_as_published": None, "benefits": None,
             "territorial_authority": _clean(row.get("tla")) or None,
             "other_territorial_authority": None, "region": None,
-            "application_as_published": _clean(row.get("app")) or None,
+            "application_as_published": (re.sub(r"-\s+", "-", _clean(row.get("app"))) if layout.get("app_wraps")
+                                         else _clean(row.get("app"))) or None,
             "reason_as_published": _clean(row.get("reason")) or None,
             "interest_as_published": _clean(row.get("interest")) or None,
             "document": sha, "page": row["page"], "place": place, "read_from": "text", "reader": READER,

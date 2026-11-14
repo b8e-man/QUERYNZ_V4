@@ -195,9 +195,17 @@ def unprofiled() -> dict:
 #: a society whose own lists differ from the national file for a reason known and carded: reported, not red
 KNOWN_DIFFERENCES = {
     "we-care-community-trust": "its 2022 lists print 52 grants, $1,387,532; the national file 55, $1,669,449: three "
-                               "grants the society's quarterly lists do not carry (card the-societies-own-grants-lists)",
+                               "grants the society's quarterly lists do not carry (card the-societies-own-grants-lists); "
+                               "its 2022 declined lists, read from 14 November 2026, agree (18 and 18)",
 }
 TOLERANCE = 0.005      # a society's own lists against the national file, over the years both cover whole
+#: a society list whose printed total its own rows do not reach, for a reason known (the document's own): reported,
+#: not red; by the first 16 hex of its sha256
+KNOWN_TOTALS = {
+    "5c63380aeb8cc9c2": "Milestone, February 2022: the requested total ($345,206.65) counts $17,000 its 39 rows do not "
+                        "print (the text layer's 39 application numbers and 40 lines of figures agree with the rows); "
+                        "the national file holds two declined applications more for that month",
+}
 
 
 def _covered_years(periods: list) -> set:
@@ -237,6 +245,9 @@ def societies(conn, schema, docs, national: bool) -> tuple:
                     want = total_of(stated[f"total_{col}"])
                     got = stated.get(f"rows_{col}")
                     if want is None or got is None or abs(float(got) - want) > 0.5:
+                        if d[0][:16] in KNOWN_TOTALS:
+                            figures.setdefault("known_totals", {})[d[0][:16]] = KNOWN_TOTALS[d[0][:16]]
+                            continue
                         problems.append(f"the society list {d[0][:12]}… prints a {col} total of "
                                         f"{stated[f'total_{col}']}; its rows sum to {got}")
         elif stated.get("text_words", 0) < read.SCAN_WORDS:

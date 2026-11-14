@@ -3,7 +3,12 @@ column heads a profile names fix each column's left edge on every page, and
 each row is anchored by its one line that carries a figure in the profile's
 anchor column. A spreadsheet exported to PDF wraps a long cell onto more lines
 and aligns it in its row: to the bottom (Excel's default: the wrapped lines
-stand above the anchor line), to the top (below it) or the middle. The
+stand above the anchor line), to the top (below it) or the middle; or
+centres it on the anchor line, line for line (`centred`: a cell of two lines
+stands half a line above and below the anchor, one of three a line above and
+below it, so a line a whole line from its anchor is that row's only if the
+row has its mirror, or the page's edge cuts it; else it is a name the page
+break cut, which joins the row on the other side of the break). The
 profile says which, and every line that is not an anchor joins the anchor its
 alignment points to. Lines before the head and lines no anchor claims are kept
 as the page's other text (a title, a key, a total, a page number), never as a
@@ -14,6 +19,7 @@ row. Nothing here reads a value's meaning; the layout's reader does.
     find_head(lines, heads)           (head line index, {column: left edge}) or None
     table(data, heads, anchor, align) Table: rows of {column: text}, and the other text
 """
+import collections
 import csv
 import io
 import re
@@ -138,6 +144,28 @@ def find_head(lines: list, heads: dict, mode: str = "left"):
     return None
 
 
+SHIFT_GAP = 8.0         # points: a shifted column starts at least this far right of the column before it
+SHIFT_MIN = 3           # lines: a left edge the text shares at least this often
+
+
+def _shifted(lines: list, edges: dict, shift) -> dict:
+    """The page's edges with each column in `shift` moved to where its text starts: the left edge most of its lines'
+    first words share, between the column before it and its head. For a head centred over left-set text, whose column
+    starts left of the head (Milestone's 2020 to 2022 lists): no rule from the heads alone finds that edge."""
+    out = dict(edges)
+    cols = sorted(edges.items(), key=lambda kv: kv[1])
+    for (prev, px), (col, x) in zip(cols, cols[1:]):
+        if col not in shift:
+            continue
+        starts = collections.Counter(round(w.x0) for ln in lines for w in ln.words
+                                     if not is_money(w.text) and px + SHIFT_GAP < w.x0 <= x + EDGE_SLACK)
+        if starts:
+            at, n = starts.most_common(1)[0]
+            if n >= SHIFT_MIN:
+                out[col] = at - 0.5
+    return out
+
+
 def _cells(line: Line, edges: dict) -> dict:
     cols = sorted(edges.items(), key=lambda kv: kv[1])
     out = {}
@@ -155,9 +183,50 @@ def is_money(text: str) -> bool:
     return bool(text) and bool(MONEY.match(text.replace(" ", "")))
 
 
+#: `centred`: a line this near an anchor is its (half a line: a cell of two lines); a line up to `CENTRED_FAR` away is a
+#: whole line off (a cell of three)
+CENTRED_NEAR = 11.0
+CENTRED_FAR = 24.0
+CENTRED_MIRROR = 3.5
+
+
+def _centred(body: list, anchors: list) -> dict:
+    """{body index: anchor index, or "prev" (the tail of the row the page break cut, before this page's first
+    anchor), or "next" (the head of the next page's first row, after this page's last anchor)}. A line half a line
+    from an anchor is its; a line a whole line from an anchor is its only where the anchor's own line carries the
+    cell's middle line (words besides its figures) and the anchor has the mirror line on its other side or the page's
+    body ends there (a cell is the line's own columns); else the line is a name the page break cut."""
+    tops = {i: body[i][0].top for i in range(len(body))}
+    plain = [i for i, (_, c) in enumerate(body) if "_section" not in c and i not in anchors]
+    first, last = (min(tops.values()), max(tops.values())) if tops else (0, 0)
+    out = {}
+    for i in plain:
+        near = sorted((abs(tops[a] - tops[i]), a) for a in anchors if abs(tops[a] - tops[i]) < CENTRED_FAR)
+        if near and near[0][0] < CENTRED_NEAR:
+            out[i] = near[0][1]
+            continue
+        for d, a in near:
+            if not any(body[a][1].get(col) for col in body[i][1]):
+                continue                      # the anchor's line carries no middle line of the cell: an even count
+            mirror = 2 * tops[a] - tops[i]
+            if (mirror < first - CENTRED_MIRROR or mirror > last + CENTRED_MIRROR or
+                    any(abs(tops[j] - mirror) < CENTRED_MIRROR for j in plain if j != i)):
+                out[i] = a
+                break
+        else:
+            if anchors and tops[i] > tops[anchors[-1]]:
+                out[i] = "next"
+            elif anchors and tops[i] < tops[anchors[0]]:
+                out[i] = "prev"
+            else:
+                out[i] = None
+    return out
+
+
 def table(data: bytes, heads: dict, anchor: str, align: str = "bottom", ws: list = None,
           carry: bool = True, edges: dict = None, skip: list = (), stop: list = (), sections: list = (),
-          anchor_kind: str = "money", mode: str = "left", total_lines: str = "figures") -> Table:
+          anchor_kind: str = "money", mode: str = "left", total_lines: str = "figures", head_tail: str = None,
+          shift: tuple = ()) -> Table:
     """Every row of the table, page by page. A page with no head line takes the edges of the last page that had
     one when `carry` (a spreadsheet printed without its head row repeated); else, or before any head, it is all
     other text. A list printed with no head row at all gives its columns' left `edges` in points instead of
@@ -173,6 +242,7 @@ def table(data: bytes, heads: dict, anchor: str, align: str = "bottom", ws: list
     sections = [re.compile(p, re.I) for p in sections]
     section, ended = None, False
     fixed = edges
+    carried = []            # `centred`: lines at a page's foot that open the next page's first row
     for page in sorted(pages):
         if ended:
             out.other += [(page, x.text) for x in pages[page]]
@@ -207,7 +277,12 @@ def table(data: bytes, heads: dict, anchor: str, align: str = "bottom", ws: list
         if hi + 1 < len(lines) and found is not None and lines[hi + 1].top - lines[hi].top < 15 and not any(
                 is_money(w.text) for w in lines[hi + 1].words):
             hi += 1                                 # the head's third line ('Amount Amount Amount')
+        while head_tail and found is not None and hi + 1 < len(lines) and lines[hi + 1].top - lines[hi].top < 15 \
+                and re.match(head_tail, lines[hi + 1].text):
+            hi += 1                                 # a head of four or five lines: its words alone, close under it
         out.other += [(page, ln.text) for ln in lines[:hi + 1]]
+        if shift and found is not None:
+            edges = _shifted(lines[hi + 1:], edges, shift)
         body = []
         for ln in lines[hi + 1:]:
             if getattr(ln, "section", None):
@@ -219,6 +294,9 @@ def table(data: bytes, heads: dict, anchor: str, align: str = "bottom", ws: list
         anchors = [i for i, (_, c) in enumerate(body) if "_section" not in c and test(pick(c.get(anchor, "")))]
         claimed = {i: [] for i in anchors}
         marks = {}
+        carried_in, carried = carried, []      # the lines the last page's foot left for this page's first row
+        if align == "centred":
+            to_of = _centred(body, anchors)
         for i, (ln, c) in enumerate(body):
             if "_section" in c:
                 section = c["_section"]
@@ -226,7 +304,20 @@ def table(data: bytes, heads: dict, anchor: str, align: str = "bottom", ws: list
             marks[i] = section
             if i in claimed:
                 continue
-            if align == "bottom":
+            if align == "centred":
+                to = to_of.get(i)
+                if to == "next":
+                    carried.append(body[i][1])
+                    continue
+                if to == "prev":
+                    prev = out.rows[-1] if out.rows else None
+                    if prev is None:
+                        out.other.append((page, ln.text))
+                    else:
+                        for col, text in c.items():
+                            prev[col] = (prev[col] + " " + text) if col in prev else text
+                    continue
+            elif align == "bottom":
                 to = next((a for a in anchors if a > i), None)
             elif align == "top":
                 to = next((a for a in reversed(anchors) if a < i), None)
@@ -245,8 +336,14 @@ def table(data: bytes, heads: dict, anchor: str, align: str = "bottom", ws: list
             parts = sorted(claimed[a] + [a])
             row = {"page": page, "line": round(body[a][0].top, 1), "anchor_cells": dict(body[a][1]),
                    "section": marks.get(a)}
-            for i in parts:
-                for col, text in body[i][1].items():
+            pieces = [body[i][1] for i in parts]
+            if carried_in and a == anchors[0]:
+                pieces, carried_in = carried_in + pieces, []
+            for cells in pieces:
+                for col, text in cells.items():
                     row[col] = (row[col] + " " + text) if col in row else text
             out.rows.append(row)
+        if carried_in:                          # no row on this page to take them
+            out.other += [(page, " ".join(c.values())) for c in carried_in]
+    out.other += [(max(pages, default=0), " ".join(c.values())) for c in carried]    # no page after to take them
     return out
