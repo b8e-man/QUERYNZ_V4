@@ -65,7 +65,8 @@ def test_the_profiles_carry_the_budget_and_the_split_rule_at_version_2():
 
 def test_a_text_within_the_budget_goes_whole_and_one_over_it_is_cut_at_a_turn_then_a_paragraph_then_a_sentence():
     assert M.pieces_of("short text.", 100) == ["short text."]
-    assert M.pieces_of("", 100) == [""]
+    with pytest.raises(M.NoText):                       # 15 November 2026: no text is set aside, not read as one empty piece
+        M.pieces_of("", 100)
     turn = "Hon SAMPLE MEMBER (Sample—Place): " + "words of a speech go on. " * 6
     text = ("Opening remarks of the day go on and on. " * 4) + turn + turn
     pieces = M.pieces_of(text, len(text) - 40)
@@ -86,6 +87,23 @@ def test_a_text_with_no_boundary_inside_the_budget_cannot_be_split_and_says_so()
     assert "cannot split" in str(e.value) and "100 characters" in str(e.value)
     with pytest.raises(M.CannotSplit):
         M.pieces_of("word " * 100, 100)                 # spaces are not boundaries: a sentence end is
+
+
+def test_a_page_served_with_no_text_is_set_aside_named_and_never_sent_to_the_model(monkeypatch):
+    """15 November 2026: 45 archived pages came with `text` empty and no `snapshot_url`; each failed its piece and
+    the run went red. Now each is set aside at read, named, and no request is made."""
+    for empty in ("", "   \n", None):
+        with pytest.raises(M.NoText) as e:
+            M.pieces_of(empty, 100)
+        assert isinstance(e.value, M.CannotSplit) and "no text" in str(e.value)
+    rec = {"id": "https://www.parliament.nz/x", "url": "https://www.parliament.nz/x", "kind": "doc", "snapshots": 1,
+           "ts": "2026-11-05T18:02:39+00:00", "date": "2026-11-05", "doc_type": "other", "text": ""}
+    monkeypatch.setattr(M, "_record", lambda sha: rec)
+    calls = []
+    with pytest.raises(M.NoText):
+        M.piece(A, url=URL, model="m", store=rd.Store(tempfile.mkdtemp()), post=lambda *a, **k: calls.append(1))
+    assert calls == []
+    assert M.main(["--piece", A]) == 0                   # the job's piece exits clean: the run goes on
 
 
 def test_the_cut_falls_past_a_third_of_the_window_never_at_its_start():

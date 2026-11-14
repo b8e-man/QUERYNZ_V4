@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 
 from registers.parliament import shapes
 
-READER = "registers.parliament.read"
+READER = "registers.parliament.read 2"
 PROFILE = {"wq": "mcp-parliament-written-question", "api": "mcp-parliament-api-item",
            "wayback": "mcp-parliament-wayback-page"}
 OLDER_TEXT = "older text"       # files: an archived page's older version whose text differs from the version read

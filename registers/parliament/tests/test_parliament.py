@@ -546,7 +546,7 @@ def test_the_stored_readings_are_replayed_into_people_rows_and_every_document_is
         assert r["names"] == sum(1 for p in people if p["document"] == r["document"])
         assert r["profile"] == M.PROFILE_OF[r["source_table"]] and r["profile_version"] == read.PROFILE_VERSION[
             "wq" if r["source_table"] == "written_questions" else "wayback"]
-        assert r["model"] and r["reader"] == M.READER
+        assert r["model"] and r["reader"].split()[0] == M.READER.split()[0]     # the version that made it, kept
     pieces = {}
     for p in people:
         assert p["kind"] in M.KINDS and p["role"] in M.ROLES and p["name"] and p["document"] in by_doc

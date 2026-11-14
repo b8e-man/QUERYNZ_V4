@@ -62,7 +62,7 @@ from support import reader as rd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
-READER = "registers.parliament.model_read 1"
+READER = "registers.parliament.model_read 2"
 LANE = "parliament"
 TEXT_MODEL = os.environ.get("QV4_PARLIAMENT_TEXT_MODEL") or "qwen4exp"      # profiles.toml [profiles.text-reader] model
 URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completions"
@@ -120,6 +120,15 @@ MARKS = (("turn", TURN, "start"), ("paragraph", PARAGRAPH, "end"), ("sentence", 
 
 class CannotSplit(ValueError):
     """The text has no boundary the profile allows inside the budget."""
+
+
+NO_TEXT = "the provider served the page with no text: nothing for the text reader to read"
+
+
+class NoText(CannotSplit):
+    """The record carries no text (15 November 2026: 45 archived pages the provider landed from 23 October with
+    `text` empty and no `snapshot_url`). Set aside at stage read, named, as a text that cannot be split is; the
+    provider is asked for the text."""
 
 
 # ── the profile ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -188,6 +197,8 @@ def pieces_of(text: str, limit: int) -> list:
     """The text whole when it is within the budget, else in pieces each within it, cut by the profile's rule.
     Raises CannotSplit when a window has no boundary."""
     text = text or ""
+    if not text.strip():
+        raise NoText(NO_TEXT)
     out, i = [], 0
     while len(text) - i > limit:
         window = text[i:i + limit]
@@ -460,7 +471,7 @@ def waiting(conn, schema: str = "parliament", store: rd.Store = None, model: str
     aside = {r[0] for r in conn.execute(f"SELECT item FROM {schema}.set_aside WHERE stage = 'read'").fetchall()}
     out = []
     vw = profile_version(WAYBACK)
-    pages = conn.execute(f"SELECT document, archived_at FROM {schema}.wayback_pages WHERE served "
+    pages = conn.execute(f"SELECT document, archived_at FROM {schema}.wayback_pages WHERE served AND btrim(coalesce(text, '')) <> '' "
                          f"UNION ALL SELECT f.sha256, p.archived_at FROM {schema}.files f "
                          f"JOIN {schema}.wayback_pages p ON p.key = f.record_id "
                          "WHERE f.corpus = 'parliament-wayback' AND f.status = 'older text' "
@@ -514,6 +525,8 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, conn=Non
     store = store or rd.Store()
     rec = _record(sha256)
     profile = _profile_of_record(rec)
+    if profile is None and isinstance(rec, dict) and "questionNumber" not in rec and not str(rec.get("text") or "").strip():
+        raise NoText(f"{sha256[:12]}: {NO_TEXT}")
     if profile is None:
         raise RuntimeError(f"{sha256[:12]}: not a written question nor an archived page: not readable by the text reader")
     version = profile_version(profile)

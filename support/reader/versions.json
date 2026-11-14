@@ -326,8 +326,8 @@
   "files": [
    "registers/parliament/model_read.py"
   ],
-  "reader": "registers.parliament.model_read 1",
-  "sha256": "d40877dd9fa7e0bd0f864d817d2752e15e1deebd32cec7595418bb381cf431b2"
+  "reader": "registers.parliament.model_read 2",
+  "sha256": "bbf907602e9dd5bf777911f4c7ec915f6a49981cc1bf12b76f1ea9e48245c15b"
  },
  "registers/parliament/read.py": {
   "files": [
@@ -335,8 +335,8 @@
    "registers/parliament/read.py",
    "registers/parliament/shapes.py"
   ],
-  "reader": "registers.parliament.read",
-  "sha256": "c9bd19c5fe3e01e29e424626843d65e40cf7bfb4ec653ed10881136352280f7e"
+  "reader": "registers.parliament.read 2",
+  "sha256": "e0dbf196007aecbc000331d1e65b5106b839621198ea3dfe7684d1b07379ad6f"
  },
  "registers/parties/labels.py": {
   "files": [
