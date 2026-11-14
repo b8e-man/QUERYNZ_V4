@@ -84,6 +84,28 @@ def test_a_thin_page_goes_to_the_page_reader_and_is_read_from_pixels(tmp_path):
 
 
 @needs_poppler
+def test_a_read_cut_off_part_way_keeps_every_page_read_before_the_cut_and_the_retry_reads_only_the_rest(tmp_path):
+    """15 November 2026: the page reader stored nothing until a document's last page, so 12 scanned judgments of
+    274 to 935 pages killed at the job's deadline kept nothing over three tries. Each page is stored as it is read."""
+    data = minimal_pdf(["", "", ""])
+    store = rd.Store(str(tmp_path / "store"))
+    calls = []
+
+    def post(url, body, timeout):
+        calls.append(1)
+        if len(calls) == 3:
+            raise KeyboardInterrupt("the worker's deadline")      # not an Exception: the piece is killed mid-document
+        return {"model": pagereader.MODEL, "choices": [{"message": {"content": f"page text {len(calls)}"}}]}
+    with pytest.raises(KeyboardInterrupt):
+        read_document(data, "e" * 64, profile="ec-party-return-scan", profile_version=4, store=store, page_reader=True, post=post)
+    again = read_document(data, "e" * 64, profile="ec-party-return-scan", profile_version=4, store=store, page_reader=True,
+                          post=lambda u, b, t: calls.append(1) or {"model": pagereader.MODEL,
+                                                                     "choices": [{"message": {"content": "page text 3"}}]})
+    assert again.replayed == 2 and again.unread == [] and len(calls) == 4      # pages 1 and 2 replayed, only page 3 read
+    assert [r.text for r in again.readings] == ["page text 1", "page text 2", "page text 3"]
+
+
+@needs_poppler
 def test_without_a_page_reader_the_thin_page_is_reported_unread(tmp_path):
     data = minimal_pdf(["", ""])
     assert pages.read_from(data) == "pixels"

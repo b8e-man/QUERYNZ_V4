@@ -442,8 +442,8 @@
    "support/docread/pages.py",
    "support/docread/read.py"
   ],
-  "reader": "support.docread 1",
-  "sha256": "6fec2eceb490b3dacd93356fd0ba757ac6e7473fedbf908f5460c5dda1c4e0fb"
+  "reader": "support.docread 2",
+  "sha256": "ed1791dfd854db5029d2dcaa34ec0ebff58415e29e36374c2392e956de7f850b"
  },
  "support/scheduler/embed.py": {
   "files": [

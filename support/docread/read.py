@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from support import reader as rd
 from support.docread import pagereader, pages
 
-READER = "support.docread 1"
+READER = "support.docread 2"
 TEXT_MODEL = "text-layer"
 
 
@@ -73,13 +73,21 @@ def read_document(data: bytes, sha256: str, *, profile: str, profile_version: in
         else:
             need.append(p)
     if need and page_reader:
-        got = pagereader.ocr_pages(data, need, dpi=dpi, post=post, url=url, model=model)
+        kept = {}
+
+        def keep(p: int, text: str) -> None:       # stored the moment it is read: a deadline kill loses one page at most
+            r = rd.Reading(sha256, p, READER, pagereader.MODEL, pixel_settings, profile, profile_version, "pixels",
+                           text, made_at=dt.datetime.now().astimezone().isoformat(timespec="seconds"))
+            store.put(r)
+            kept[p] = r
+
+        got = pagereader.ocr_pages(data, need, dpi=dpi, post=post, url=url, model=model, on_page=keep)
         for p in need:
-            if p in got:
-                r = rd.Reading(sha256, p, READER, pagereader.MODEL, pixel_settings, profile, profile_version, "pixels",
-                               got[p], made_at=dt.datetime.now().astimezone().isoformat(timespec="seconds"))
-                store.put(r)
-                out.readings.append(r)
+            if p not in kept and p in (got or {}):
+                keep(p, got[p])                     # a reader that hands its pages back only at the end
+        for p in need:
+            if p in kept:
+                out.readings.append(kept[p])
             else:
                 out.unread.append(p)
     else:

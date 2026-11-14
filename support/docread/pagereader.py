@@ -95,9 +95,11 @@ def read_page(png: str, *, url: str = None, model: str = None, post=None) -> str
 
 
 def ocr_pages(data: bytes, pages: list, dpi: int = None, lang: str = "eng", *, post=None, report: dict = None,
-              url: str = None, model: str = None) -> dict:
+              url: str = None, model: str = None, on_page=None) -> dict:
     """1-based pages → text. A page the reader fails on is omitted, never
-    returned empty, so the caller still sees it as unread."""
+    returned empty, so the caller still sees it as unread. `on_page(page, text)` is called as each page is read,
+    so a caller can store it at once: a piece killed at its deadline keeps every page read before the kill
+    (15 November 2026: 12 scanned judgments of 274 to 935 pages ran 3 x 30 minutes and kept nothing)."""
     out, failed = {}, []
     with tempfile.TemporaryDirectory() as td:
         for p in pages:
@@ -112,6 +114,8 @@ def ocr_pages(data: bytes, pages: list, dpi: int = None, lang: str = "eng", *, p
                 continue
             if txt.strip():
                 out[p] = txt
+                if on_page is not None:
+                    on_page(p, txt)
             else:
                 failed.append(p)
     if report is not None:
