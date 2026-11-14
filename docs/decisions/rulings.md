@@ -1590,3 +1590,10 @@ reader takes the cards only while no text work waits. Inside those hours the nig
 reader's as ruling 129 says. The board's chat says the model is not running while the page reader
 holds the cards (ruling 122). Amends ruling 129 and the clause of ruling 121 that the standing
 server is never touched outside the window.
+
+178. Arthur, 15 November, on the provider's answer that legislation.govt.nz answers its clients
+with a challenge wall and can be reached only through the Parliamentary Counsel Office's keyed API:
+"legislation: we are shelving this". The legislation section of estate-current@2026-11-14 is
+withdrawn; no key is applied for and no other route is sought. Shelved, not refused: it reopens on
+Arthur's word. The disclosure statements on disclosure.legislation.govt.nz are a separate corpus
+(estate-disclosure_statements) and are not shelved.
