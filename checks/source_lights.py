@@ -166,9 +166,10 @@ LANES = {
     "worksafe": Lane(update=("qv4-worksafe-capture", "qv4-worksafe-load"), hosts=("worksafe.govt.nz",),
                      positions=("worksafe-prosecutions-and-undertakings",), asks=("qv4-worksafe-capture",),
                      corpora=("estate-worksafe",)),
-    "tenders": Lane(update=("qv4-tenders-load",),        # 11 November 2026: the refresh is off; the files are the MCP's
-                    hosts=("mbie.govt.nz", "data.govt.nz", "catalogue.data.govt.nz"), asks=("qv4-tenders-refresh",),
-                    positions=("government-procurement-award-notices",)),
+    "tenders": Lane(update=("qv4-tenders-refresh", "qv4-tenders-load", "qv4-tenders-listing-load"),
+                    # 14 November 2026: the refresh answered from estate-tenders; the listing reads the gets corpus
+                    positions=("government-procurement-award-notices",), corpora=("estate-tenders", "gets"),
+                    mcp_hosts=("mbie.govt.nz", "data.govt.nz", "catalogue.data.govt.nz")),
     "sanctions": Lane(update=("qv4-sanctions-capture", "qv4-sanctions-load"), positions=("sanctions-lists",),
                       hosts=("scsanctions.un.org",)),
     "limited_partnerships": Lane(update=("qv4-limited-partnerships-capture", "qv4-limited-partnerships-load"),

@@ -41,6 +41,15 @@ Every line printed is a count or a status. No row is ever printed.
 
     python -m registers.tenders.capture --copy          # case 1, once
     python -m registers.tenders.capture --refresh       # case 3, the quarterly job
+    python -m registers.tenders.capture --refresh --from-mcp   # case 3 from the ingest MCP's copy
+
+From 11 November 2026 the files are the ingest MCP provider's to gather (Arthur: "move gets to the mcp"; the lane
+asked for them as `estate-tenders`, asks.py). `--from-mcp` asks the web nothing: each file of the package is opened
+from the newest copy the MCP holds of its address (support.mcpsource.replay), and when any file's bytes differ from
+the newest the lane holds under that name, one run lists every file the copy holds (the unchanged ones `new` false),
+so each era the copy holds whole is a release the load takes. A file the copy lacks is not listed; its era keeps the
+release it had. Nothing is due, no rest and no off-peak hours: no request leaves the boxes. A copy that is a
+challenge page or not a CSV (or not a workbook, for the dictionary) is set aside, never landed.
 """
 import argparse
 import datetime as dt
@@ -52,6 +61,7 @@ import urllib.parse
 from zoneinfo import ZoneInfo
 
 import support.fetchgate as fg
+from registers.tenders import asks as _asks
 
 SOURCE = SCHEMA = "tenders"
 JOB = "qv4-tenders-refresh"
@@ -202,6 +212,12 @@ class Tables:
         clock, or by the old estate) since then."""
         return self.conn.execute(f"SELECT 1 FROM {self.s}.capture_files WHERE role = 'data' AND era = 'current' "
                                  "AND set_name = %s AND acquired_at >= %s LIMIT 1", (set_name, since)).fetchone() is not None
+
+    def held(self, name: str):
+        """The sha256 of the newest file the lane holds under this name, or None."""
+        row = self.conn.execute(f"SELECT sha256 FROM {self.s}.capture_files WHERE name = %s "
+                                "ORDER BY run_id DESC, file_id DESC LIMIT 1", (name,)).fetchone()
+        return row[0] if row else None
 
     def blocked_since(self, since: dt.datetime) -> bool:
         return self.conn.execute(f"SELECT 1 FROM {self.s}.capture_set_aside WHERE stage = 'fetch' AND at >= %s "
@@ -370,6 +386,56 @@ class Refresh:
         return {**self.counts, "stopped": stopped, "run_id": self.run_id}
 
 
+# ── case 3 from the ingest MCP's copy (estate-tenders) ───────────────────────
+
+MCP_CORPORA = ("estate-tenders",)
+#: every file of the package the lane asked the provider for, by the address the provider fetched it from
+MCP_FILES = _asks.CURRENT + _asks.STATIC
+FILES_URL = _asks.FILES_URL
+
+
+def from_mcp(tables, *, land_fn, opener, now=None) -> dict:
+    """Land each file of the MCP's copy whose bytes differ from what the lane holds under its name, in one run that
+    lists every file the copy holds. `opener(url, timeout)` is replay.opener: it never asks the web."""
+    from support.docstore import sha256_bytes
+    from support.mcpsource.replay import NotHeld
+    when = (now or (lambda: dt.datetime.now(NZ)))()
+    counts = {"requests": 0, "landed": 0, "already_held": 0, "set_aside": 0, "skipped": 0, "not_held": 0}
+    got, asides = [], []
+    for name in MCP_FILES:
+        url = FILES_URL + name
+        counts["requests"] += 1
+        try:
+            f = opener(url, 60)
+        except NotHeld:
+            counts["not_held"] += 1
+            continue
+        why = f.blocked or fg.looks_challenged(f.status, f.body)
+        if why or f.status != 200:
+            asides.append((url, "fetch", f"the MCP's copy: {why or f'HTTP {f.status}'}: not landed"))
+            continue
+        csv = name.endswith(".csv")
+        if not (looks_like_csv(f.body) if csv else f.body[:2] == b"PK"):
+            asides.append((url, "recognise", f"the MCP's copy is not a {'CSV file' if csv else 'workbook'}: not landed"))
+            continue
+        got.append((name, url, f.body, sha256_bytes(f.body) != tables.held(name)))
+    if not any(changed for *_, changed in got) and not asides:
+        return {**counts, "stopped": f"unchanged: the {len(got)} files the MCP holds are the bytes held"}
+    run = tables.begin("refresh")
+    for item, stage, why in asides:
+        tables.set_aside(run, item, stage, why)
+        counts["set_aside"] += 1
+    for name, url, body, _ in got:
+        ctype = "text/csv" if name.endswith(".csv") else \
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ref, new = land_fn(body, name=name, name_kind="file", fetched_at=None, content_type=ctype)
+        land_fn(body, name=url, name_kind="url", content_type=ctype)
+        tables.add_file(run, name, url, ref, new, "fetched", f"{MCP_CORPORA[0]}: {url}", when)
+        counts["landed" if new else "already_held"] += 1
+    tables.finish(run, counts, "")
+    return {**counts, "stopped": "", "run_id": run}
+
+
 def landing(conn):
     """land_fn(data, name, name_kind, fetched_at, content_type): the landing
     wrapper. Landing the same bytes again under another name adds the name
@@ -388,6 +454,8 @@ def main(argv=None) -> int:
     g.add_argument("--copy", action="store_true", help="case 1: the old estate's raw files, by hash (once)")
     g.add_argument("--refresh", action="store_true", help="case 3: the ministry's files through the gate")
     ap.add_argument("--anytime", action="store_true", help="refresh outside off-peak (by hand)")
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="refresh from the ingest MCP's copy (estate-tenders), never the web")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
     a = ap.parse_args(argv)
@@ -403,10 +471,16 @@ def main(argv=None) -> int:
             out = copy_old(t, landing(conn))
             return 0 if out["set_aside"] <= len(PROBE_FAILURES) else 1
         started = jobrun.now()
-        out = Refresh(t, land_fn=landing(conn), anytime=a.anytime).run()
+        if a.from_mcp:      # the files are the MCP provider's (11 November 2026); no request leaves the boxes
+            from support.mcpsource import replay
+            out = from_mcp(t, land_fn=landing(conn), opener=replay.opener(conn, MCP_CORPORA))
+        else:
+            out = Refresh(t, land_fn=landing(conn), anytime=a.anytime).run()
     ok = not out["stopped"].startswith("stopped:")
     detail = (f"{out['requests']} requests, {out['landed']} landed, {out['already_held']} already held, "
-              f"{out['skipped']} landed this quarter, {out['set_aside']} set aside; {out['stopped'] or 'done'}")
+              f"{out['skipped']} landed this quarter, {out['set_aside']} set aside"
+              + (f", {out['not_held']} not in the MCP's copy" if "not_held" in out else "")
+              + f"; {out['stopped'] or 'done'}")
     print(f"{SOURCE}: {detail}")
     jobrun.record(JOB, ok, detail, started, out)
     return 0 if ok else 1

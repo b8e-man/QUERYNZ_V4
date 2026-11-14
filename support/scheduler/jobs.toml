@@ -986,15 +986,15 @@ nice = 10
 
 # ── registers/tenders: the GETS award notices (step 6.2, template 1; tenders-1, card the-tenders-jobs-into-the-catalogue) ──
 [jobs.qv4-tenders-refresh]
-enabled = false   # 11 November 2026 (Arthur: "move gets to the mcp"): the award-notice files are the ingest MCP provider's to gather (the 5 November split; www.mbie.govt.nz answers 403 and the fetch gate holds it). The lane asks for them as estate-tenders (registers/tenders/asks.py, written by each load); a --from-mcp reading follows once the provider serves the corpus
-description = "The ministry's GETS award-notice files through the fetch gate, each current file once a quarter. Asks nothing until a set was last acquired 80 days ago, or within a week of a block; off-peak, 10 s apart; stops and goes red at a block (card the-ministry-s-gets-files-answer-403)."
+enabled = true   # 14 November 2026: on again, answered from the provider's estate-tenders (--from-mcp), never the web. Was off from 11 November (Arthur: "move gets to the mcp"; www.mbie.govt.nz answers 403 and the fetch gate holds it) until the provider served the corpus: 7 of its 8 files our bytes, the current supplier file the same quarter re-encoded
+description = "The ministry's GETS award-notice files from the ingest MCP's copy (estate-tenders, copied by qv4-mcp-pull), never the web: each file whose bytes differ from the newest the lane holds under its name makes one run listing every file the copy holds, which the load builds from; nothing differs, no run. A copy that is a challenge page or not the file's kind is set aside. Daily; seconds."
 needs = "processor"
 memory_gb = 0.2
 deadline_s = 1200
 query_timeout_s = 60
 class = "due"
 priority = 57
-command = ["python", "-m", "registers.tenders.capture", "--refresh"]
+command = ["python", "-m", "registers.tenders.capture", "--refresh", "--from-mcp"]
 at_utc = "10:00"
 nice = 10
 
