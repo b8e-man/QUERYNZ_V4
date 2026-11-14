@@ -1,6 +1,8 @@
 """A reading is stamped with its model, settings, profile and version, keyed
 by the document's hash, stored once and replayed without the model; a
 missing reading names the document."""
+import dataclasses
+
 import pytest
 
 import support.reader as rd
@@ -27,10 +29,11 @@ def test_store_put_get_and_replay_without_a_model(tmp_path):
     r = reading()
     store.put(r)
     assert store.has(r.key)
-    assert store.get(r.key) == r
+    stamped = dataclasses.replace(r, commit=rd.code_commit())     # put stamps the commit (15 November 2026)
+    assert store.get(r.key) == stamped
     calls = []
     got = rd.replay_or_read(store, r.key, read=lambda: calls.append(1) or reading())
-    assert got == r and calls == []           # replayed, the reader never ran
+    assert got == stamped and calls == []     # replayed, the reader never ran
 
 
 def test_a_missing_reading_names_the_document(tmp_path):

@@ -1,0 +1,481 @@
+{
+ "registers/beehive/model_read.py": {
+  "files": [
+   "registers/beehive/model_read.py",
+   "registers/beehive/read.py"
+  ],
+  "reader": "registers.beehive.model_read 1",
+  "sha256": "e1db159e71727014a572ccf8bc61e2c7f57e442af416a23c5cca1ae6431fff49"
+ },
+ "registers/beehive/read.py": {
+  "files": [
+   "registers/beehive/read.py"
+  ],
+  "reader": "registers.beehive.read",
+  "sha256": "336f8e0bc03dadb6c34e5b70f35bad1095531a6b64b23b5073850cde03439d73"
+ },
+ "registers/building_practitioners/read.py": {
+  "files": [
+   "registers/building_practitioners/read.py"
+  ],
+  "reader": "registers.building_practitioners.read 2",
+  "sha256": "88aa8c4d16cb369f252f24bc6d3a384ed23c6e3ec8ebca34b400e9d908148550"
+ },
+ "registers/building_practitioners/register.py": {
+  "files": [
+   "registers/building_practitioners/capture.py",
+   "registers/building_practitioners/register.py"
+  ],
+  "reader": "registers.building_practitioners.register 1",
+  "sha256": "536f4a76b089177de46d6e13826c2898366169edb0e5fc978b41b4a02e875398"
+ },
+ "registers/charities/read.py": {
+  "files": [
+   "registers/charities/capture.py",
+   "registers/charities/read.py"
+  ],
+  "reader": "registers.charities.read",
+  "sha256": "e4d236622031497d3e21cbacb66539e5e15d11fbd3638b033c92db9a18674e0b"
+ },
+ "registers/commerce_commission/read.py": {
+  "files": [
+   "registers/commerce_commission/read.py"
+  ],
+  "reader": "registers.commerce_commission.read 2",
+  "sha256": "45912c9073c1997ef24dd8dc03e2c1920925bb81d5d7a415f35f4d35ec5dbf36"
+ },
+ "registers/companies/monitor.py": {
+  "files": [
+   "registers/companies/load.py",
+   "registers/companies/monitor.py"
+  ],
+  "reader": "registers.companies.monitor 1",
+  "sha256": "586caad974115c5deb9b0b22fb9ac0676d1727d4299edddb7c092e51772a8c73"
+ },
+ "registers/companies/read.py": {
+  "files": [
+   "registers/companies/capture.py",
+   "registers/companies/monthly.py",
+   "registers/companies/read.py"
+  ],
+  "reader": "registers.companies.read 1",
+  "sha256": "488e3f4267c364c80ff31b5038000627070945f6669c49b497f118c41f4c8dea"
+ },
+ "registers/contract_disclosures/read.py": {
+  "files": [
+   "registers/contract_disclosures/read.py",
+   "registers/contract_disclosures/workbook.py"
+  ],
+  "reader": "registers.contract_disclosures.read",
+  "sha256": "d29b3d688b0ad0d5889a45225ab3000e1df9964e25fd3beb2498ec5a14db0bbe"
+ },
+ "registers/council_minutes/minutes.py": {
+  "files": [
+   "registers/council_minutes/minutes.py"
+  ],
+  "reader": "registers.council_minutes.minutes 1",
+  "sha256": "6ab5fc6982ec73378d2926cc61855cf678297d601037a2b7de53157ba2d38449"
+ },
+ "registers/council_minutes/model_read.py": {
+  "files": [
+   "registers/council_minutes/minutes.py",
+   "registers/council_minutes/model_read.py",
+   "registers/council_minutes/scans.py"
+  ],
+  "reader": "registers.council_minutes.model_read 1",
+  "sha256": "6d3babdf8a0f1f5e1d56c0704245ba00ca468bbcce39a495854257708150070a"
+ },
+ "registers/council_minutes/read.py": {
+  "files": [
+   "registers/council_minutes/read.py"
+  ],
+  "reader": "registers/council_minutes/read.py read_listing",
+  "sha256": "d02ad3dd34c06bc2dfec1ac7d9706e320200e5996a78849f3a792e793dda98d3"
+ },
+ "registers/councillor_interests/model_read.py": {
+  "files": [
+   "registers/councillor_interests/capture.py",
+   "registers/councillor_interests/model_read.py",
+   "registers/councillor_interests/read.py"
+  ],
+  "reader": "registers.councillor_interests.model_read 1",
+  "sha256": "596f323e3f599d60d22ef75df8260fdf4668b5d447dd8d4b5a1d14ec46659cc2"
+ },
+ "registers/councillor_interests/read.py": {
+  "files": [
+   "registers/councillor_interests/read.py"
+  ],
+  "reader": "registers/councillor_interests/read.py read_register",
+  "sha256": "baee5b4012dce4e16247c38a755a1ec380d55619d33d30fefd4a4c595aef05ea"
+ },
+ "registers/courts/identifiers.py": {
+  "files": [
+   "registers/courts/identifiers.py"
+  ],
+  "reader": "registers.courts.identifiers 1",
+  "sha256": "86bf577d6d025890180b6208f33b28410359a8efa6c3ecc4cfc63b4969ca4f2a"
+ },
+ "registers/courts/model_read.py": {
+  "files": [
+   "registers/courts/caption.py",
+   "registers/courts/model_read.py",
+   "registers/courts/pieces.py",
+   "registers/courts/read.py"
+  ],
+  "reader": "registers.courts.model_read 3",
+  "sha256": "87b8ab5265cb49558354e83092a08f2e422d7defadca9e75ec90558e2a9c9d10"
+ },
+ "registers/courts/read.py": {
+  "files": [
+   "registers/courts/caption.py",
+   "registers/courts/capture.py",
+   "registers/courts/identifiers.py",
+   "registers/courts/model_read.py",
+   "registers/courts/pieces.py",
+   "registers/courts/read.py"
+  ],
+  "reader": "registers.courts.read 3",
+  "sha256": "cc048f6a678ca07e86585458d5e84c421c79254a0af595a3286cac704e5fd510"
+ },
+ "registers/disclosures/read.py": {
+  "files": [
+   "registers/disclosures/form.py",
+   "registers/disclosures/listing.py",
+   "registers/disclosures/read.py",
+   "registers/disclosures/reconcile.py"
+  ],
+  "reader": "registers.disclosures.listing 1",
+  "sha256": "338a6dbb32de02f1697f87fab4ecd54770eb27d1ec004dd6cef4944f66056efa"
+ },
+ "registers/expenses/read.py": {
+  "files": [
+   "registers/expenses/check.py",
+   "registers/expenses/read.py",
+   "registers/expenses/sheet.py",
+   "registers/expenses/table.py"
+  ],
+  "reader": "registers.expenses 1: workbook cells (stdlib)",
+  "sha256": "2f8efee1f0de3159d202c0bc6bf6b36bb76e7058a1443ecd5ec7def7d8f89f7a"
+ },
+ "registers/fma/read.py": {
+  "files": [
+   "registers/fma/read.py"
+  ],
+  "reader": "registers.fma.read 2",
+  "sha256": "4c3a9e750baeb0d8010475e44ca3a2913ba10d2c6af5e6fb51d27951182b9d5c"
+ },
+ "registers/gazette/offices.py": {
+  "files": [
+   "registers/gazette/appointments.py",
+   "registers/gazette/cut.py",
+   "registers/gazette/liquidations.py",
+   "registers/gazette/offices.py"
+  ],
+  "reader": "registers.gazette.offices 1",
+  "sha256": "0a1df3cf4a55e042b99c2d5df3ddba4eebbc3bdc7b0efa69b7db727a60ad4768"
+ },
+ "registers/grants/read.py": {
+  "files": [
+   "registers/grants/pdftable.py",
+   "registers/grants/read.py",
+   "registers/grants/society.py"
+  ],
+  "reader": "registers.grants.read 2",
+  "sha256": "ea778306f3dd78c4942ed714ab90481ea9a0ad69be8f6f01db1a8a4f0e5f61ec"
+ },
+ "registers/grants/society.py": {
+  "files": [
+   "registers/grants/check.py",
+   "registers/grants/pdftable.py",
+   "registers/grants/read.py",
+   "registers/grants/society.py"
+  ],
+  "reader": "registers.grants.society 2",
+  "sha256": "9199526a0f087109a7d62bdb07d2af505a41dbc1451e254c383566c986cd8275"
+ },
+ "registers/hansard/model_read.py": {
+  "files": [
+   "registers/hansard/model_read.py",
+   "registers/hansard/read.py",
+   "registers/hansard/split.py"
+  ],
+  "reader": "registers.hansard.model_read 1",
+  "sha256": "f32bab43cce80dc04d189ce6454325de12b1d52446ed39634e1b6a5ab347f4b2"
+ },
+ "registers/hansard/read.py": {
+  "files": [
+   "registers/hansard/capture.py",
+   "registers/hansard/read.py"
+  ],
+  "reader": "registers.hansard.read 1",
+  "sha256": "f472d10139eb0056bf86f01e81a2209c0edf4c66e277cf06a432160ef677be74"
+ },
+ "registers/hansard/read_mcp.py": {
+  "files": [
+   "registers/hansard/read.py",
+   "registers/hansard/read_mcp.py"
+  ],
+  "reader": "registers.hansard.read_mcp 1",
+  "sha256": "1d3ce8d79fec3bf49002ae97c19877f52023f00f2b872b79cb682dd458753fb1"
+ },
+ "registers/hdc_decisions/read.py": {
+  "files": [
+   "registers/hdc_decisions/read.py"
+  ],
+  "reader": "registers.hdc_decisions.read 2",
+  "sha256": "fcbe64cc57133b7118652a69d954e6d168966825d176c4a96d9cc956a20deb5a"
+ },
+ "registers/house/read.py": {
+  "files": [
+   "registers/house/elections.py",
+   "registers/house/electorates.py",
+   "registers/house/nominations.py",
+   "registers/house/read.py",
+   "registers/house/recognise.py",
+   "registers/house/results.py"
+  ],
+  "reader": "registers.house 2",
+  "sha256": "4e34aff3a5e819a5fe85ed8bdf5278850b67de2551542d5522c364f81bb810b5"
+ },
+ "registers/insolvency/read.py": {
+  "files": [
+   "registers/insolvency/read.py"
+  ],
+  "reader": "registers.insolvency.read 1",
+  "sha256": "47ca9f614892e7173cb3fd35f2080486b06a3ae647e25b8ae96d82912cddf631"
+ },
+ "registers/iwi_directory/read.py": {
+  "files": [
+   "registers/iwi_directory/read.py"
+  ],
+  "reader": "registers.iwi_directory.read",
+  "sha256": "f3cbf67050d3f70139bbfe6884c8c325b283607d9d6921f4ebc90f92a2de7bfb"
+ },
+ "registers/limited_partnerships/read.py": {
+  "files": [
+   "registers/limited_partnerships/read.py"
+  ],
+  "reader": "registers.limited_partnerships.read 1",
+  "sha256": "b4b8ec2231c13b6dc81028ada26653606ee522df015e557f42b1d06bde1bea57"
+ },
+ "registers/linz/read.py": {
+  "files": [
+   "registers/linz/capture.py",
+   "registers/linz/geo.py",
+   "registers/linz/read.py"
+  ],
+  "reader": "registers.linz.read 1",
+  "sha256": "1ea98bb770e6c348f9705923e71e5a7216917e6fcacc9941bff3e711c30dfc4e"
+ },
+ "registers/local_elections/load.py": {
+  "files": [
+   "registers/local_elections/capture.py",
+   "registers/local_elections/check.py",
+   "registers/local_elections/load.py",
+   "registers/local_elections/read.py"
+  ],
+  "reader": "registers/local_elections/read.py read_listing",
+  "sha256": "889c4c86f32ade32119536bf14038a901ddae8162d29f167b5bf051e9bbc38ee"
+ },
+ "registers/ministers_diaries/attendees.py": {
+  "files": [
+   "registers/ministers_diaries/attendees.py",
+   "registers/ministers_diaries/read.py"
+  ],
+  "reader": "registers.ministers_diaries.attendees",
+  "sha256": "0b59d163b45089cd10d9d63f7dd0c0c91cf33eb7cd67ab9eec0f0ed54297f47b"
+ },
+ "registers/ministers_diaries/read.py": {
+  "files": [
+   "registers/ministers_diaries/attendees.py",
+   "registers/ministers_diaries/read.py"
+  ],
+  "reader": "registers.ministers_diaries.read",
+  "sha256": "0b59d163b45089cd10d9d63f7dd0c0c91cf33eb7cd67ab9eec0f0ed54297f47b"
+ },
+ "registers/mp_interests/read.py": {
+  "files": [
+   "registers/mp_interests/parse.py",
+   "registers/mp_interests/read.py"
+  ],
+  "reader": "support.docread 1: text-layer (pdftotext -layout, per page)",
+  "sha256": "272178c45506dba6fe42f36c48072d4b6f6b8ff85677a3d5b8ba55ffc633ee1d"
+ },
+ "registers/openlaw/read.py": {
+  "files": [
+   "registers/openlaw/read.py"
+  ],
+  "reader": "registers.openlaw.read",
+  "sha256": "98104e30dce039561ec25f0965ea866c5106c47125c97e4cfab98be1718cfc44"
+ },
+ "registers/overseas_investment/read.py": {
+  "files": [
+   "registers/overseas_investment/read.py"
+  ],
+  "reader": "registers.overseas_investment.read 2",
+  "sha256": "258ac9f05cf5e3bb783eb58be503e375c62cdfc8ca2878d5b8f6837797ce74bb"
+ },
+ "registers/papers_past/read.py": {
+  "files": [
+   "registers/papers_past/read.py"
+  ],
+  "reader": "registers.papers_past.read 1",
+  "sha256": "9b9343b45ae418eaca99e1313a8ebe9b2b91ab8c0508a617bd7b973d627a9827"
+ },
+ "registers/parliament/model_read.py": {
+  "files": [
+   "registers/parliament/model_read.py"
+  ],
+  "reader": "registers.parliament.model_read 1",
+  "sha256": "d40877dd9fa7e0bd0f864d817d2752e15e1deebd32cec7595418bb381cf431b2"
+ },
+ "registers/parliament/read.py": {
+  "files": [
+   "registers/parliament/model_read.py",
+   "registers/parliament/read.py",
+   "registers/parliament/shapes.py"
+  ],
+  "reader": "registers.parliament.read",
+  "sha256": "c9bd19c5fe3e01e29e424626843d65e40cf7bfb4ec653ed10881136352280f7e"
+ },
+ "registers/parties/labels.py": {
+  "files": [
+   "registers/parties/labels.py"
+  ],
+  "reader": "registers.parties.labels 1",
+  "sha256": "148a9399b480cbb1412e10b3ad5ae3b8be4193a3e95568dea3828c8c323f2cac"
+ },
+ "registers/party_boards/read.py": {
+  "files": [
+   "registers/party_boards/page.py",
+   "registers/party_boards/read.py"
+  ],
+  "reader": "registers.party_boards.read 1",
+  "sha256": "4ef3e6c2910bc41716beb50c64c96245a19ed8d52bf7fe59922cf078cde9ace4"
+ },
+ "registers/party_finance/broadcasting.py": {
+  "files": [
+   "registers/party_finance/broadcasting.py",
+   "registers/party_finance/listing.py",
+   "registers/party_finance/reconcile.py"
+  ],
+  "reader": "registers.party_finance.broadcasting 1",
+  "sha256": "c9723b5624166592e13a4f86cc074819c7b40b85b863e2a2bfcae31ca1fc3ea7"
+ },
+ "registers/party_finance/financials.py": {
+  "files": [
+   "registers/party_finance/financials.py",
+   "registers/party_finance/listing.py"
+  ],
+  "reader": "registers.party_finance.financials 1",
+  "sha256": "292e88134f456b61ab3a7b6e364c096d645e9163f4d1883859a9bf18de9f744d"
+ },
+ "registers/party_finance/listing.py": {
+  "files": [
+   "registers/party_finance/listing.py"
+  ],
+  "reader": "registers.party_finance.listing 1",
+  "sha256": "30fff9e0a0d95f3ebadb95947afad19b2515bc8447240fa30ed9df06016abee7"
+ },
+ "registers/party_finance/promoters.py": {
+  "files": [
+   "registers/party_finance/promoters.py"
+  ],
+  "reader": "registers.party_finance.promoters 1",
+  "sha256": "dd1702be929ca220d1de232d89cf934c5c76241fe50fc8cd52ba904d86af104e"
+ },
+ "registers/party_finance/statements.py": {
+  "files": [
+   "registers/party_finance/reconcile.py",
+   "registers/party_finance/statements.py"
+  ],
+  "reader": "registers.party_finance.statements 1",
+  "sha256": "4e29ae863ee71d83c1cceb54da4d4a9fbc97cc7f4c9aa41a5aaef82c63d7fd25"
+ },
+ "registers/real_estate_authority/read.py": {
+  "files": [
+   "registers/real_estate_authority/read.py"
+  ],
+  "reader": "registers.real_estate_authority.read 2",
+  "sha256": "d65a7b7f03f626a02fe9289ddeebf2fdfa2501b78ac4bb6c9d8f7fda633e04eb"
+ },
+ "registers/sanctions/read.py": {
+  "files": [
+   "registers/sanctions/read.py",
+   "registers/sanctions/workbook.py"
+  ],
+  "reader": "registers.sanctions.read 1",
+  "sha256": "a9d601b8e36b85bcf1e26ea16dcd52eda96700640c331c2134eccd00f25939ad"
+ },
+ "registers/societies/read.py": {
+  "files": [
+   "registers/societies/capture.py",
+   "registers/societies/read.py"
+  ],
+  "reader": "registers.societies.read 1",
+  "sha256": "5e4cb039dea89d81886d48ca6a1d6c17243088f165ae526a2c4587dc3fd7563d"
+ },
+ "registers/tenders/listing.py": {
+  "files": [
+   "registers/tenders/listing.py"
+  ],
+  "reader": "registers.tenders.listing",
+  "sha256": "346ca749fbb07a9ee5487ae8d3906431eeafb11e6cb569c29565b8b0744ae2c8"
+ },
+ "registers/tenders/read.py": {
+  "files": [
+   "registers/tenders/read.py"
+  ],
+  "reader": "registers.tenders.read 1",
+  "sha256": "6ec933ea76c05b9bd063cfa25b752d57aebb5cebaa1d233e7028a5716328a2cb"
+ },
+ "registers/worksafe/read.py": {
+  "files": [
+   "registers/worksafe/read.py"
+  ],
+  "reader": "registers.worksafe.read 2",
+  "sha256": "d2bd5b1e28ed228eafd3bc4275f7ec6262428da914a84eb9a668d76e89cbbff9"
+ },
+ "support/docread/read.py": {
+  "files": [
+   "support/docread/pagereader.py",
+   "support/docread/pages.py",
+   "support/docread/read.py"
+  ],
+  "reader": "support.docread 1",
+  "sha256": "6fec2eceb490b3dacd93356fd0ba757ac6e7473fedbf908f5460c5dda1c4e0fb"
+ },
+ "support/scheduler/embed.py": {
+  "files": [
+   "support/scheduler/embed.py"
+  ],
+  "reader": "support.scheduler.embed 1",
+  "sha256": "acb8c7d86c09261bba7ada6d37bb3d1f6094a1062228d46e54e2769f5fd08bab"
+ },
+ "support/scheduler/reread.py": {
+  "files": [
+   "support/scheduler/reread.py"
+  ],
+  "reader": "support.scheduler.reread 1",
+  "sha256": "780ac677b769ac54fc030c2dc3282a68c04b5f78e75088925933f892dc08a1a8"
+ },
+ "support/trials/piece.py": {
+  "files": [
+   "support/trials/pageset.py",
+   "support/trials/piece.py",
+   "support/trials/readers.py"
+  ],
+  "reader": "support.trials 1",
+  "sha256": "2831a6ee98795613e230e611359a4f6676f5a2101eacbfb82393e7e0880f47aa"
+ },
+ "support/trials/rows.py": {
+  "files": [
+   "support/trials/pageset.py",
+   "support/trials/readers.py",
+   "support/trials/rows.py",
+   "support/trials/score.py"
+  ],
+  "reader": "support.trials.rows 1",
+  "sha256": "742ddeed1059355813d9856f70fbcbec2a7f9f649aa7e6f83d61758a36052932"
+ }
+}

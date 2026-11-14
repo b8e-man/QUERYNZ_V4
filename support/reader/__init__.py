@@ -20,7 +20,7 @@ shapes across nine files; this is the one shape.
 import hashlib
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 
 READ_FROM = ("text", "pixels")
 STORE = os.environ.get("QV4_READINGS") or "/home/user/querynzv4-work/live/readings"
@@ -40,6 +40,30 @@ EARLIER_MODELS = {"qwen3.6-35b-a3b-q4km": ("qwen4exp",)}
 #: names the name pass found): {new settings hash: (earlier hashes, …)}. A reading made under the earlier settings stands
 #: for one under the new until the document is read again; registered by each lane with `supersede`.
 SUCCESSORS: dict = {}
+
+_COMMIT = {}
+
+
+def code_commit() -> str:
+    """The commit of the code this process runs from (Arthur, 15 November 2026: which version of the reader extracted
+    which documents): `QV4_COMMIT` when set, else the checkout's `git rev-parse HEAD`, with "+changed" when tracked
+    files differ from it (a session's uncommitted work), or "" where it is not a checkout. Asked once a process."""
+    if "v" not in _COMMIT:
+        env = os.environ.get("QV4_COMMIT")
+        if env is not None:
+            _COMMIT["v"] = env
+        else:
+            import subprocess
+            root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            try:
+                head = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True, text=True,
+                                      timeout=10).stdout.strip()
+                changed = subprocess.run(["git", "-C", root, "diff", "--quiet", "HEAD", "--"], capture_output=True,
+                                         timeout=30).returncode == 1
+                _COMMIT["v"] = head + ("+changed" if head and changed else "")
+            except (OSError, subprocess.SubprocessError):
+                _COMMIT["v"] = ""
+    return _COMMIT["v"]
 
 
 def supersede(new: dict, old: dict) -> None:
@@ -74,6 +98,8 @@ class Reading:
     rows: list = field(default_factory=list)      # the rows the profile's tables yielded
     checks: dict = field(default_factory=dict)    # the profile's gates and their results
     made_at: str = ""
+    commit: str = ""       # the code's commit when the reading was made (code_commit, from 15 November 2026); not in
+                           # the key, so a reading stored before then replays as before, its commit ""
 
     def __post_init__(self):
         if self.read_from not in READ_FROM:
@@ -106,6 +132,8 @@ class Store:
     def put(self, reading: Reading) -> str:
         p = self._path(reading.key)
         os.makedirs(os.path.dirname(p), exist_ok=True)
+        if not reading.commit:
+            reading = replace(reading, commit=code_commit())
         tmp = f"{p}.{os.getpid()}.tmp"     # 14 Nov 2026: two pieces of one document shared ".tmp" and one lost it
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(asdict(reading), f, ensure_ascii=False)
