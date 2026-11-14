@@ -867,3 +867,18 @@ def test_compute_writes_the_sources_beside_the_lights(monkeypatch):
     monkeypatch.setattr(sl, "LANES", {})
     out = sl.compute(_src_facts(), NOW, regs=[("x", "X", True)])
     assert [r["name"] for r in out["sources"] if r["kind"] == "register"] == ["x"]
+
+
+def test_a_news_site_gathered_another_way_is_left_off_and_a_standing_request_stays_while_copies_arrive(monkeypatch):
+    # Arthur, 14 November 2026: "remove the ones that we ARe gathering through other means"
+    monkeypatch.setattr(sl, "LANES", {})
+    ln = {**LN, "other_means": ["gazette.govt.nz", "*.infocouncil.biz", "infocouncil.*"],
+          "requests": [{"id": "m", "title": "media", "corpus": "estate-news", "asked": dt.date(2026, 11, 1),
+                        "due": dt.date(2026, 11, 2), "standing": True}]}
+    news = [{"host": h, "articles": 1, "newest": "2026-11-01"} for h in
+            ("www.gazette.govt.nz", "christchurch.infocouncil.biz", "infocouncil.dunedin.govt.nz", "odt.co.nz", "notgazette.govt.nz")]
+    facts = _src_facts(news=news, freshness={"estate-news": {"records": 5418, "newest_arrival": NOW}})
+    rows = sl.sources([], facts, NOW, {}, ln)
+    assert sorted(r["name"] for r in rows if r["kind"] == "news") == ["notgazette.govt.nz", "odt.co.nz"]
+    req = [r for r in rows if r["kind"] == "request"]
+    assert len(req) == 1 and req[0]["light"] == "orange" and "5,418 records" in req[0]["line"]

@@ -870,9 +870,20 @@ def links(path: str = None) -> dict:
         with open(path or LINKS_FILE, "rb") as f:
             raw = tomllib.load(f)
     except OSError:
-        return {"registers": {}, "corpora": {}, "requests": []}
+        return {"registers": {}, "corpora": {}, "requests": [], "other_means": []}
     return {"registers": raw.get("registers") or {}, "corpora": raw.get("corpora") or {},
-            "requests": raw.get("requests") or []}
+            "requests": raw.get("requests") or [], "other_means": (raw.get("news") or {}).get("other_means") or []}
+
+
+def other_means(host: str, patterns: list) -> bool:
+    """A news site of the old copy gathered another way: its name, `*.x` (every host under x) or `x.*` (every host
+    beginning `x.`)."""
+    h = _bare(host)
+    for p in patterns:
+        p = _bare(p)
+        if h == p or (p.startswith("*.") and h.endswith(p[1:])) or (p.endswith(".*") and h.startswith(p[:-1])):
+            return True
+    return False
 
 
 def pulled(registry: dict) -> set:
@@ -957,10 +968,15 @@ def request_rows(ln: dict, facts: dict, now: dt.datetime) -> list:
         corpus = r.get("corpus") or ""
         row = fresh.get(corpus) if corpus else None
         until = r.get("until_records")
-        if row is not None and (until is None or (row.get("records") or 0) > until):
+        standing = r.get("standing") is True
+        if not standing and row is not None and (until is None or (row.get("records") or 0) > until):
             continue   # landed: the corpus's own row speaks for it
         due, asked = r.get("due"), r.get("asked")
-        if due and today > due:
+        if standing and row is not None and row.get("records"):
+            light = ORANGE
+            words = (f"asked {_day(asked)}; copies arriving ({row['records']:,} records in {corpus} so far)"
+                     + (f", the provider's date {_day(due)}" if due else "") + "; open until the provider reports it done")
+        elif due and today > due:
             light, words = RED, f"asked {_day(asked)}, due {_day(due)}, nothing has landed"
         else:
             light = ORANGE
@@ -997,7 +1013,8 @@ def sources(lights: list, facts: dict, now: dt.datetime, plain: dict = None, ln:
         if r.get("corpus") == "estate-news" and r.get("asked"):
             asked = {"asked": min(r["asked"], asked.get("asked", r["asked"]))}
     for site in facts.get("news") or []:
-        out.append(news_row(site, asked, now))
+        if not other_means(site["host"], ln.get("other_means") or []):
+            out.append(news_row(site, asked, now))
     out.extend(request_rows(ln, facts, now))
     return out
 

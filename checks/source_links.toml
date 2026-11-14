@@ -65,7 +65,8 @@ parliament = "https://www.parliament.nz"     # every parliament-* corpus
 
 # requests sent to the provider whose copies have not landed: a row each until its corpus appears in `corpora`
 # (then the corpus's own row takes over). `due`: the provider's own date for the first copies (none: not given yet). A
-# request whose corpus already exists stands until the corpus holds more than `until_records`.
+# request whose corpus already exists stands until the corpus holds more than `until_records`; one marked
+# `standing` stays until the provider reports it done and its entry is removed here (a corpus that grows is not done).
 [[requests]]
 id = "estate-directories@2026-11-13b"
 title = "White Pages: newest copies and every archived version"
@@ -98,7 +99,7 @@ corpus = "estate-news"
 asked = 2026-11-13
 due = 2026-11-27
 url = "/sources#news"
-until_records = 5396
+standing = true
 
 [[requests]]
 id = "estate-nzme@2026-11-13"
@@ -107,7 +108,7 @@ corpus = "estate-news"
 asked = 2026-11-13
 due = 2026-11-20
 url = "https://www.nzherald.co.nz"
-until_records = 5396
+standing = true
 
 [[requests]]
 id = "estate-current@2026-11-14"
@@ -115,3 +116,27 @@ title = "Every source current: eleven sections (Hansard, diaries, grants, tender
 corpus = ""
 asked = 2026-11-14
 url = "/sources"
+
+[[requests]]
+id = "estate-media@2026-11-14"
+title = "Twelve more sites: regulation.govt.nz, the legislation disclosures, the Reserve Bank, DIA, ACC and others"
+corpus = "estate-news"
+asked = 2026-11-14
+url = "/sources#news"
+standing = true
+
+# news sites of the old copy left off the Sources tab: gathered another way (Arthur, 14 November 2026: "remove the ones
+# that we ARe gathering through other means"). A name, or `*.` for every host under it, or `infocouncil.*` for every
+# host beginning so.
+[news]
+other_means = [
+ "gazette.govt.nz",                 # the Gazette register (DigitalNZ)
+ "beehive.govt.nz",                 # the beehive corpus
+ "hansard.parliament.nz",           # the Hansard corpora
+ "elections.nz",                    # the election registers
+ "courtsofnz.govt.nz", "forms.justice.govt.nz", "justice.govt.nz", "determinations.era.govt.nz",   # the courts corpora
+ "*.infocouncil.biz", "infocouncil.*",   # the councils' minutes (estate-council_minutes)
+ "companies-register.companiesoffice.govt.nz",   # the companies register
+ "assets.national.org.nz", "assets.nationbuilder.com", "cdn.opportunity.org.nz", "res.cloudinary.com",
+ "cdn.prod.website-files.com",      # file hosts behind the party and site pages the media request names
+]
