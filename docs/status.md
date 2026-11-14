@@ -46,6 +46,9 @@ old ntfy.
   locks, LINZ transport stops (2103819). Board Sources tab: 265 sources,
   each a link and a light with one line on hover; the pull takes 11 more
   estate-* corpora (news, charities, grants, three courts and more).
+  Courts finder from its copy (1,519 decisions). From the MCP's copies,
+  never the web: disclosures, iwi, settlements, tenders, grants. Asked:
+  12 more media sites, the Lottery records of grants.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
