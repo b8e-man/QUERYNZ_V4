@@ -3463,5 +3463,1099 @@
     ]
    }
   }
+ },
+ "estate-charities": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "null",
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-council_procurement": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-courts": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "null"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-courts-finder": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "null",
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "etag": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "final_address": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "last_modified": [
+    "str"
+   ],
+   "listed": [
+    "dict"
+   ],
+   "listed_on": [
+    "list"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "listed": {
+    "date": [
+     "null",
+     "str"
+    ],
+    "jurisdiction": [
+     "str"
+    ],
+    "statute": [
+     "str"
+    ],
+    "title": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-courts-survey": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "null",
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-elections": {
+  "fields": {
+   "capture": [
+    "dict"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "etag": [
+    "null"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "final_address": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "last_modified": [
+    "null",
+    "str"
+   ],
+   "listed": [
+    "dict"
+   ],
+   "listed_on": [
+    "list"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "listed": {
+    "section": [
+     "null"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-grants": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "null",
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-iwi_directory": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-news": {
+  "fields": {
+   "author": [
+    "null",
+    "str"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "chars": [
+    "int"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetch_mode": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "pipeline_status": [
+    "str"
+   ],
+   "published_at": [
+    "null",
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "source": [
+    "str"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "upstream_id": [
+    "int"
+   ],
+   "urls": [
+    "list"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ]
+   }
+  }
+ },
+ "estate-settlement_commitments": {
+  "fields": {
+   "archive_replay_urls": [
+    "list"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_sha256": [
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "first_landed": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "landings": [
+    "int"
+   ],
+   "last_landed": [
+    "str"
+   ],
+   "names": [
+    "list"
+   ],
+   "problem": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "size": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "urls": [
+    "list"
+   ],
+   "withdrawn": [
+    "bool"
+   ],
+   "withdrawn_reason": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ]
+   },
+   "names": {
+    "*": [
+     "str"
+    ]
+   },
+   "urls": {
+    "url": [
+     "str"
+    ],
+    "via": [
+     "list"
+    ]
+   }
+  }
+ },
+ "estate-tenders": {
+  "fields": {
+   "bytes": [
+    "int"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "discovered_via": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ]
+  },
+  "items": {
+   "capture": {
+    "bytes": [
+     "int"
+    ],
+    "fetched_at": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   }
+  }
  }
 }
