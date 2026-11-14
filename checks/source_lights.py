@@ -128,7 +128,8 @@ MERGE_GATE = "loaded by the merge gate's staging step"
 #: register -> its lane, read from each lane's spec `jobs:` line and support/scheduler/jobs.toml (4 November 2026)
 LANES = {
     "party_returns": Lane(read=("qv4-read-pages",), note=MERGE_GATE),
-    "disclosures": Lane(update=("qv4-disclosures-load",), read=("qv4-disclosures-read",)),
+    "disclosures": Lane(update=("qv4-disclosures-load",), read=("qv4-disclosures-read",),
+                        corpora=("estate-disclosures",)),
     "parties": Lane(note=MERGE_GATE),
     "party_finance": Lane(read=("qv4-read-pages-expenses",), note=MERGE_GATE),
     "house": Lane(note=MERGE_GATE),
