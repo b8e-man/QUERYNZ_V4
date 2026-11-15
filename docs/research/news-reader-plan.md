@@ -416,6 +416,11 @@ Quotebank (178 million articles, machine-labelled). They agree on the hard cases
    the people the articles are about; or the customers of a product we sell? It sets what the reading has to
    capture beyond what is listed above.
 
+Arthur's answers, 15 November:
+1. Yes. Asked of the provider as estate-news-authors-2026-11-15.
+2. Letter writers are kept as the article's data, not in the author register.
+3. Open: put again in plainer words.
+
 On the first round's question 6 ("which kinds of event come first"): it was too vague to be worth Arthur's time.
 With the scope ambitious, every kind is read, so there is no first kind to choose.
 
