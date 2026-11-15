@@ -421,6 +421,15 @@ Arthur's answers, 15 November:
 2. Letter writers are kept as the article's data, not in the author register.
 3. Open: put again in plainer words.
 
+Third round, 15 November:
+1. **Checking the reader.** I hand-label a golden sample of my own and run the extraction against it. Then I give
+   Arthur some articles to label, and he checks my labels against his.
+2. **Te reo Māori articles** are flagged for a later session of their own and not read now.
+3. **Reader comments** interest Arthur, as a separate extraction from the articles. Whether we hold any is asked of
+   the provider (estate-news-comments-question-2026-11-15). Many sites load comments by script from a separate
+   service, so a captured page may carry none.
+4. **Photo captions** are read and tagged as captions (no objection raised).
+
 On the first round's question 6 ("which kinds of event come first"): it was too vague to be worth Arthur's time.
 With the scope ambitious, every kind is read, so there is no first kind to choose.
 
