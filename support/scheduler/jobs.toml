@@ -843,7 +843,7 @@ query_timeout_s = 600
 class = "due"
 priority = 32   # 85 was taken (integrator); the retired capture job's slot
 command = ["python", "-m", "registers.courts.load", "--publish"]
-at_utc = "15:40"
+# at_utc = "15:40" until 15 November 2026: now queued by each qv4-mcp-pull (every six hours), so it reads what the pull lands within hours
 nice = 10
 # the load's readers follow it with no hand on them (31 October). The page reader since 10 November 2026: the load
 # leaves a scan "waiting: page reader", and the row it queues lists them (`--pages --pieces`); queued in the morning,
@@ -1255,7 +1255,8 @@ memory_gb = 0.5
 query_timeout_s = 600
 class = "due"
 command = ["python", "-m", "registers.council_minutes.load", "--job"]
-at_utc = "17:45"
+then = ["qv4-council-minutes-pages"]   # 15 November 2026: scans to the page reader, which queues the text reader; both were only ever queued by hand
+# at_utc = "17:45" until 15 November 2026: now queued by each qv4-mcp-pull (every six hours), so it reads what the pull lands within hours
 priority = 78
 deadline_s = 2700   # 2 November 2026: the load reads every landed minutes PDF's text layer (616, about 10 minutes)
 
@@ -1279,7 +1280,7 @@ deadline_s = 900
 query_timeout_s = 600
 class = "due"
 command = ["python", "-m", "registers.councillor_interests.load", "--job"]
-at_utc = "17:50"
+# at_utc = "17:50" until 15 November 2026: now queued by each qv4-mcp-pull (every six hours), so it reads what the pull lands within hours
 priority = 80
 then = ["qv4-names-councillor-interests"]   # its names into pub.names (1 November)
 
@@ -1423,7 +1424,7 @@ command = ["python", "-m", "support.mcpsource", "--budget-s", "12600", "--corpus
            "--corpus", "parliament-hansard-debates", "--corpus", "parliament-bills-historical", "--corpus", "parliament-sops",
            "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts", "--corpus", "estate-disclosures", "--corpus", "estate-candidate_returns", "--corpus", "estate-fma", "--corpus", "estate-worksafe", "--corpus", "estate-commerce_commission", "--corpus", "estate-councillor_interests", "--corpus", "estate-building_practitioners", "--corpus", "estate-local_elections", "--corpus", "estate-council_minutes", "--corpus", "estate-courts-jdo", "--corpus", "estate-courts-era", "--corpus", "estate-tenancy_tribunal", "--corpus", "estate-real_estate_authority",
            "--corpus", "estate-news", "--corpus", "estate-charities", "--corpus", "estate-grants", "--corpus", "estate-iwi_directory", "--corpus", "estate-settlement_commitments", "--corpus", "estate-council_procurement", "--corpus", "estate-tenders", "--corpus", "estate-courts", "--corpus", "estate-courts-finder", "--corpus", "estate-courts-survey", "--corpus", "estate-elections"]
-then = ["qv4-courts-read"]   # the reader reads what the pull lands; it never waited on a green load (3 November: a red load left 6,447 unread)
+then = ["qv4-courts-read", "qv4-courts-load", "qv4-council-minutes-load", "qv4-councillor-interests-load", "qv4-beehive-load", "qv4-hansard-load", "qv4-parliament-load"]   # 15 November 2026 (Arthur: the readers running around the clock): each reader lane loads what the pull lands, and its chain (names, name pass, reader) follows, so new documents are read within hours, not the next day. qv4-courts-read stays first: it reads whatever is waiting even when a load goes red (3 November: a red load left 6,447 unread)
 every_s = 21600   # every six hours from 31 October (Arthur: the MCP is gathered continuously); was nightly 02:30 NZDT
 nice = 10
 
@@ -1451,6 +1452,7 @@ query_timeout_s = 60
 class = "whenever"
 priority = 28
 command = ["python", "-m", "registers.beehive.model_read", "--piece"]
+pieces_command = ["python", "-m", "registers.beehive.model_read", "--pieces"]   # 15 November 2026: so its name pass can queue it
 pieces = true
 can_share = true
 concurrency = 4
@@ -1464,7 +1466,7 @@ query_timeout_s = 600
 class = "due"
 priority = 85
 command = ["python", "-m", "registers.beehive.load"]
-at_utc = "15:00"
+# at_utc = "15:00" until 15 November 2026: now queued by each qv4-mcp-pull (every six hours), so it reads what the pull lands within hours
 nice = 10
 then = ["qv4-names-beehive"]   # its names into pub.names (1 November)
 
@@ -1478,6 +1480,7 @@ query_timeout_s = 300
 class = "whenever"
 priority = 29   # 26 is qv4-courts-read's; after beehive (28), before parliament (Arthur's order, 31 October)
 command = ["python", "-m", "registers.hansard.model_read", "--piece"]
+pieces_command = ["python", "-m", "registers.hansard.model_read", "--pieces"]   # 15 November 2026: so its name pass can queue it
 pieces = true
 can_share = true
 concurrency = 4
@@ -1491,7 +1494,7 @@ query_timeout_s = 600
 class = "due"
 priority = 86
 command = ["python", "-m", "registers.hansard.load"]
-at_utc = "15:15"
+# at_utc = "15:15" until 15 November 2026: now queued by each qv4-mcp-pull (every six hours), so it reads what the pull lands within hours
 nice = 10
 then = ["qv4-names-hansard"]   # its names into pub.names (1 November)
 
@@ -1519,6 +1522,7 @@ query_timeout_s = 300
 class = "whenever"
 priority = 103   # 28 is qv4-beehive-read's and 30 to 102 are taken: last of the readers (Arthur's order, 31 October)
 command = ["python", "-m", "registers.parliament.model_read", "--piece"]
+pieces_command = ["python", "-m", "registers.parliament.model_read", "--pieces"]   # 15 November 2026: so its name pass can queue it
 pieces = true
 can_share = true
 concurrency = 4
@@ -1532,7 +1536,7 @@ query_timeout_s = 600
 class = "due"
 priority = 88
 command = ["python", "-m", "registers.parliament.load"]
-at_utc = "15:30"
+# at_utc = "15:30" until 15 November 2026: now queued by each qv4-mcp-pull (every six hours), so it reads what the pull lands within hours
 nice = 10
 then = ["qv4-names-parliament"]   # its names into pub.names (1 November)
 
@@ -1585,6 +1589,7 @@ query_timeout_s = 600
 class = "whenever"
 priority = 18
 command = ["python", "-m", "links.sightings", "scan", "--lane", "beehive"]
+then = ["qv4-beehive-read"]   # 15 November 2026: the reader follows its name pass; it was only ever queued by hand, so it stopped between hands
 nice = 10
 
 [jobs.qv4-sightings-hansard]
@@ -1596,6 +1601,7 @@ query_timeout_s = 600
 class = "whenever"
 priority = 19
 command = ["python", "-m", "links.sightings", "scan", "--lane", "hansard"]
+then = ["qv4-hansard-read"]   # 15 November 2026: the reader follows its name pass; it was only ever queued by hand, so it stopped between hands
 nice = 10
 
 [jobs.qv4-sightings-parliament]
@@ -1607,6 +1613,7 @@ query_timeout_s = 600
 class = "whenever"
 priority = 104
 command = ["python", "-m", "links.sightings", "scan", "--lane", "parliament-wayback", "--lane", "parliament-questions"]
+then = ["qv4-parliament-read"]   # 15 November 2026: the reader follows its name pass; it was only ever queued by hand, so it stopped between hands
 nice = 10
 
 # ── a lane's names into pub.names as soon as its load publishes them (Arthur, 1 November 2026) ──
@@ -1744,6 +1751,7 @@ query_timeout_s = 900
 class = "whenever"
 priority = 116
 command = ["python", "-m", "links.rows", "--register", "councillor_interests"]
+then = ["qv4-councillor-interests-read"]   # 15 November 2026: the reader follows its names; it was only ever queued by hand
 nice = 10
 
 [jobs.qv4-names-local-elections]

@@ -730,8 +730,17 @@ def test_the_shipped_catalogue_wires_the_chain():
     for load in ("qv4-disclosures-load", "qv4-candidate-returns-load", "qv4-tenders-load", "qv4-iwi-directory-load", "qv4-charities-load"):
         assert jts[load].then[0] == "qv4-scan-rerun", load
     assert jts["qv4-scan-rerun"].cls == "whenever" and not jts["qv4-scan-rerun"].then
-    assert jts["qv4-mcp-pull"].then == ("qv4-courts-read",), "the loads stay on their nightly clock; the pull queues only the reader of what it lands (3 November 2026)"
-    assert not any(n.endswith("-load") for n in jts["qv4-mcp-pull"].then)
+    # 15 November 2026 (Arthur: the readers running around the clock): every reader lane's load follows each pull, and
+    # its chain (names, name pass, reader) follows the load; the courts reader stays first, for a red load (3 November)
+    readers = ("courts", "council-minutes", "councillor-interests", "beehive", "hansard", "parliament")
+    assert jts["qv4-mcp-pull"].then == ("qv4-courts-read",) + tuple(f"qv4-{x}-load" for x in readers)
+    for x in readers:
+        assert not jts[f"qv4-{x}-load"].at_utc, x          # the pull is its clock; then may not name a clocked job
+    for x in ("beehive", "hansard", "parliament"):
+        assert jts[f"qv4-sightings-{x}"].then == (f"qv4-{x}-read",) and jts[f"qv4-{x}-read"].pieces_command, x
+    assert jts["qv4-names-councillor-interests"].then == ("qv4-councillor-interests-read",)
+    assert jts["qv4-council-minutes-load"].then == ("qv4-council-minutes-pages",)
+    assert jts["qv4-council-minutes-pages"].then == ("qv4-council-minutes-read",)
 
 
 def test_the_cli_enqueue_refuses_a_pieced_job_with_no_pieces_and_no_command(tmp_path, monkeypatch, capsys):
