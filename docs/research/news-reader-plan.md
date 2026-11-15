@@ -11,6 +11,9 @@ It is not the news search (Arthur, 13 November: "dont build the news search").
 
 ## The one principle
 
+*Second round, 15 November: the read extracts and does not link. Step 5 and the Correlation section below are
+work for after the read ("Extraction first", further down).*
+
 **The reader records what the article says, and never decides who someone is.** A false match costs far more
 than a missed one: a wrong link puts a named person beside something they never did (hard limit 14). So the work is
 split into steps, and each step can only narrow what it was handed:
@@ -306,20 +309,115 @@ Correlation must therefore use only what the article and the registers say, neve
 - **The kinds come from the registers we have.** An event of a kind a register also records (an appointment, a
   liquidation, a contract award) is checked against that register.
 
+## Arthur's second answers (15 November 2026)
+
+- **Extraction first, links later.** "Be less focused on making links and more on extracting a robust set of data
+  from the articles and playing around with links after." The read makes no links. Everything about linking
+  (step 5, Correlation) waits.
+- **Quotes are extracted.**
+- **Authors go into a register,** with whatever data can be had on them.
+- **Industry codes:** yes, the companies' BIC codes are to come from the NZBN register (planned, not started).
+- **Vocabulary:** use what exists (IPTC Media Topics, ANZSIC), and build our own only if needed.
+- **Sentiment is for everything above and more:** media monitoring, and audience segmentation and analysis among
+  others. So it is kept fine-grained (per mention, per quote, per paragraph), never collapsed to a score per
+  article.
+- The prominence and link-bar questions fall away with the links.
+
+## Extraction first: what each article yields
+
+One frozen reading per article. Every item is verbatim with its character offsets, so any later use, linking
+included, can go back to the text. Identifying details go to the private table as printed (ruling 176).
+
+1. **The article.**
+   - Site, address, headline, standfirst, section.
+   - Type: news, opinion, letter, review, obituary, press release, live blog, market wrap, sponsored, correction.
+   - Dateline, and the published and updated times.
+   - Wire or agency credit, syndication group, correction notes, word count, and any te reo Māori passages.
+2. **Its authors.** Every byline as printed, its role line ("senior reporter"), outlet, agency, "additional
+   reporting by", a columnist's bio line ("X is a former …"), and contact details as printed.
+3. **Themes.** IPTC Media Topics, for the article and for each paragraph.
+4. **Mentions.**
+   - People, organisations, places, brands and products, and things: farms, ships, horses, buildings, roads,
+     events and awards.
+   - Each with its kind as used in the sentence, and grouped with the other mentions of the same person or body
+     within this article.
+   - Role phrases, with the organisation as the text binds it, and their tense (current, former, acting, interim,
+     incoming).
+   - Descriptors as printed: age, town, occupation.
+5. **Relations the text states.** "X's subsidiary Y", "X, husband of Y", "X owns Y", "X bought Y". These are
+   recorded as the article's claim, not as a link.
+6. **Quotes.** Each one records:
+   - the words, verbatim;
+   - its form: direct, partial, indirect (paraphrase) or mixed;
+   - the speaker as printed (a name, a pronoun, a role, "a spokesperson", "a source");
+   - the speaker's group within the article, and the organisation the text gives them;
+   - the verb (said, claimed, admitted, denied);
+   - the channel (an interview, a statement, court, social media, an earlier article);
+   - whom or what it is about.
+7. **Events.** These record:
+   - the kind (appointed, charged, fined, won a contract, liquidated and so on, from IPTC and the kinds the registers
+     record, all of them, ambitious);
+   - the participants and their part;
+   - the date and place;
+   - the modality: happened, alleged, denied, planned or rumoured.
+8. **Numbers with what they measure.** Money, salaries, fines, contract values, shares, votes and job losses, each
+   tied to its subject in the text.
+9. **Sentiment.** Recorded per mention and per quote, kept in three kinds:
+   - the article's tone toward the entity;
+   - what the quoted person says about it;
+   - the entity's own words.
+   
+   It also records the sentence that carries it, and the headline's tone.
+
+## The author register
+
+**What it holds for each author:**
+- Every name form, and each outlet with the first and last date of their bylines.
+- The roles they state, their bio lines, co-authors, and contact details and social handles as printed.
+- Their **beats**, which are the themes of their own articles over time (from item 3).
+
+**Where it comes from:**
+- The bylines, in the articles' own metadata and text.
+- Each site's author pages, if the provider captures them (question below).
+- Bylines in the old copy are often missing: 227 of a 400-article sample had no author. The provider now fills
+  them from the page (practice 4, under way).
+
+**Its pitfalls:**
+- Some bylines are not people: "Herald staff", "RNZ", "Open Justice reporters", "AAP".
+- One story can carry several bylines plus additional reporting.
+- Two journalists can share a name, and some write under a pen name.
+- Photographers' credits can be mistaken for bylines.
+- A guest columnist is a person in other registers too (a former MP, a chief executive). Their bio line is the
+  richest data on them, and it is recorded as they state it.
+
+## Quotes: what goes wrong
+
+The research corpora are DirectQuote (10,279 direct quotes), FRACAS (10,965 attributions, direct and indirect) and
+Quotebank (178 million articles, machine-labelled). They agree on the hard cases:
+- **Indirect quotes** are paraphrased and have no quotation marks.
+- **A speaker who is only a pronoun** ("she said") needs the article's grouping of mentions.
+- **A quote running over several paragraphs** opens a quotation mark on each paragraph and closes only at the end.
+- **Quotes inside quotes; scare quotes** ("so-called 'reform'"), which are not speech; and **headline quotes**,
+  which are shortened and need matching to the body.
+- **Recycled quotes:** "told the Herald last year" is an earlier article's quote, with its channel recorded.
+- **Statements by an organisation** ("a spokesperson for X said"). The speaker is the organisation, and the person
+  stays unnamed.
+- **Unnamed sources** ("a source close to the company") are recorded as such, never filled in.
+- **Te reo Māori quotes and their translations** are recorded as a pair.
+- **An invented quote or speaker** fails the span check: the words must be in the text.
+
 ## Questions for the next interview
 
-1. **Industry codes.** Should we ask for the companies' BIC codes from the NZBN register (we hold the key), so that
-   companies have themes? Companies that keep their code private will have none.
-2. **The vocabulary.** IPTC Media Topics for articles and ANZSIC for businesses, with our own map between them? Or
-   one vocabulary of our own?
-3. **Prominence.** Does the "prominence never scores" ruling bar a company's media frequency as evidence (above)?
-4. **What makes a link.** Is the bar a person's reading of 20 pairs per rule, as for the other links? Or does news
-   carry a lower bar, given that a news link says "this article names them", not "these are one person"?
-5. **Sentiment.** What is it for: the report, a score per person or company over time, or the products? The answer
-   sets its scale.
-6. **Events.** Which kinds come first?
-7. **Anchored or unlinked.** A mention that no rule links: is it kept and shown as "named, not linked"? Or held
-   only for the search Arthur has yet to talk about?
+1. **Author pages.** Should we ask the provider to capture each news site's author and profile pages (beat, bio,
+   contact as published) for the author register?
+2. **Letter writers.** Letters to the editor are written by private people. Do they go into the author register
+   like journalists, or are they kept only as the article's own data?
+3. **Audience segmentation.** What audience is meant: the readers of each outlet, inferred from what it publishes;
+   the people the articles are about; or the customers of a product we sell? It sets what the reading has to
+   capture beyond what is listed above.
+
+On the first round's question 6 ("which kinds of event come first"): it was too vague to be worth Arthur's time.
+With the scope ambitious, every kind is read, so there is no first kind to choose.
 
 ## Sources
 
@@ -347,6 +445,9 @@ Correlation must therefore use only what the article and the registers say, neve
 - Sentiment: [open-domain targeted sentiment](https://arxiv.org/pdf/2204.06893);
   [entity-level sentiment survey](https://aitopics.org/doc/arxivorg:E5088E31);
   [headline tone and entity sentiment (BSNLP 2023)](https://aclanthology.org/2023.bsnlp-1.10.pdf)
+- Quotes: [DirectQuote (LREC 2022)](https://ar5iv.labs.arxiv.org/html/2110.07827);
+  [FRACAS](https://ar5iv.labs.arxiv.org/html/2309.10604);
+  [German news quotations (KONVENS 2024)](https://aclanthology.org/2024.konvens-main.22.pdf)
 - Long documents: [lost in the middle](https://arxiv.org/pdf/2307.03172);
   [assessing the quality of information extraction](https://arxiv.org/pdf/2404.04068);
   [recall them all](https://arxiv.org/pdf/2405.02732)
