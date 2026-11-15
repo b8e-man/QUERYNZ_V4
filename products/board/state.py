@@ -74,3 +74,25 @@ def paths(conn) -> list:
         if not db.has_relation(c, schema, "paths"):
             return []
         return db.rows(c, f"select * from {schema}.paths order by made_at desc, path_id desc limit 500")
+
+
+def answer(set_name: str, question_id: str, choice: str, note: str = "") -> int:
+    """One review answer added (review.py); never an update: a newer answer is a newer row."""
+    _, schema = db.state_target()
+    with db.state_connect() as conn:
+        cur = conn.execute(f"insert into {schema}.answers (set_name, question_id, choice, note) values (%s, %s, %s, %s) "
+                           "returning answer_id", (set_name[:100], question_id[:100], choice[:100], note[:2000]))
+        answer_id = cur.fetchone()[0]
+        conn.commit()
+    return answer_id
+
+
+def answers(set_name: str) -> dict:
+    """question id -> the newest answer to it in the set, {"choice", "note", "made_at"}."""
+    _, schema = db.state_target()
+    with db.state_connect() as conn:
+        if not db.has_relation(conn, schema, "answers"):
+            return {}
+        got = conn.execute(f"select distinct on (question_id) question_id, choice, note, made_at from {schema}.answers "
+                           "where set_name = %s order by question_id, made_at desc, answer_id desc", (set_name,)).fetchall()
+    return {r[0]: {"choice": r[1], "note": r[2], "made_at": r[3]} for r in got}

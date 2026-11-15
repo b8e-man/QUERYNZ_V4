@@ -36,6 +36,9 @@ Routes:
   GET  /papers-past/text?k=<article id>&q=   one article's text as the archive's store holds it
   GET  /subject-report?q=&ref=&template=&since=&c.…   the subject report tab (Arthur, 9 November 2026): the report's search,
                     rows and memo drawn in the board's page (subject_report.py), its links kept in the tab
+  GET  /review?set=&q=&after=   the review tab (Arthur, 15 November 2026, review.py): one question of a set a session
+                    wrote, the sentence that answers it marked, the article behind a fold
+  POST /review/answer   one answer added to board.answers, then the next question
   GET  /health      'ok' and the port, for the launcher
   POST /chat        the chat pane (ruling 122, chat.py): JSON {"thread": [{role, content}…]}, the whole thread the
                     browser keeps, the newest a question; JSON back, the answer with its citations made row links.
@@ -60,7 +63,7 @@ from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
 from products.board import chat, collapse, db, document, dossier, graph, lights, lineage, links_view, near, panes, people, search, state, uses
-from products.board import papers_past, subject_report
+from products.board import papers_past, review, subject_report
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -461,6 +464,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
                 self.send_html(render_papers_past(q, papers_past.offset_of(qs), key, papers_past.asked_of(qs)))
                 return
+            if url.path == review.PATH:      # the review tab (Arthur, 15 November 2026)
+                self.send_html(review.render(qs))
+                return
             if url.path in ("/pinned", "/saved"):
                 self.send_html(render_list(url.path[1:]))
                 return
@@ -521,6 +527,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         form = urllib.parse.parse_qs(self.rfile.read(min(length, 65536)).decode("utf-8", "replace"))
         get = lambda k: (form.get(k) or [""])[0]
+        if url.path == review.ANSWER:
+            try:
+                self.redirect(review.take(form))
+            except ValueError as exc:
+                self.send_html(f"<p>not taken: {panes.esc(exc)}</p>", 400)
+            except Exception as exc:
+                self.send_html(f"<p>the board could not write: {panes.esc(type(exc).__name__)}: {panes.esc(exc)}</p>", 500)
+            return
         try:
             q, path = get("q").strip()[:200], parse_path(get("p"))
             boxes = search.boxes_of(form)
