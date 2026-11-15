@@ -68,3 +68,48 @@ hand to SCHEMA.md (1,383 spans, every one held to its text by check.py), then re
 2. Second run, with the enum schema, the role and relation rules above as checks after the read, and indirect
    quotes in their own pass. It is scored against the same labels.
 3. Tranche 2, with more of the kinds that scored worst: opinion, market wraps, court stories, live blogs.
+
+## Run 2 (same day): schema, quotes in their own pass, checks after the read
+
+Changes from tranche 1:
+- every enum is held by a JSON schema, which the server enforces;
+- the role, name and allegation rules from tranche 1 are written into the prompt;
+- quotes are read in a second call, given the first call's entities;
+- `check` runs after the read: a role whose `of` is a person moves to relations, a role bound to a place is unbound,
+  and so is a binding whose role, person and organisation are not printed in one sentence.
+
+The scorer now also matches a person whose got name carries the role. Rescoring run 1 with it moves entities to 95%,
+role binding to 77% and speaker to 95%.
+
+| Measure | Run 1 | Run 2 |
+| --- | --- | --- |
+| People found | 95% | 93% |
+| Spans not in text | 0% | 1% (11 of about 1,300) |
+| Roles bound right | 77% | 88% (45 of 51) |
+| Quotes found | 77% | 96% |
+| Speaker right | 95% | 93% |
+| Allegations kept as alleged | 3 of 5 | 5 of 5 |
+| Sentiment agree | 100% | 94% |
+| Type right | 28 of 32 | 27 of 32 |
+| Seconds per article | about 20 | about 32 (two calls) |
+
+- **The Paton error is gone**, unbound by the prompt rule.
+- **Spans not in text:**
+  - nine indirect quotes begin with a "that" the article does not print, and the next run strips it;
+  - "the offender" and "France" were printed by the model and are not in the text.
+- **Six bindings the labels do not hold remain:**
+  - the detective bound to Police, and Willis to National. The one-sentence check passes both, because the name
+    and the organisation share a sentence that the lost paragraph breaks have run together;
+  - "board chair" of "board";
+  - an associate professor bound to her school. This one is defensible: it may be the labels' gap;
+  - two film credits ("Produced by") bound to the film.
+- **124 of the 338 quotes it found match no labelled quote.** Most of the ones sampled are real indirect or direct
+  quotes that my labels missed (the Naida Glavish memoir feature most of all). The labels are short on quotes, so
+  quote precision cannot be scored until the labels are completed. Arthur's labelling will measure how much is
+  missing.
+- **Article type is still weak.** It reads a review, a feature, a market wrap and an advertorial as other kinds, and
+  a paywall stub as opinion. Type may need its own small call, or a rule taken from the site and the URL, which
+  often carry it.
+
+The pack for Arthur: /home/user/querynzv4-work/notes/news-gold-pack/ (`pack.py`). It holds three articles to label
+himself and three of mine to check.

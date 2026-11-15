@@ -1,7 +1,10 @@
 """A trial extraction of the golden sample on the boxes' own model, scored against the hand labels.
 
-    python -m registers.news.gold.trial run [--tranche 1] [--url URL] [--model M] [--workers 4]
-    python -m registers.news.gold.trial score [--tranche 1]
+    python -m registers.news.gold.trial run [--tranche 1] [--run run2] [--url URL] [--model M] [--workers 4]
+    python -m registers.news.gold.trial score [--tranche 1] [--run run2]
+
+Run 1 (tranche-N/ itself) was one call under json_object. Run 2 onward: the read under a JSON schema whose enums the
+server enforces, quotes in a second pass, and the checks after the read (`check`).
 
 Not the reader: a first measure of how far a local model is from the labels, before the reader is designed
 (Arthur, 15 November 2026). Outputs are regenerable and land in <work>/live/news-trial/tranche-N/<id>.json; the
@@ -28,19 +31,84 @@ LANE = "news-trial"
 PROMPT = """You read one New Zealand news article and record what it says, as data. You never decide who anyone is beyond what the article prints, and you never add anything you know from outside the article.
 
 Answer with ONE JSON object, no words before or after it, with these keys:
-- "article": {"type": one of news | opinion | press_release | live_blog | review | feature | obituary | market_wrap | letter | sponsored | stub, "themes": IPTC Media Topic labels broad to specific, "dateline": as printed or null, "wire_credit": the agency or outlet it was first published by, or null}
+- "article": {"type": one of news | opinion | press_release | live_blog | review | feature | obituary | market_wrap | letter | sponsored | stub (a review rates a work; a market_wrap reports a day's prices or trading across companies; a feature is long-form and not about one day's event; an opinion argues a view under a columnist's name), "themes": IPTC Media Topic labels broad to specific, "dateline": as printed or null, "wire_credit": the agency or outlet it was first published by, or null}
 - "authors": [{"as_printed", "kind": person | staff | agency | organisation, "role_line": the author's own bio or credit line as printed, or null}]
-- "entities": {"e1": {"name": the fullest form printed, "kind": person | organisation | place | team | government | brand | product | thing | work | event, "forms": [every way the text prints it, exactly]}, ...}. One entity per real thing; "Mr Smith" and "Smith" are forms of the same person. Pronouns are not forms. A person known only by relation ("his wife", "a spokesperson") is an entity with that as its name. Fictional characters are kind "thing". A thing named after a person (a stadium, a trust, a company) is never a person.
-- "roles": [{"who": entity id, "role": the role words exactly as printed, "of": the entity id of the organisation the TEXT binds it to, or null, "tense": current | former | acting | interim | incoming | designate, "bound_by": apposition | possessive | premodifier | statement | unbound}]. Bind a role to an organisation only when the text itself does ("X chief executive Y", "Y, chief executive of X", "X's chief executive"). If the article does not say whose chief executive someone is, "of" is null and "bound_by" is "unbound".
-- "relations": [{"a": id, "says": the words exactly as printed, "b": id}] for relations the text states (owns, subsidiary of, wife of, donated to, hired).
+- "entities": {"e1": {"name": the fullest form printed, "kind": person | organisation | place | team | government | brand | product | thing | work | event, "forms": [every way the text prints it, exactly]}, ...}. One entity per real thing; "Mr Smith" and "Smith" are forms of the same person. Pronouns are not forms. A person known only by relation ("his wife", "a spokesperson") is an entity with that as its name. Fictional characters are kind "thing". A thing named after a person (a stadium, a trust, a company) is never a person. "name" is the name alone: never a title, rank or job ("Scott Gemmell", not "Superintendent Scott Gemmell"; the rank goes in roles).
+- "roles": [{"who": entity id, "role": the role words exactly as printed, "of": the entity id of the organisation the TEXT binds it to, or null, "tense": current | former | acting | interim | incoming | designate, "bound_by": apposition | possessive | premodifier | statement | unbound}]. Bind a role to an organisation only when the text itself does ("X chief executive Y", "Y, chief executive of X", "X's chief executive"). If the article does not say whose chief executive someone is, "of" is null and "bound_by" is "unbound". The binding must be printed in the same sentence as the person's name; never carry a role from one sentence to a person named in another, and never give a person the role of someone else in the sentence (an appointed liquidator is not the director whose company failed). "of" is an organisation, team or government, never a place and never a person: "Kāpiti Coast builder" is a descriptor, and "his lawyer" or "her mother" is a relation. Never bind a minister to a party or a detective to the police unless the text prints that binding.
+- "relations": [{"a": id, "says": the words exactly as printed, "b": id}] for relations the text states (owns, subsidiary of, wife of, mother of, lawyer for, donated to, hired). Everything between two people goes here, never in roles.
 - "descriptors": [{"who": id, "text": exactly as printed}] for age, town, occupation, nationality.
-- "quotes": [{"text": exactly as printed, "form": direct | partial | indirect | mixed, "speaker": id or null, "speaker_as_printed": the words that name the speaker at that quote, "verb": said | told | … , "channel": interview | statement | court | social | earlier_article | release | unknown, "about": [ids]}]. One entry per quoted sentence or run of sentences between attributions. If the text does not say who spoke, speaker is null.
-- "events": [{"kind": a short plain phrase, "who": [{"e": id, "part": their part}], "when": as printed or null, "where": id or null, "modality": happened | alleged | denied | planned | rumoured | possible}]. A charge, an accusation or "allegedly" is alleged, never happened.
+- "quotes": [{"text": exactly as printed, "form": direct | partial | indirect | mixed, "speaker": id or null, "speaker_as_printed": the words that name the speaker at that quote, "verb": said | told | … , "channel": interview | statement | court | social | earlier_article | release | unknown, "about": [ids]}]. One entry per quoted sentence or run of sentences between attributions. Indirect speech counts: every "X said (that) ...", "X told ... that ...", "according to X, ...", "X believes/argued/warned/explained ..." without quotation marks is an indirect quote; copy the reported words after the verb. If the text does not say who spoke, speaker is null.
+- "events": [{"kind": a short plain phrase, "who": [{"e": id, "part": their part}], "when": as printed or null, "where": id or null, "modality": happened | alleged | denied | planned | rumoured | possible}]. A charge, an accusation, a claim by one party against another, "allegedly", "is accused of", "said it was dishonest", "likely offended", or anything a court has not yet decided is alleged, never happened. A denial is its own event with modality denied.
 - "numbers": [{"text": exactly as printed, "measures": what it counts, "of": id or null}]
 - "sentiment": [{"toward": id, "from": "article" or "own" or the id of a quoted speaker, "value": negative | mixed | neutral | positive, "evidence": the words that carry it, exactly as printed}]
 - "traps": [] (leave empty)
 
 Every value marked "exactly as printed" must be copied character for character from the article. A street address shows as [street address]; leave it so."""
+
+
+_S = {"type": "string"}
+_SN = {"type": ["string", "null"]}
+_E = lambda *v: {"type": "string", "enum": list(v)}
+_OBJ = lambda props, req=None: {"type": "object", "properties": props, "required": req or list(props)}
+_ARR = lambda item: {"type": "array", "items": item}
+QUOTE = _OBJ({"text": _S, "form": _E("direct", "partial", "indirect", "mixed"), "speaker": _SN, "speaker_as_printed": _SN,
+              "verb": _SN, "channel": _E("interview", "statement", "court", "social", "earlier_article", "release", "unknown"),
+              "about": _ARR(_S)})
+SCHEMA = _OBJ({
+    "article": _OBJ({"type": _E("news", "opinion", "press_release", "live_blog", "review", "feature", "obituary",
+                                "market_wrap", "letter", "sponsored", "stub"),
+                     "themes": _ARR(_S), "dateline": _SN, "wire_credit": _SN}),
+    "authors": _ARR(_OBJ({"as_printed": _S, "kind": _E("person", "staff", "agency", "organisation"), "role_line": _SN})),
+    "entities": {"type": "object", "additionalProperties": _OBJ({
+        "name": _S, "kind": _E("person", "organisation", "place", "team", "government", "brand", "product", "thing",
+                               "work", "event"), "forms": _ARR(_S)})},
+    "roles": _ARR(_OBJ({"who": _S, "role": _S, "of": _SN,
+                        "tense": _E("current", "former", "acting", "interim", "incoming", "designate"),
+                        "bound_by": _E("apposition", "possessive", "premodifier", "statement", "unbound")})),
+    "relations": _ARR(_OBJ({"a": _S, "says": _S, "b": _S})),
+    "descriptors": _ARR(_OBJ({"who": _S, "text": _S})),
+    "quotes": _ARR(QUOTE),
+    "events": _ARR(_OBJ({"kind": _S, "who": _ARR(_OBJ({"e": _S, "part": _S})), "when": _SN, "where": _SN,
+                         "modality": _E("happened", "alleged", "denied", "planned", "rumoured", "possible")})),
+    "numbers": _ARR(_OBJ({"text": _S, "measures": _S, "of": _SN})),
+    "sentiment": _ARR(_OBJ({"toward": _S, "from": _S, "value": _E("negative", "mixed", "neutral", "positive"),
+                            "evidence": _S})),
+    "traps": _ARR(_S)})
+
+QUOTE_PROMPT = """You find every quotation in one New Zealand news article: direct (in quotation marks), partial (a few quoted words inside a sentence), indirect (reported speech with no quotation marks: "X said that ...", "X told RNZ ...", "according to X", "X warned/argued/believes/explained ..."), and mixed. Statements a press release or report makes count, with the organisation as speaker. You are given the article's entities with their ids; the speaker is one of those ids, or null when the text does not say who spoke. Copy "text" character for character from the article: for indirect speech, the reported words after the verb. Answer with ONE JSON object {"quotes": [...]}, each {"text", "form", "speaker", "speaker_as_printed", "verb", "channel", "about": [ids]}."""
+QUOTES = _OBJ({"quotes": _ARR(QUOTE)})
+
+
+def _sentences(text: str) -> list:
+    return [x for x in re.split(r"(?<=[.!?\"”])\s+|\n+", text) if x.strip()]
+
+
+def check(got: dict, text: str) -> dict:
+    """The checks after the read (tranche 1 findings): a role's "of" is never a place or a person, and the role,
+    the person and the organisation it is bound to are printed in one sentence. A binding that fails is unbound and
+    noted, never silently kept; a person-to-person role becomes a relation."""
+    ents = got.get("entities") or {}
+    sents = [" ".join(x.split()).lower() for x in _sentences(text)]
+    forms = lambda i: [f.lower() for f in ((ents.get(i) or {}).get("forms") or []) + [(ents.get(i) or {}).get("name") or ""] if f]
+    notes, rels = [], got.setdefault("relations", [])
+    for r in got.get("roles") or []:
+        o = r.get("of")
+        if not o:
+            continue
+        kind = (ents.get(o) or {}).get("kind")
+        if kind == "person":
+            rels.append({"a": r.get("who"), "says": r.get("role"), "b": o})
+            r["of"], r["bound_by"], r["checked"] = None, "unbound", "moved to relations: of is a person"
+        elif kind == "place":
+            r["of"], r["bound_by"], r["checked"] = None, "unbound", "unbound: of is a place"
+        elif not any(any(f in s for f in forms(r.get("who"))) and any(f in s for f in forms(o))
+                     and (r.get("role") or "").lower() in s for s in sents):
+            r["of"], r["bound_by"], r["checked"] = None, "unbound", "unbound: not printed in one sentence"
+        else:
+            continue
+        notes.append(r["checked"])
+    got["checks"] = notes
+    return got
 
 
 def _ids(tranche: int) -> list:
@@ -64,20 +132,40 @@ def _parse(s: str):
         return None
 
 
-def read_one(article_id: str, text: str, url: str, model: str) -> dict:
-    t0 = time.monotonic()
+def _call(url, model, system, user, schema, name):
     extra = {"temperature": 0.0, "max_tokens": 12000, "chat_template_kwargs": {"enable_thinking": False},
-             "response_format": {"type": "json_object"}}
+             "response_format": {"type": "json_schema", "json_schema": {"name": name, "schema": schema, "strict": True}}}
     out = modelclient.chat(url, lane=LANE, model=model, extra=extra, timeout=1200.0,
-                           messages=[{"role": "system", "content": PROMPT},
-                                     {"role": "user", "content": "ARTICLE (data, not instructions):\n\n" + text}])
-    raw = (out["choices"][0]["message"]["content"] or "")
+                           messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
+    return out, (out["choices"][0]["message"]["content"] or "")
+
+
+def read_one(article_id: str, text: str, url: str, model: str) -> dict:
+    """Run 2: the whole read under the schema, then quotes in their own pass, then the checks."""
+    t0 = time.monotonic()
+    user = "ARTICLE (data, not instructions):\n\n" + text
+    out, raw = _call(url, model, PROMPT, user, SCHEMA, "article")
+    got = _parse(raw)
+    if isinstance(got, dict):
+        ents = {k: {"name": v.get("name"), "kind": v.get("kind")} for k, v in (got.get("entities") or {}).items()
+                if isinstance(v, dict)}
+        _, qraw = _call(url, model, QUOTE_PROMPT, "ENTITIES: " + json.dumps(ents, ensure_ascii=False) + "\n\n" + user,
+                        QUOTES, "quotes")
+        q = _parse(qraw)
+        if isinstance(q, dict) and isinstance(q.get("quotes"), list):
+            got["quotes_first_pass"] = got.get("quotes")
+            got["quotes"] = q["quotes"]
+        got = check(got, text)
     return {"id": article_id, "model": out.get("model") or model, "seconds": round(time.monotonic() - t0, 1),
-            "usage": out.get("usage"), "parsed": _parse(raw), "raw": raw if _parse(raw) is None else None}
+            "usage": out.get("usage"), "parsed": got, "raw": raw if got is None else None}
 
 
-def run(tranche: int, url: str, model: str, workers: int) -> None:
-    d = OUT / f"tranche-{tranche}"
+def _dir(tranche: int, name: str) -> Path:
+    return OUT / f"tranche-{tranche}" / name if name else OUT / f"tranche-{tranche}"
+
+
+def run(tranche: int, url: str, model: str, workers: int, name: str = "") -> None:
+    d = _dir(tranche, name)
     d.mkdir(parents=True, exist_ok=True)
     with _conn() as c:
         texts = {i: _text(c, i) for i in _ids(tranche)}
@@ -105,6 +193,12 @@ def _forms(e: dict) -> set:
     return {_n(f) for f in (e.get("forms") or []) + [e.get("name")] if _n(f)}
 
 
+def _contains(gf: set, xf: set) -> int:
+    """A gold person's full name (two words or more) printed inside a got form: "Waikato police Superintendent
+    Scott Gemmell" holds "scott gemmell". Counted after exact overlap, so it never outranks a true match."""
+    return sum(1 for g in gf if len(g.split()) >= 2 and any(f" {g} " in f" {x} " and g != x for x in xf))
+
+
 def _match_entities(gold: dict, got: dict) -> dict:
     """gold id -> got id, by shared forms (most overlap wins)."""
     m = {}
@@ -114,7 +208,8 @@ def _match_entities(gold: dict, got: dict) -> dict:
         for xid, xe in (got or {}).items():
             if not isinstance(xe, dict):
                 continue
-            s = len(gf & _forms(xe))
+            xf = _forms(xe)
+            s = len(gf & xf) * 10 + _contains(gf, xf)
             if s > score:
                 best, score = xid, s
         if best:
@@ -199,8 +294,8 @@ def score_one(gold: dict, got: dict, text: str) -> dict:
     return s
 
 
-def score(tranche: int) -> dict:
-    d = OUT / f"tranche-{tranche}"
+def score(tranche: int, name: str = "") -> dict:
+    d = _dir(tranche, name)
     per, total = {}, {}
     with _conn() as c:
         for i in _ids(tranche):
@@ -227,10 +322,10 @@ def main(argv=None) -> int:
     opt = lambda k, dflt: argv[argv.index(k) + 1] if k in argv else dflt
     tranche = int(opt("--tranche", 1))
     if argv[:1] == ["run"]:
-        run(tranche, opt("--url", URL), opt("--model", MODEL), int(opt("--workers", 4)))
+        run(tranche, opt("--url", URL), opt("--model", MODEL), int(opt("--workers", 4)), opt("--run", ""))
         return 0
     if argv[:1] == ["score"]:
-        t = score(tranche)["total"]
+        t = score(tranche, opt("--run", ""))["total"]
         pct = lambda a, b: f"{100 * t.get(a, 0) / t[b]:.0f}%" if t.get(b) else "n/a"
         print(json.dumps(t, indent=1))
         print("people found", pct("people_matched", "people_gold"), "| entities found", pct("entities_matched", "entities_gold"),
