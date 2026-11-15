@@ -1,0 +1,27 @@
+{
+ "id": "24aa40b4-f777-46e4-9764-a37a1bbb4898", "text_sha256": "c011a1bf011fb2c34afcff9e7220893646e55406c3376291bb415e06829a02c3",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "market_wrap", "themes": ["economy, business and finance > agriculture > livestock farming", "economy, business and finance > market and exchange > commodity market"], "dateline": null, "wire_credit": null},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "Beef + Lamb New Zealand", "kind": "organisation", "forms": ["Beef + Lamb New Zealand"]},
+  "e2": {"name": "South Island", "kind": "place", "forms": ["the South Island"]},
+  "e3": {"name": "United States", "kind": "place", "forms": ["the United States", "the US"]},
+  "e4": {"name": "Brazil", "kind": "place", "forms": ["Brazil"]},
+  "e5": {"name": "Australia", "kind": "place", "forms": ["Australia"]}
+ },
+ "roles": [],
+ "relations": [],
+ "descriptors": [],
+ "quotes": [{"text": "the national lamb crop to drop by 60,000 lambs this season, if lambing goes well", "form": "indirect", "speaker": "e1", "speaker_as_printed": "Beef + Lamb New Zealand", "verb": "is forecasting", "channel": "release", "about": []},
+            {"text": "Here today, gone tomorrow", "form": "partial", "speaker": null, "speaker_as_printed": null, "verb": null, "channel": "unknown", "about": ["e3"]}],
+ "events": [{"kind": "forecast", "who": [{"e": "e1", "part": "forecaster"}], "when": "this season", "where": null, "modality": "possible"}],
+ "numbers": [{"text": "around $12/kg for lamb", "measures": "lamb schedule price", "of": null}, {"text": "$10/kg for prime and bull", "measures": "beef schedule price", "of": null}, {"text": "60,000 lambs", "measures": "forecast drop in the lamb crop", "of": "e1"}, {"text": "nearly 200,000 cattle", "measures": "forecast lift in cattle for processing", "of": null}],
+ "sentiment": [],
+ "traps": [
+  "no person and no byline: a market commentary whose subjects are prices",
+  "'Beef + Lamb New Zealand' holds a '+' that normalising must not drop",
+  "'Here today, gone tomorrow' is a scare-quoted phrase, not a quote from anyone",
+  "countries here are markets, not governments"
+ ]
+}

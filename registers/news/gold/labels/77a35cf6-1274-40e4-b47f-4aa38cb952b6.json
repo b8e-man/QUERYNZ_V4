@@ -1,0 +1,396 @@
+{
+ "id": "77a35cf6-1274-40e4-b47f-4aa38cb952b6",
+ "text_sha256": "f5e929c86bfc0d96283c2a5dee19f165ebb8cb1bdca1761a92a1f1d642c37275",
+ "labelled_by": "session 40ea495e",
+ "labelled_at": "2026-11-15",
+ "article": {
+  "type": "news",
+  "themes": [
+   "politics > election > political campaigns",
+   "crime, law and justice > crime"
+  ],
+  "dateline": null,
+  "wire_credit": null
+ },
+ "authors": [],
+ "entities": {
+  "e1": {
+   "name": "National Party",
+   "kind": "organisation",
+   "forms": [
+    "National",
+    "the National Party",
+    "National's",
+    "the party"
+   ]
+  },
+  "e2": {
+   "name": "Labour",
+   "kind": "organisation",
+   "forms": [
+    "Labour",
+    "Labour's"
+   ]
+  },
+  "e3": {
+   "name": "Simeon Brown",
+   "kind": "person",
+   "forms": [
+    "Simeon Brown",
+    "Brown"
+   ]
+  },
+  "e4": {
+   "name": "Mark Mitchell",
+   "kind": "person",
+   "forms": [
+    "Mark Mitchell"
+   ]
+  },
+  "e5": {
+   "name": "Christopher Luxon",
+   "kind": "person",
+   "forms": [
+    "Christopher Luxon"
+   ]
+  },
+  "e6": {
+   "name": "Kieran McAnulty",
+   "kind": "person",
+   "forms": [
+    "Kieran McAnulty",
+    "McAnulty"
+   ]
+  },
+  "e7": {
+   "name": "Chris Bishop",
+   "kind": "person",
+   "forms": [
+    "Chris Bishop"
+   ]
+  },
+  "e8": {
+   "name": "Chris Hipkins",
+   "kind": "person",
+   "forms": [
+    "Chris Hipkins",
+    "Hipkins"
+   ]
+  },
+  "e9": {
+   "name": "the coalition government",
+   "kind": "government",
+   "forms": [
+    "the coalition government",
+    "the coalition",
+    "its own government"
+   ]
+  }
+ },
+ "roles": [
+  {
+   "who": "e3",
+   "role": "campaign chair",
+   "of": "e1",
+   "tense": "current",
+   "bound_by": "possessive"
+  },
+  {
+   "who": "e4",
+   "role": "police minister",
+   "of": null,
+   "tense": "former",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e5",
+   "role": "Prime Minister",
+   "of": null,
+   "tense": "current",
+   "bound_by": "premodifier"
+  },
+  {
+   "who": "e6",
+   "role": "campaign chair",
+   "of": "e2",
+   "tense": "current",
+   "bound_by": "possessive"
+  },
+  {
+   "who": "e7",
+   "role": "campaign chair",
+   "of": "e1",
+   "tense": "former",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e8",
+   "role": "leader",
+   "of": "e2",
+   "tense": "current",
+   "bound_by": "premodifier"
+  }
+ ],
+ "relations": [],
+ "descriptors": [],
+ "quotes": [
+  {
+   "text": "it is dishonest and desperate from National",
+   "form": "indirect",
+   "speaker": "e2",
+   "speaker_as_printed": "Labour",
+   "verb": "says",
+   "channel": "unknown",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "the coalition got rid of gang patches, put in tougher consequences for crime and had given judges less discretion",
+   "form": "indirect",
+   "speaker": "e3",
+   "speaker_as_printed": "Brown",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e9"
+   ]
+  },
+  {
+   "text": "Most of those scenes were prior to when the legislation came into effect.",
+   "form": "direct",
+   "speaker": "e3",
+   "speaker_as_printed": "Brown",
+   "verb": "said",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "We've now passed that law, and as New Zealanders know, they feel a lot safer now than they were prior to those laws being passed.",
+   "form": "direct",
+   "speaker": "e3",
+   "speaker_as_printed": "Brown",
+   "verb": "said",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "very focused and very honest",
+   "form": "partial",
+   "speaker": "e3",
+   "speaker_as_printed": "He",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "we changed the law",
+   "form": "partial",
+   "speaker": "e3",
+   "speaker_as_printed": "he",
+   "verb": "responded",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "actually were before our laws took full effect,",
+   "form": "partial",
+   "speaker": "e5",
+   "speaker_as_printed": "Prime Minister Christopher Luxon",
+   "verb": "acknowledging",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "crime is down",
+   "form": "partial",
+   "speaker": "e5",
+   "speaker_as_printed": "Prime Minister Christopher Luxon",
+   "verb": "said",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "desperate",
+   "form": "partial",
+   "speaker": "e6",
+   "speaker_as_printed": "Kieran McAnulty",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "They are desperately worried ... and they are trying desperate measures.",
+   "form": "direct",
+   "speaker": "e6",
+   "speaker_as_printed": "Kieran McAnulty",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "I'm not sure it'll wash with New Zealanders. I'm not sure it'll sit that comfortably with them.",
+   "form": "direct",
+   "speaker": "e6",
+   "speaker_as_printed": "Kieran McAnulty",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "we're going to be dealing with a dishonest campaign now",
+   "form": "partial",
+   "speaker": "e6",
+   "speaker_as_printed": "McAnulty",
+   "verb": "said",
+   "channel": "earlier_article",
+   "about": [
+    "e3",
+    "e1"
+   ]
+  },
+  {
+   "text": "That's what we're dealing with.",
+   "form": "direct",
+   "speaker": "e6",
+   "speaker_as_printed": "He",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "it was just another example of the National Party lying to the New Zealand public",
+   "form": "indirect",
+   "speaker": "e8",
+   "speaker_as_printed": "Chris Hipkins",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "They can't campaign on their own track record, so all they can do is make up lies.",
+   "form": "direct",
+   "speaker": "e8",
+   "speaker_as_printed": "Chris Hipkins",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "Brown did not understand the meaning of the word \"honest\"",
+   "form": "indirect",
+   "speaker": "e8",
+   "speaker_as_printed": "Hipkins",
+   "verb": "added",
+   "channel": "interview",
+   "about": [
+    "e3"
+   ]
+  }
+ ],
+ "events": [
+  {
+   "kind": "campaign advertisement published",
+   "who": [
+    {
+     "e": "e1",
+     "part": "publisher"
+    }
+   ],
+   "when": null,
+   "where": null,
+   "modality": "happened"
+  },
+  {
+   "kind": "accusation of dishonesty",
+   "who": [
+    {
+     "e": "e2",
+     "part": "accuser"
+    },
+    {
+     "e": "e1",
+     "part": "accused"
+    }
+   ],
+   "when": null,
+   "where": null,
+   "modality": "alleged"
+  },
+  {
+   "kind": "change of campaign chair",
+   "who": [
+    {
+     "e": "e7",
+     "part": "outgoing"
+    },
+    {
+     "e": "e3",
+     "part": "incoming"
+    },
+    {
+     "e": "e1",
+     "part": "party"
+    }
+   ],
+   "when": null,
+   "where": null,
+   "modality": "happened"
+  }
+ ],
+ "numbers": [],
+ "sentiment": [
+  {
+   "toward": "e1",
+   "from": "e6",
+   "value": "negative",
+   "evidence": "it was \"desperate\" from National"
+  },
+  {
+   "toward": "e1",
+   "from": "e8",
+   "value": "negative",
+   "evidence": "all they can do is make up lies"
+  },
+  {
+   "toward": "e3",
+   "from": "e8",
+   "value": "negative",
+   "evidence": "Brown did not understand the meaning of the word \"honest\""
+  },
+  {
+   "toward": "e1",
+   "from": "article",
+   "value": "negative",
+   "evidence": "use crime footage from government's own term"
+  },
+  {
+   "toward": "e1",
+   "from": "e3",
+   "value": "positive",
+   "evidence": "\"very focused and very honest\""
+  }
+ ],
+ "traps": [
+  "'Brown' and 'Bishop' are surnames that are also words; 'Chris Bishop' is a person",
+  "two people hold the same role ('campaign chair') for two parties in one article: each binds by its possessive",
+  "'police minister' for Mark Mitchell is a past role at the time of the footage, stated without a date",
+  "'He said liars tended to be dishonest' is an indirect quote whose speaker is McAnulty through 'He'",
+  "an accusation of lying is an allegation event and a sentiment, kept apart",
+  "no byline"
+ ]
+}

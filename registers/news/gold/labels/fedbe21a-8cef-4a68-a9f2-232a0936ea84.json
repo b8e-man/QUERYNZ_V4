@@ -1,0 +1,41 @@
+{
+ "id": "fedbe21a-8cef-4a68-a9f2-232a0936ea84", "text_sha256": "f6fcf81ea1438b14e866f59e715b7cee78a927d48d21153417383f1b6838fcec",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "opinion", "themes": ["economy, business and finance > tax", "crime, law and justice > crime > tax evasion"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "Dave Ananth", "kind": "person", "role_line": "*Dave Ananth is a partner at Meridian Partners and a former Inland Revenue solicitor. His practice focuses on student loans, tax disputes and negotiations with Inland Revenue."}],
+ "entities": {
+  "e1": {"name": "Dave Ananth", "kind": "person", "forms": ["Dave Ananth", "Dave Ananth*"]},
+  "e2": {"name": "Meridian Partners", "kind": "organisation", "forms": ["Meridian Partners"]},
+  "e3": {"name": "Inland Revenue", "kind": "government", "forms": ["Inland Revenue"]},
+  "e4": {"name": "a Christchurch businessman", "kind": "person", "forms": ["a Christchurch businessman", "The businessman", "the businessman"]},
+  "e5": {"name": "His company", "kind": "organisation", "forms": ["His company", "The company"]},
+  "e6": {"name": "Judge Gilbert", "kind": "person", "forms": ["Judge Gilbert"]},
+  "e7": {"name": "Christchurch", "kind": "place", "forms": ["Christchurch"]}
+ },
+ "roles": [{"who": "e1", "role": "partner", "of": "e2", "tense": "current", "bound_by": "statement"},
+           {"who": "e1", "role": "former Inland Revenue solicitor", "of": "e3", "tense": "former", "bound_by": "premodifier"},
+           {"who": "e6", "role": "Judge", "of": null, "tense": "current", "bound_by": "premodifier"}],
+ "relations": [{"a": "e4", "says": "His company", "b": "e5"}, {"a": "e4", "says": "had entered into nine payment arrangements with Inland Revenue. All nine defaulted.", "b": "e3"}],
+ "descriptors": [{"who": "e4", "text": "a Christchurch businessman"}],
+ "quotes": [
+  {"text": "a Christchurch businessman had been sentenced to two years and three months’ imprisonment for tax offending involving nearly $1.4 million", "form": "indirect", "speaker": "e3", "speaker_as_printed": "Inland Revenue", "verb": "reported", "channel": "release", "about": ["e4"]},
+  {"text": "there had been deliberate decisions to use money for creditors, wages, company expenses and personal expenditure rather than meeting tax obligations", "form": "indirect", "speaker": "e3", "speaker_as_printed": "Inland Revenue", "verb": "said", "channel": "release", "about": ["e4"]},
+  {"text": "Judge Gilbert heard that the use of tax money as working capital and personal income gave the businessman an unlawful competitive and lifestyle advantage over taxpayers who paid their tax", "form": "indirect", "speaker": "e3", "speaker_as_printed": "Inland Revenue", "verb": "reported", "channel": "release", "about": ["e4"]},
+  {"text": "The next quarter will be better.", "form": "direct", "speaker": null, "speaker_as_printed": null, "verb": null, "channel": "unknown", "about": []},
+  {"text": "We have several jobs coming.", "form": "direct", "speaker": null, "speaker_as_printed": null, "verb": null, "channel": "unknown", "about": []}
+ ],
+ "events": [{"kind": "sentencing", "who": [{"e": "e4", "part": "sentenced"}, {"e": "e6", "part": "judge"}], "when": "On 25 September (reported)", "where": "e7", "modality": "happened"},
+            {"kind": "liquidation", "who": [{"e": "e5", "part": "liquidated"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "payment arrangements defaulted", "who": [{"e": "e4", "part": "defaulted"}, {"e": "e3", "part": "creditor"}], "when": null, "where": null, "modality": "happened"}],
+ "numbers": [{"text": "two years and three months’ imprisonment", "measures": "sentence", "of": "e4"}, {"text": "nearly $1.4 million", "measures": "tax offending", "of": "e4"}, {"text": "Nine payment arrangements", "measures": "payment arrangements entered and defaulted", "of": "e4"}],
+ "sentiment": [{"toward": "e4", "from": "article", "value": "negative", "evidence": "The facts were serious"}],
+ "traps": [
+  "Meridian Partners is a firm, not Meridian Energy: the Warehouse problem on a different name",
+  "the businessman, convicted and sentenced, is unnamed in this text and must stay unnamed",
+  "'Judge Gilbert': a role and a surname, the court unprinted",
+  "'Inland Revenue' as speaker of a release, and as the author's former employer",
+  "the quoted lines ('The next quarter will be better.') are typical sayings with no speaker, not quotes from anyone",
+  "the author's bio line at the foot is the richest data on him (partner, former IRD solicitor, his practice)",
+  "hypothetical numbers ($120,000, $5,000 a month) are an example, not facts about anyone"
+ ]
+}

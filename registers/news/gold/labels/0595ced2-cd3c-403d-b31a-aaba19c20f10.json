@@ -1,0 +1,38 @@
+{
+ "id": "0595ced2-cd3c-403d-b31a-aaba19c20f10", "text_sha256": "b47c496aa7a78f0cc2575a92a640f67c35cc7c589bd5e3d7855bdb88e00b1bf2",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["politics > election > political campaigns", "politics > government policy", "society > migration"], "dateline": null, "wire_credit": "RNZ"},
+ "authors": [{"as_printed": "This story was first published on rnz.co.nz", "kind": "organisation", "role_line": null}],
+ "entities": {
+  "e1": {"name": "National", "kind": "organisation", "forms": ["National", "National’s", "The party"]},
+  "e2": {"name": "Nicola Willis", "kind": "person", "forms": ["Nicola Willis", "Willis", "She", "She is"]},
+  "e3": {"name": "Labour", "kind": "organisation", "forms": ["Labour"]},
+  "e4": {"name": "RNZ", "kind": "organisation", "forms": ["RNZ", "rnz.co.nz"]},
+  "e5": {"name": "Statistics New Zealand", "kind": "government", "forms": ["Statistics New Zealand"]},
+  "e6": {"name": "Australia", "kind": "place", "forms": ["Australia"]}
+ },
+ "roles": [{"who": "e2", "role": "Finance and Economic Growth spokesperson", "of": null, "tense": "current", "bound_by": "unbound"}],
+ "relations": [],
+ "descriptors": [],
+ "quotes": [
+  {"text": "National would legislate and direct five key commitments as part of its plan to welcome more Kiwis home", "form": "indirect", "speaker": "e2", "speaker_as_printed": "Finance and Economic Growth spokesperson Nicola Willis", "verb": "said", "channel": "statement", "about": ["e1"]},
+  {"text": "most attractive place", "form": "partial", "speaker": "e2", "speaker_as_printed": "She", "verb": "said", "channel": "statement", "about": []},
+  {"text": "If re-elected, National will legislate and direct five key commitments in our first 100 days to make New Zealand more attractive and affordable for young people to live and work.", "form": "direct", "speaker": "e2", "speaker_as_printed": "She", "verb": "said", "channel": "statement", "about": ["e1"]},
+  {"text": "each commitment had been fully funded to commence by 1 July 2027 in National’s fiscal plan", "form": "indirect", "speaker": "e2", "speaker_as_printed": "Willis", "verb": "said", "channel": "statement", "about": ["e1"]},
+  {"text": "the typical household is around $6000 worse off under National", "form": "indirect", "speaker": "e3", "speaker_as_printed": "Labour", "verb": "said", "channel": "statement", "about": ["e1"]},
+  {"text": "real competitive advantage over Australia, and we should embrace that by not introducing one", "form": "partial", "speaker": "e2", "speaker_as_printed": "Willis", "verb": "said", "channel": "statement", "about": []},
+  {"text": "We want Kiwis living overseas to be excited about the opportunities New Zealand presents for them to get ahead and build a more secure future.", "form": "direct", "speaker": "e2", "speaker_as_printed": "Willis", "verb": "said", "channel": "statement", "about": []},
+  {"text": "We are growing faster than the US, the UK, Canada, and Australia. Exports are up $20 billion, inflation is down from a 32-year high, and 220,000 new jobs are expected with wages growing faster than prices.", "form": "direct", "speaker": "e2", "speaker_as_printed": "Willis", "verb": "said", "channel": "statement", "about": []},
+  {"text": "it was encouraging to see more Kiwis returning home, with a 14 percent increase in Kiwis moving back to New Zealand from Australia last year", "form": "indirect", "speaker": "e2", "speaker_as_printed": "She", "verb": "said", "channel": "statement", "about": []}
+ ],
+ "events": [{"kind": "policy announcement", "who": [{"e": "e1", "part": "announcer"}, {"e": "e2", "part": "spokesperson"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "legislation", "who": [{"e": "e1", "part": "legislator"}], "when": "in its first 100 days", "where": null, "modality": "planned"}],
+ "numbers": [{"text": "an extra $78 a fortnight", "measures": "tax cut for average households with children", "of": "e1"}, {"text": "around $6000 worse off", "measures": "Labour's claim of household loss", "of": "e3"}, {"text": "19,000", "measures": "Kiwis returning from Australia in 2025", "of": "e5"}, {"text": "47,500", "measures": "Kiwis departing for Australia in 2025", "of": "e5"}],
+ "sentiment": [{"toward": "e1", "from": "e3", "value": "negative", "evidence": "the typical household is around $6000 worse off under National"}],
+ "traps": [
+  "a story republished from RNZ ('first published on rnz.co.nz'): the same story is counted once",
+  "the list of five commitments was lost in the copy ('Those five commitments are:' with nothing after)",
+  "'Finance and Economic Growth spokesperson' has no party printed beside it; National is implied",
+  "claims of fact inside quotes (exports, jobs) are the speaker's, not the article's"
+ ]
+}

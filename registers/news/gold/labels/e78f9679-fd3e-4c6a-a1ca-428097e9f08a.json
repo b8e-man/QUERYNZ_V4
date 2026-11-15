@@ -1,0 +1,38 @@
+{
+ "id": "e78f9679-fd3e-4c6a-a1ca-428097e9f08a", "text_sha256": "8bafe364a2a39cc7e869a4d56bf70eedbc2b89b2d2028de856403c403d09f542",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "live_blog", "themes": ["politics > election > political campaigns"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "Glenn McConnell", "kind": "person", "role_line": null}],
+ "entities": {
+  "e1": {"name": "Chris Hipkins", "kind": "person", "forms": ["Chris Hipkins’"]},
+  "e2": {"name": "Christopher Luxon", "kind": "person", "forms": ["Christopher Luxon’s"]},
+  "e3": {"name": "Tomoana Showgrounds", "kind": "place", "forms": ["Tomoana Showgrounds"]},
+  "e4": {"name": "Hastings", "kind": "place", "forms": ["Hastings"]},
+  "e5": {"name": "Greens", "kind": "organisation", "forms": ["The Greens"]},
+  "e6": {"name": "David Seymour", "kind": "person", "forms": ["David Seymour"]},
+  "e7": {"name": "ACT", "kind": "organisation", "forms": ["ACT"]},
+  "e8": {"name": "Winston Peters", "kind": "person", "forms": ["Winston Peters"]},
+  "e9": {"name": "NZ First", "kind": "organisation", "forms": ["NZ First’s"]},
+  "e10": {"name": "Stuff", "kind": "organisation", "forms": ["Stuff’s"]},
+  "e11": {"name": "Labour", "kind": "organisation", "forms": ["Labour"]},
+  "e12": {"name": "National", "kind": "organisation", "forms": ["National"]},
+  "e13": {"name": "Auckland", "kind": "place", "forms": ["Auckland"]},
+  "e14": {"name": "East Auckland", "kind": "place", "forms": ["East Auckland"]}
+ },
+ "roles": [{"who": "e6", "role": "leader", "of": "e7", "tense": "current", "bound_by": "premodifier"}],
+ "relations": [],
+ "descriptors": [],
+ "quotes": [{"text": "Video confirms what Labour is trying to hide", "form": "partial", "speaker": "e12", "speaker_as_printed": "National", "verb": "says", "channel": "unknown", "about": ["e11"]}],
+ "events": [{"kind": "campaign events", "who": [{"e": "e1", "part": "campaigner"}, {"e": "e2", "part": "campaigner"}], "when": "today", "where": "e3", "modality": "planned"},
+            {"kind": "policy announcement", "who": [{"e": "e5", "part": "announcer"}], "when": "today", "where": null, "modality": "planned"},
+            {"kind": "speech", "who": [{"e": "e6", "part": "speaker"}], "when": "today", "where": "e13", "modality": "planned"},
+            {"kind": "policy announcement", "who": [{"e": "e8", "part": "announcer"}, {"e": "e9", "part": "party"}], "when": "today", "where": "e14", "modality": "planned"}],
+ "numbers": [],
+ "sentiment": [{"toward": "e11", "from": "e12", "value": "negative", "evidence": "what Labour is trying to hide"}],
+ "traps": [
+  "a live blog held as its opening summary only; the headline names a story the text does not hold",
+  "a quote in the headline only, never in the body",
+  "Winston Peters is not bound to NZ First by the text except through 'revealing NZ First’s industry policy'",
+  "'today' is the article's date, 22 October"
+ ]
+}

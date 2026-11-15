@@ -1,0 +1,49 @@
+{
+ "id": "3f3874be-d5ef-411e-b711-49600683d905", "text_sha256": "897312783785443a71a2a7d19420c02e7d320af3c7b697cad163caf1ed37940b",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["health > disease > communicable disease > HIV", "health > public health"], "dateline": null, "wire_credit": null},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "Niue Department of Health", "kind": "government", "forms": ["The Niue Department of Health", "the health department", "Our Health Team", "the health team", "Niue health officials"]},
+  "e2": {"name": "K Sinahemana Hekau", "kind": "person", "forms": ["K Sinahemana Hekau"]},
+  "e3": {"name": "Minerva McCurdy Ikimau", "kind": "person", "forms": ["Minerva McCurdy Ikimau"]},
+  "e4": {"name": "Akisi Ravono", "kind": "person", "forms": ["Dr Akisi Ravono's", "Associate Professor Akisi Ravono", "she"]},
+  "e5": {"name": "University of Fiji", "kind": "organisation", "forms": ["the University of Fiji's School of Nursing"]},
+  "e6": {"name": "UNAIDS", "kind": "organisation", "forms": ["UNAIDS"]},
+  "e7": {"name": "Sāmoa Ministry of Health", "kind": "government", "forms": ["Its Ministry of Health", "The ministry", "the ministry"]},
+  "e8": {"name": "PMN News", "kind": "organisation", "forms": ["PMN News"]},
+  "e9": {"name": "Pacific Mornings", "kind": "product", "forms": ["Pacific Mornings"]},
+  "e10": {"name": "Niue", "kind": "place", "forms": ["Niue"]},
+  "e11": {"name": "Fiji", "kind": "place", "forms": ["Fiji", "Fiji's"]},
+  "e12": {"name": "Sāmoa", "kind": "place", "forms": ["Sāmoa"]},
+  "e13": {"name": "Fiji government", "kind": "government", "forms": ["The government"]}
+ },
+ "roles": [{"who": "e2", "role": "Health Minister", "of": null, "tense": "current", "bound_by": "premodifier"},
+           {"who": "e3", "role": "Acting Director of Health", "of": null, "tense": "acting", "bound_by": "apposition"},
+           {"who": "e4", "role": "Associate Professor", "of": "e5", "tense": "current", "bound_by": "apposition"},
+           {"who": "e4", "role": "Fijian academic", "of": null, "tense": "current", "bound_by": "premodifier"}],
+ "relations": [],
+ "descriptors": [],
+ "quotes": [
+  {"text": "both people are receiving medical care, treatment and support, with public health measures put in place following confirmation of the cases", "form": "indirect", "speaker": "e1", "speaker_as_printed": "The Niue Department of Health", "verb": "says", "channel": "statement", "about": []},
+  {"text": "the health team acted quickly after the cases were confirmed", "form": "indirect", "speaker": "e2", "speaker_as_printed": "Health Minister K Sinahemana Hekau", "verb": "says", "channel": "statement", "about": ["e1"]},
+  {"text": "Our Health Team responded quickly following confirmation of these cases. Appropriate treatment and monitoring are already underway, and all necessary public health measures have been put in place.", "form": "direct", "speaker": "e2", "speaker_as_printed": "Health Minister K Sinahemana Hekau", "verb": "says", "channel": "statement", "about": ["e1"]},
+  {"text": "While we understand this news may cause concern, the public can be reassured that appropriate safeguards are in place, and the situation is being closely monitored.", "form": "direct", "speaker": "e2", "speaker_as_printed": "Health Minister K Sinahemana Hekau", "verb": "says", "channel": "statement", "about": []},
+  {"text": "HIV is a manageable medical condition. Modern treatment allows people living with HIV to live long, healthy, and productive lives. Individuals receiving effective treatment can achieve viral suppression...", "form": "direct", "speaker": "e3", "speaker_as_printed": "Acting Director of Health, Minerva McCurdy Ikimau", "verb": "says", "channel": "statement", "about": []},
+  {"text": "We have to approach this community outreach very, very fast. We have to mobilise nurses,", "form": "direct", "speaker": "e4", "speaker_as_printed": "she", "verb": "told", "channel": "interview", "about": []},
+  {"text": "the move is precautionary and does not mean Sāmoa is experiencing the same situation as Fiji", "form": "indirect", "speaker": "e7", "speaker_as_printed": "Its Ministry of Health", "verb": "says", "channel": "statement", "about": ["e12"]},
+  {"text": "People living with HIV have the same rights to dignity, privacy, confidentiality and access to healthcare as everyone else,", "form": "direct", "speaker": "e7", "speaker_as_printed": "the ministry", "verb": "said", "channel": "statement", "about": []}
+ ],
+ "events": [{"kind": "disease cases confirmed", "who": [{"e": "e1", "part": "confirming"}], "when": "this week", "where": "e10", "modality": "happened"},
+            {"kind": "national health emergency declared", "who": [{"e": "e13", "part": "declaring"}], "when": "in September", "where": "e11", "modality": "happened"}],
+ "numbers": [{"text": "two HIV cases", "measures": "cases confirmed", "of": "e10"}, {"text": "2016 new diagnoses in 2025", "measures": "HIV diagnoses", "of": "e11"}, {"text": "about 9100 people", "measures": "people living with HIV in Fiji", "of": "e6"}, {"text": "14 people", "measures": "people living with HIV in Sāmoa", "of": "e7"}],
+ "sentiment": [],
+ "traps": [
+  "'Acting Director of Health': an acting role, bound to Niue only by context",
+  "'K Sinahemana Hekau': an initial for the given name",
+  "the Health Minister is Niue's, not New Zealand's; the government in 'The government has expanded testing' is Fiji's",
+  "'2016 new diagnoses' is a count, not a year",
+  "two people with HIV are unnamed by design; nothing identifies them",
+  "'Dr' and 'Associate Professor' are titles of one person"
+ ]
+}

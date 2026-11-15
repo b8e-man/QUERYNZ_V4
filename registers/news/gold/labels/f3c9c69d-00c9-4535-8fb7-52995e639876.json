@@ -1,0 +1,34 @@
+{
+ "id": "f3c9c69d-00c9-4535-8fb7-52995e639876", "text_sha256": "43c4a912b29c75aa790c5f56f72ce14b084192400d19af45bf8847b80b56ec72",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "sponsored", "themes": ["economy, business and finance > business service > storage", "crime, law and justice > crime > drug trafficking"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "Hugh Grant", "kind": "person", "role_line": null}],
+ "entities": {
+  "e1": {"name": "Safestore Containers", "kind": "organisation", "forms": ["Safestore Containers"]},
+  "e2": {"name": "Mt Wellington", "kind": "place", "forms": ["Mt Wellington"]},
+  "e3": {"name": "East Tamaki", "kind": "place", "forms": ["East Tamaki"]},
+  "e4": {"name": "East Auckland", "kind": "place", "forms": ["East Auckland"]},
+  "e5": {"name": "police", "kind": "government", "forms": ["police"]},
+  "e6": {"name": "A 25-year-old man", "kind": "person", "forms": ["A 25-year-old man", "The arrested individual"]},
+  "e7": {"name": "Scoop Media", "kind": "organisation", "forms": ["Scoop Media", "Scoop"]}
+ },
+ "roles": [],
+ "relations": [{"a": "e1", "says": "Safestore Containers in East Tamaki storage facility", "b": "e3"}],
+ "descriptors": [{"who": "e6", "text": "25-year-old"}],
+ "quotes": [],
+ "events": [
+  {"kind": "drug seizure", "who": [{"e": "e5", "part": "seized"}], "when": "recently", "where": "e2", "modality": "happened"},
+  {"kind": "arrest", "who": [{"e": "e6", "part": "arrested"}, {"e": "e5", "part": "arresting"}], "when": null, "where": "e2", "modality": "happened"},
+  {"kind": "court appearance", "who": [{"e": "e6", "part": "defendant"}], "when": null, "where": null, "modality": "planned"}
+ ],
+ "numbers": [{"text": "roughly 63kg", "measures": "cannabis seized", "of": null}, {"text": "$1.2 million", "measures": "estimated value of cannabis seized", "of": null}],
+ "sentiment": [{"toward": "e1", "from": "article", "value": "positive", "evidence": "Safestore Containers is a good example of what this looks like in practice"}],
+ "traps": [
+  "sponsored content written as news: an advertorial for Safestore Containers hung on a police seizure; the type is the most important label",
+  "the byline Hugh Grant shares a name with the actor; the author is an InfoPages contributor, never the actor",
+  "Mt Wellington is an Auckland suburb, not Wellington",
+  "the arrested man is unnamed and stays unnamed",
+  "the article later calls it 'the East Tamaki area's recent cannabis discovery', contradicting Mt Wellington",
+  "paragraph breaks are lost (\"area?What Happens\"), and Scoop's paywall and advertisement boilerplate are in the text"
+ ]
+}

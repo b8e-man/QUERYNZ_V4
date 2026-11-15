@@ -1,0 +1,119 @@
+"""The news reader's golden sample: choosing the articles (Arthur, 15 November 2026: "you should hand label some,
+make your own golden sample do some extraction, then give me some to label and I'll check yours").
+
+    python -m registers.news.gold.sample choose --tranche 1        # writes registers/news/gold/tranche-1.json
+    python -m registers.news.gold.sample show ARTICLE_ID            # one article, street addresses masked
+
+Reads the old copy's articles (old_incoming_news_private.articles), newest first, read-only. A tranche is a fixed
+list of article ids with the reason each was chosen; the labels (registers/news/gold/labels/) are typed by a person
+and never regenerated. `show` masks every street-address shape before the text reaches a session (hard limit 11).
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+T = "old_incoming_news_private.articles"
+HOST = r"split_part(regexp_replace(news_url, '^https?://(www\.)?', ''), '/', 1)"
+RECENT = "post_date > now() - interval '60 days' AND length(text_content) BETWEEN 600 AND 20000"
+
+#: twenty from ten sites: the commonest news sites of the last sixty days (te reo sites wait for their own session)
+SITES = ["scoop.co.nz", "stuff.co.nz", "rnz.co.nz", "odt.co.nz", "1news.co.nz", "nzherald.co.nz", "newsroom.co.nz",
+         "businessdesk.co.nz", "interest.co.nz", "farmersweekly.co.nz"]
+
+#: ten for the hard cases the plan names (docs/research/news-reader-plan.md)
+SEEDS = [
+    ("the-warehouse-company", "text_content ~ 'The Warehouse (Group|Ltd|chief|said|has|is|will|stores?)'"),
+    ("warehouse-the-word", "text_content ~* '\\ma warehouse\\M' AND text_content !~ 'The Warehouse'"),
+    ("several-chief-executives", "(length(text_content) - length(replace(text_content, 'chief executive', ''))) / 15 >= 3"),
+    ("former-and-acting", "text_content ~* '(former|acting|interim|outgoing) (chief executive|chair|ceo|director|minister)'"),
+    ("sport", "categories && array['sport', 'Sport', 'sports']"),
+    ("entertainment", "categories && array['entertainment', 'Entertainment', 'Culture', 'culture', 'lifestyle']"),
+    ("cannot-be-named", "text_content ~* '(cannot be named|name suppression|interim suppression)'"),
+    ("hamilton-a-person", "text_content ~ '\\m[A-Z][a-z]+ Hamilton\\M(?! (City|Council|Airport|Gardens|Park|East|West|North|Lake))' AND text_content !~ 'Hamilton (City|Council)'"),
+    ("police-release", f"{HOST} = 'police.govt.nz'"),
+    ("live-blog", "title ~* '(\\mlive\\M|as it happened)'"),
+    ("wire-story", "text_content ~ '(\\(AP\\)|\\mReuters\\M|\\mAAP\\M|Associated Press)'"),
+    ("opinion", "categories && array['opinion', 'Opinion', 'comment', 'Comment', 'columnists']"),
+]
+
+ADDRESS = re.compile(
+    r"\b\d{1,5}[A-Za-z]?(?:/\d{1,5})?\s+(?:[A-Z][a-zA-Zāēīōū'’-]+\s+){1,3}"
+    r"(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Place|Pl|Crescent|Cres|Terrace|Tce|Lane|Ln|Way|Close|Grove|Parade|"
+    r"Highway|Hwy|Quay|Boulevard|Blvd|Court|Ct|Rise|View|Heights|Square|Esplanade|Mews)\b\.?")
+
+
+def masked(text: str) -> str:
+    """Every street-address shape replaced, so no home address is printed into a session."""
+    return ADDRESS.sub("[street address]", text or "")
+
+
+def _conn():
+    from support import db
+    c = db.connect()
+    c.execute("SET default_transaction_read_only = on")
+    return c
+
+
+def _order(seed: str) -> str:
+    """A fixed, reproducible order within a bucket: by a hash of the id and the tranche's seed, among the newest."""
+    return f"md5(id::text || '{seed}')"
+
+
+def choose(tranche: int) -> list:
+    picked, seen = [], set()
+    with _conn() as c:
+        def take(where, n, why):
+            rows = c.execute(f"SELECT id::text, {HOST}, title, post_date FROM {T} WHERE {RECENT} AND {where} "
+                             f"ORDER BY {_order(f't{tranche}-{why}')} LIMIT {n * 4}").fetchall()
+            got = 0
+            for r in rows:
+                if r[0] in seen or got == n:
+                    continue
+                seen.add(r[0]); got += 1
+                picked.append({"id": r[0], "site": r[1], "title": r[2], "post_date": r[3].isoformat() if r[3] else None,
+                               "why": why})
+            if got < n:
+                print(f"short: {why} {got} of {n}", file=sys.stderr)
+        for s in SITES:
+            take(f"{HOST} = '{s}'", 2, f"site:{s}")
+        news = " OR ".join(f"{HOST} = '{x}'" for x in SITES + ["thespinoff.co.nz", "sunlive.co.nz", "pmn.co.nz", "times.co.nz", "police.govt.nz"])
+        for why, where in SEEDS:
+            take(f"({where}) AND ({news})", 1, f"case:{why}")
+    out = {"tranche": tranche, "source": T, "chosen_by": "registers.news.gold.sample", "articles": picked}
+    (HERE / f"tranche-{tranche}.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
+    return picked
+
+
+def show(article_id: str) -> str:
+    with _conn() as c:
+        r = c.execute(f"SELECT title, author, news_url, categories, post_date, text_content FROM {T} WHERE id = %s",
+                      (article_id,)).fetchone()
+    if not r:
+        return "no such article"
+    title, author, url, cats, date, text = r
+    sha = hashlib.sha256((text or "").encode()).hexdigest()
+    return (f"id {article_id}\ntitle {masked(title)}\nauthor {author}\nurl {url}\ncategories {cats}\ndate {date}\n"
+            f"text_sha256 {sha}\nchars {len(text or '')}\n---\n{masked(text)}")
+
+
+def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["choose"]:
+        n = int(argv[argv.index("--tranche") + 1]) if "--tranche" in argv else 1
+        for p in choose(n):
+            print(p["why"], p["site"], p["post_date"], (p["title"] or "")[:80])
+        return 0
+    if argv[:1] == ["show"] and len(argv) == 2:
+        print(show(argv[1]))
+        return 0
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

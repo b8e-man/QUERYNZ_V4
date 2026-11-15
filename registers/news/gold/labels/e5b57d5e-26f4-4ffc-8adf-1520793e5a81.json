@@ -1,0 +1,46 @@
+{
+ "id": "e5b57d5e-26f4-4ffc-8adf-1520793e5a81", "text_sha256": "b2b1230391906498ebb109b32dcb14323041c8127ed176579cf225372d3d3596",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["society > social problem > poverty", "environment > waste management", "society > charity"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "tracey.roxburgh@scene.co.nz", "kind": "person", "role_line": null}],
+ "entities": {
+  "e1": {"name": "KiwiHarvest", "kind": "organisation", "forms": ["KiwiHarvest", "KiwiHarvest Queenstown", "the organisation", "the not-for-profit"]},
+  "e2": {"name": "Hugo Charitable Trust", "kind": "organisation", "forms": ["Hugo Charitable Trust", "the Hugo Charitable Trust", "Hugo", "Hugo’s", "the trust’s", "the Hugo Charitable Trust’s"]},
+  "e3": {"name": "Angela Calver", "kind": "person", "forms": ["Angela Calver", "Calver"]},
+  "e4": {"name": "Kathryn Roberts", "kind": "person", "forms": ["Kathryn Roberts"]},
+  "e5": {"name": "Queenstown", "kind": "place", "forms": ["Queenstown"]},
+  "e6": {"name": "Wānaka", "kind": "place", "forms": ["Wānaka"]},
+  "e7": {"name": "Alexandra", "kind": "place", "forms": ["Alexandra"]},
+  "e8": {"name": "Central Lakes", "kind": "place", "forms": ["the wider Central Lakes"]}
+ },
+ "roles": [{"who": "e3", "role": "chief executive", "of": "e1", "tense": "current", "bound_by": "premodifier"},
+           {"who": "e4", "role": "Trustee", "of": "e2", "tense": "current", "bound_by": "premodifier"}],
+ "relations": [{"a": "e2", "says": "a $200,000 donation from the Hugo Charitable Trust", "b": "e1"},
+               {"a": "e2", "says": "building on its previous support to expand the food rescue network by donating a truck", "b": "e1"}],
+ "descriptors": [],
+ "quotes": [
+  {"text": "The impact of rescued food reaches much further than the meals it provides.", "form": "direct", "speaker": "e3", "speaker_as_printed": "she", "verb": "said", "channel": "interview", "about": []},
+  {"text": "Again and again, we hear that food is often the bridge that allows deeper support and connection to happen.", "form": "direct", "speaker": "e3", "speaker_as_printed": "she", "verb": "said", "channel": "interview", "about": []},
+  {"text": "It opens doors, reduces stress and creates opportunities for people to engage with services that can genuinely change lives,", "form": "direct", "speaker": "e3", "speaker_as_printed": "she", "verb": "said", "channel": "interview", "about": []},
+  {"text": "This partnership with the Hugo Charitable Trust means a huge amount to us,", "form": "direct", "speaker": "e3", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": ["e2"]},
+  {"text": "We’re in a real period of growth, with more food donors coming on board, more recipient community organisations relying on us, and more surplus food moving through our network than ever before.", "form": "direct", "speaker": "e3", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": ["e1"]},
+  {"text": "As more New Zealand families face financial pressure, we’re seeing demand for food support continue to grow.", "form": "direct", "speaker": "e3", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": []},
+  {"text": "Funding like this helps us stay ahead of that demand, so no good food goes to waste while people in our communities are going without.", "form": "direct", "speaker": "e3", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": ["e2"]},
+  {"text": "Supporting organisations that turn surplus food into practical help for New Zealanders is exactly the kind of impact we want the Hugo Charitable Trust to have.", "form": "direct", "speaker": "e4", "speaker_as_printed": "Hugo Trustee Kathryn Roberts", "verb": "says", "channel": "interview", "about": ["e2"]},
+  {"text": "KiwiHarvest has built a proven model that delivers real benefits for people and the environment, and we’re proud to continue backing an organisation creating lasting change for communities across NZ.", "form": "direct", "speaker": "e4", "speaker_as_printed": "Hugo Trustee Kathryn Roberts", "verb": "says", "channel": "interview", "about": ["e1"]}
+ ],
+ "events": [{"kind": "donation", "who": [{"e": "e2", "part": "donor"}, {"e": "e1", "part": "recipient"}], "when": null, "where": null, "modality": "happened"}],
+ "numbers": [{"text": "almost 201,500kg", "measures": "rescued food distributed in the year to March", "of": "e1"},
+             {"text": "$200,000", "measures": "donation", "of": "e2"},
+             {"text": "about $2 million", "measures": "surplus food to be redistributed", "of": "e1"},
+             {"text": "32%", "measures": "growth in food delivered", "of": "e1"}],
+ "sentiment": [{"toward": "e2", "from": "e3", "value": "positive", "evidence": "means a huge amount to us"},
+               {"toward": "e1", "from": "e4", "value": "positive", "evidence": "KiwiHarvest has built a proven model"},
+               {"toward": "e1", "from": "article", "value": "positive", "evidence": "Hugo boosts KiwiHarvest impact"}],
+ "traps": [
+  "'Hugo' alone and 'Hugo’s donation' are the Hugo Charitable Trust, not a person called Hugo",
+  "no byline; the author is known only from the email address at the end of the text",
+  "'they' in Calver's indirect statement is KiwiHarvest",
+  "'Hugo Trustee Kathryn Roberts' binds a role to a shortened organisation name"
+ ]
+}

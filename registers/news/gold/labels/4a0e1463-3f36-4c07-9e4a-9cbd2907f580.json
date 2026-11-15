@@ -1,0 +1,23 @@
+{
+ "id": "4a0e1463-3f36-4c07-9e4a-9cbd2907f580", "text_sha256": "3945740e5cd9053266182cdc918c164567331882d2ab5490aee8c46c934d1203",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "stub", "themes": ["politics > foreign policy", "politics > election"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "Sam Sachdeva", "kind": "person", "role_line": null}],
+ "entities": {
+  "e1": {"name": "Labour", "kind": "organisation", "forms": ["Labour"]},
+  "e2": {"name": "Peters", "kind": "person", "forms": ["Peters’"]},
+  "e3": {"name": "Newsroom Pro", "kind": "product", "forms": ["Newsroom Pro"]}
+ },
+ "roles": [],
+ "relations": [],
+ "descriptors": [],
+ "quotes": [{"text": "moral clarity", "form": "partial", "speaker": null, "speaker_as_printed": null, "verb": null, "channel": "unknown", "about": ["e1"]}],
+ "events": [],
+ "numbers": [],
+ "sentiment": [],
+ "traps": [
+  "a paywall stub: two sentences of the article, then subscription boilerplate; the reader must record it as a stub, not an article",
+  "'Peters’' appears only in the headline, surname only (Winston Peters is not printed)",
+  "'Analysis:' marks the type in the text"
+ ]
+}

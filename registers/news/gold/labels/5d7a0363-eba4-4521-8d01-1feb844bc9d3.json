@@ -1,0 +1,516 @@
+{
+ "id": "5d7a0363-eba4-4521-8d01-1feb844bc9d3",
+ "text_sha256": "a2bcc1ca5eab91a07e8e23061846b44101782964291df9bac9a0bf3250cf8576",
+ "labelled_by": "session 40ea495e",
+ "labelled_at": "2026-11-15",
+ "article": {
+  "type": "news",
+  "themes": [
+   "politics > election > political candidates",
+   "economy, business and finance > agriculture",
+   "society > values > indigenous people > Māori"
+  ],
+  "dateline": null,
+  "wire_credit": null
+ },
+ "authors": [
+  {
+   "as_printed": "LDR",
+   "kind": "agency",
+   "role_line": "LDR is local body journalism co-funded by RNZ and NZ on Air"
+  }
+ ],
+ "entities": {
+  "e1": {
+   "name": "Jim Thomson",
+   "kind": "person",
+   "forms": [
+    "Jim Thomson"
+   ]
+  },
+  "e2": {
+   "name": "Mark Patterson",
+   "kind": "person",
+   "forms": [
+    "Mark Patterson",
+    "Patterson"
+   ]
+  },
+  "e3": {
+   "name": "Miles Anderson",
+   "kind": "person",
+   "forms": [
+    "Miles Anderson",
+    "Anderson",
+    "Anderson’s"
+   ]
+  },
+  "e4": {
+   "name": "Sean Beamish",
+   "kind": "person",
+   "forms": [
+    "Sean Beamish",
+    "Beamish"
+   ]
+  },
+  "e5": {
+   "name": "Claire Taylor",
+   "kind": "person",
+   "forms": [
+    "Claire Taylor"
+   ]
+  },
+  "e6": {
+   "name": "Michael Laws",
+   "kind": "person",
+   "forms": [
+    "Michael Laws"
+   ]
+  },
+  "e7": {
+   "name": "Damien O’Connor",
+   "kind": "person",
+   "forms": [
+    "Damien O’Connor",
+    "O’Connor"
+   ]
+  },
+  "e8": {
+   "name": "Helen Tait",
+   "kind": "person",
+   "forms": [
+    "Helen Tait"
+   ]
+  },
+  "e9": {
+   "name": "Daniel Shand",
+   "kind": "person",
+   "forms": [
+    "Daniel Shand"
+   ]
+  },
+  "e10": {
+   "name": "Adrian Graamans",
+   "kind": "person",
+   "forms": [
+    "Adrian Graamans"
+   ]
+  },
+  "e11": {
+   "name": "Bronwyn Judge",
+   "kind": "person",
+   "forms": [
+    "Bronwyn Judge"
+   ]
+  },
+  "e12": {
+   "name": "Waitaki District Council",
+   "kind": "government",
+   "forms": [
+    "Waitaki District"
+   ]
+  },
+  "e13": {
+   "name": "National",
+   "kind": "organisation",
+   "forms": [
+    "National",
+    "National’s"
+   ]
+  },
+  "e14": {
+   "name": "ACT",
+   "kind": "organisation",
+   "forms": [
+    "ACT"
+   ]
+  },
+  "e15": {
+   "name": "NZ First",
+   "kind": "organisation",
+   "forms": [
+    "NZ First’s"
+   ]
+  },
+  "e16": {
+   "name": "Labour",
+   "kind": "organisation",
+   "forms": [
+    "Labour"
+   ]
+  },
+  "e17": {
+   "name": "Opportunity Party",
+   "kind": "organisation",
+   "forms": [
+    "the Opportunity Party"
+   ]
+  },
+  "e18": {
+   "name": "Federated Farmers",
+   "kind": "organisation",
+   "forms": [
+    "Federated Farmers"
+   ]
+  },
+  "e19": {
+   "name": "Ngapara Rugby Union Club",
+   "kind": "organisation",
+   "forms": [
+    "the Ngapara Rugby Union Club rooms"
+   ]
+  },
+  "e20": {
+   "name": "Waitaki electorate",
+   "kind": "place",
+   "forms": [
+    "the Waitaki electorate",
+    "the electorate"
+   ]
+  },
+  "e21": {
+   "name": "Taieri electorate",
+   "kind": "place",
+   "forms": [
+    "the neighbouring Taieri electorate"
+   ]
+  },
+  "e22": {
+   "name": "Environment Canterbury",
+   "kind": "government",
+   "forms": [
+    "Environment Canterbury"
+   ]
+  },
+  "e23": {
+   "name": "Ngāi Tahu",
+   "kind": "organisation",
+   "forms": [
+    "Ngāi Tahu"
+   ]
+  },
+  "e24": {
+   "name": "Māori Land Court",
+   "kind": "government",
+   "forms": [
+    "Māori Land Court"
+   ]
+  },
+  "e25": {
+   "name": "Natural Environment and Planning Bill",
+   "kind": "work",
+   "forms": [
+    "the new Natural Environment and Planning Bill"
+   ]
+  },
+  "e26": {
+   "name": "Resource Management Act",
+   "kind": "work",
+   "forms": [
+    "the Resource Management Act (RMA)"
+   ]
+  },
+  "e27": {
+   "name": "Paris Agreement",
+   "kind": "work",
+   "forms": [
+    "the Paris Agreement",
+    "the agreement"
+   ]
+  },
+  "e28": {
+   "name": "RNZ",
+   "kind": "organisation",
+   "forms": [
+    "RNZ"
+   ]
+  },
+  "e29": {
+   "name": "NZ on Air",
+   "kind": "organisation",
+   "forms": [
+    "NZ on Air"
+   ]
+  }
+ },
+ "roles": [
+  {
+   "who": "e1",
+   "role": "Former Waitaki District councillor",
+   "of": "e12",
+   "tense": "former",
+   "bound_by": "premodifier"
+  },
+  {
+   "who": "e1",
+   "role": "moderated",
+   "of": null,
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e3",
+   "role": "National candidate",
+   "of": "e13",
+   "tense": "current",
+   "bound_by": "premodifier"
+  },
+  {
+   "who": "e3",
+   "role": "the incumbent",
+   "of": "e20",
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e4",
+   "role": "ACT candidate",
+   "of": "e14",
+   "tense": "current",
+   "bound_by": "premodifier"
+  },
+  {
+   "who": "e2",
+   "role": "candidate for the neighbouring Taieri electorate",
+   "of": "e15",
+   "tense": "current",
+   "bound_by": "possessive"
+  },
+  {
+   "who": "e6",
+   "role": "standing in for",
+   "of": null,
+   "tense": "current",
+   "bound_by": "unbound"
+  },
+  {
+   "who": "e7",
+   "role": "Labour candidate",
+   "of": "e16",
+   "tense": "current",
+   "bound_by": "premodifier"
+  },
+  {
+   "who": "e8",
+   "role": "candidate",
+   "of": "e17",
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e9",
+   "role": "independent candidate",
+   "of": "e20",
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e10",
+   "role": "independent candidate",
+   "of": "e20",
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e11",
+   "role": "independent candidate",
+   "of": "e20",
+   "tense": "current",
+   "bound_by": "statement"
+  }
+ ],
+ "relations": [
+  {
+   "a": "e2",
+   "says": "standing in for Michael Laws",
+   "b": "e6"
+  },
+  {
+   "a": "e18",
+   "says": "Hosted by",
+   "b": "e19"
+  }
+ ],
+ "descriptors": [],
+ "quotes": [
+  {
+   "text": "a failure in his communication system meant the event was not logged and an alternative event was scheduled in its place",
+   "form": "indirect",
+   "speaker": "e7",
+   "speaker_as_printed": "O’Connor",
+   "verb": "said",
+   "channel": "unknown",
+   "about": [
+    "e7"
+   ]
+  },
+  {
+   "text": "the folk theatre of every community",
+   "form": "partial",
+   "speaker": "e3",
+   "speaker_as_printed": "Anderson’s",
+   "verb": "describing",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "dreaming up ways to control your lives",
+   "form": "partial",
+   "speaker": "e4",
+   "speaker_as_printed": "Beamish",
+   "verb": "said",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "try to push the envelope",
+   "form": "partial",
+   "speaker": "e3",
+   "speaker_as_printed": "He",
+   "verb": "added",
+   "channel": "interview",
+   "about": []
+  },
+  {
+   "text": "archaic",
+   "form": "partial",
+   "speaker": "e3",
+   "speaker_as_printed": "He",
+   "verb": "added",
+   "channel": "interview",
+   "about": [
+    "e24"
+   ]
+  },
+  {
+   "text": "[People] have to go through somebody else to get permission to do stuff on their own land ... politicians seem to be very scared of the power that particularly Ngāi Tahu hold.",
+   "form": "direct",
+   "speaker": "e3",
+   "speaker_as_printed": "He",
+   "verb": "added",
+   "channel": "interview",
+   "about": [
+    "e23"
+   ]
+  },
+  {
+   "text": "We’ve got the most carbon efficient farmers in the world. We need that money to be spent here,",
+   "form": "direct",
+   "speaker": "e2",
+   "speaker_as_printed": "Patterson",
+   "verb": "said",
+   "channel": "interview",
+   "about": []
+  }
+ ],
+ "events": [
+  {
+   "kind": "candidates meeting",
+   "who": [
+    {
+     "e": "e18",
+     "part": "host"
+    },
+    {
+     "e": "e1",
+     "part": "moderator"
+    },
+    {
+     "e": "e3",
+     "part": "speaker"
+    },
+    {
+     "e": "e4",
+     "part": "speaker"
+    },
+    {
+     "e": "e2",
+     "part": "speaker"
+    }
+   ],
+   "when": "last week",
+   "where": "e19",
+   "modality": "happened"
+  },
+  {
+   "kind": "failed to attend",
+   "who": [
+    {
+     "e": "e7",
+     "part": "absent"
+    }
+   ],
+   "when": "last week",
+   "where": "e19",
+   "modality": "happened"
+  },
+  {
+   "kind": "request for comment",
+   "who": [
+    {
+     "e": "e23",
+     "part": "did not respond"
+    }
+   ],
+   "when": null,
+   "where": null,
+   "modality": "happened"
+  }
+ ],
+ "numbers": [
+  {
+   "text": "about 25",
+   "measures": "rural voters attending",
+   "of": null
+  },
+  {
+   "text": "$1 nightly charge per visitor",
+   "measures": "proposed visitor levy",
+   "of": "e4"
+  },
+  {
+   "text": "$4.5m a year",
+   "measures": "pledged to catchment groups",
+   "of": "e4"
+  },
+  {
+   "text": "11%",
+   "measures": "South Island share of the national roading fund",
+   "of": "e2"
+  }
+ ],
+ "sentiment": [
+  {
+   "toward": "e23",
+   "from": "e3",
+   "value": "negative",
+   "evidence": "politicians seem to be very scared of the power that particularly Ngāi Tahu hold"
+  },
+  {
+   "toward": "e22",
+   "from": "e3",
+   "value": "negative",
+   "evidence": "criticised Environment Canterbury for creating water uncertainty"
+  },
+  {
+   "toward": "e24",
+   "from": "e3",
+   "value": "negative",
+   "evidence": "“archaic” Māori Land Court processes"
+  },
+  {
+   "toward": "e7",
+   "from": "article",
+   "value": "negative",
+   "evidence": "who failed to appear"
+  }
+ ],
+ "traps": [
+  "the first paragraph is a photo caption with its own names and a photographer credit (Claire Taylor), not the story",
+  "Mark Patterson is NZ First's candidate for a different electorate, standing in for Michael Laws: three facts in one appositive",
+  "'Judge' in Bronwyn Judge is a surname, not a role",
+  "Waitaki District here is the council, inside 'Former Waitaki District councillor'",
+  "the byline is the LDR credit at the foot of the text, not a person",
+  "'the incumbent' binds Anderson to the electorate seat by the text, his party only by 'National candidate'"
+ ]
+}

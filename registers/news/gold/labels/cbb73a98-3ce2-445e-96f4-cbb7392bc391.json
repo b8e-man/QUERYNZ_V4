@@ -1,0 +1,51 @@
+{
+ "id": "cbb73a98-3ce2-445e-96f4-cbb7392bc391", "text_sha256": "3537a19537e1ef1cb5eccb14a43be480cab6ae65c800ab1ef0a5822b04a5e230",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "feature", "themes": ["labour > employment > working conditions", "health > health and wellbeing"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "Peter Griffin", "kind": "person", "role_line": null}],
+ "entities": {
+  "e1": {"name": "Joanne Mutter", "kind": "person", "forms": ["Dr Joanne Mutter", "Mutter"]},
+  "e2": {"name": "University of Auckland", "kind": "organisation", "forms": ["University of Auckland"]},
+  "e3": {"name": "BusinessDesk", "kind": "organisation", "forms": ["BusinessDesk"]},
+  "e4": {"name": "Southern Cross Health Insurance", "kind": "organisation", "forms": ["Southern Cross Health Insurance"]},
+  "e5": {"name": "New Zealand Council of Trade Unions", "kind": "organisation", "forms": ["The New Zealand Council of Trade Unions"]},
+  "e6": {"name": "the coalition Government", "kind": "government", "forms": ["The coalition Government"]},
+  "e7": {"name": "Fair Work Act", "kind": "work", "forms": ["the Fair Work Act"]},
+  "e8": {"name": "Australia", "kind": "place", "forms": ["Australia’s"]},
+  "e9": {"name": "Working Well", "kind": "work", "forms": ["Working Well", "the Working Well series"]},
+  "e10": {"name": "a colleague", "kind": "person", "forms": ["a colleague"]}
+ },
+ "roles": [{"who": "e1", "role": "senior lecturer in organisational behaviour and human resources", "of": "e2", "tense": "current", "bound_by": "premodifier"}],
+ "relations": [{"a": "e3", "says": "an ongoing series from BusinessDesk in partnership with Southern Cross Health Insurance", "b": "e4"},
+               {"a": "e4", "says": "is a sponsor of the Working Well series but does not necessarily endorse these articles", "b": "e9"}],
+ "descriptors": [],
+ "quotes": [
+  {"text": "organisations have had enough time to move beyond the emergency experiment of the pandemic", "form": "indirect", "speaker": "e1", "speaker_as_printed": "Dr Joanne Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "We know now what the challenges are,", "form": "direct", "speaker": "e1", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": []},
+  {"text": "We’ve had enough time to recognise that work intensification and socialisation are probably the two primary challenges.", "form": "direct", "speaker": "e1", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": []},
+  {"text": "frictionless re-engagement", "form": "partial", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "calls it", "channel": "interview", "about": []},
+  {"text": "For hybrid workers and fully remote workers, it’s about the fact that you can return to work so easily,", "form": "direct", "speaker": "e1", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": []},
+  {"text": "Those barriers stopping you from returning to work or keeping working are no longer there.", "form": "direct", "speaker": "e1", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": []},
+  {"text": "a blanket legal response risks cutting across the autonomy that makes hybrid work attractive", "form": "indirect", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "For some people, they want to be able to send their emails at night. That’s what the flexibility is offering them,", "form": "direct", "speaker": "e1", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": []},
+  {"text": "It’s about organisational culture. Yes, you can send your emails at this time of night, but don’t have any expectations of replies.", "form": "direct", "speaker": "e1", "speaker_as_printed": "she", "verb": "says", "channel": "interview", "about": []},
+  {"text": "It should be productivity, not presenteeism,", "form": "direct", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "You should be measured by what you produced rather than how many hours you were sitting at your desk.", "form": "direct", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "What is the point of having an anchor day where you’re still having hybrid meetings, or you’re sitting there staring at your computer? Make sure when people do come in that it’s worth their while,", "form": "direct", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "We’ve taken away the commute. We’ve taken away that natural end of the workday,", "form": "direct", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "So you need to do it for yourself.", "form": "direct", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "Nobody said it’s not helping,", "form": "direct", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "But there were certainly those who said it’s good – but it could be better.", "form": "direct", "speaker": "e1", "speaker_as_printed": "Mutter", "verb": "says", "channel": "interview", "about": []},
+  {"text": "is not currently considering such legislation", "form": "indirect", "speaker": "e6", "speaker_as_printed": "The coalition Government", "verb": "has said", "channel": "statement", "about": []}
+ ],
+ "events": [{"kind": "campaign for legislation", "who": [{"e": "e5", "part": "campaigner"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "research study", "who": [{"e": "e1", "part": "researcher"}, {"e": "e10", "part": "researcher"}], "when": null, "where": null, "modality": "happened"}],
+ "numbers": [{"text": "43%", "measures": "share of NZ employers operating hybrid workplaces", "of": null}],
+ "sentiment": [],
+ "traps": [
+  "a sponsored series written by staff: the disclaimer says editorial, not the sponsor's opinion; type feature, sponsor a relation",
+  "'Dr' is an honorific, not part of the name",
+  "the Fair Work Act and the right to disconnect are Australia's, not New Zealand's",
+  "the long role phrase binds to the university by premodifier"
+ ]
+}

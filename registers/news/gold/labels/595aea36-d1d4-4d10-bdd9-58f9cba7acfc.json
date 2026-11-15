@@ -1,0 +1,31 @@
+{
+ "id": "595aea36-d1d4-4d10-bdd9-58f9cba7acfc", "text_sha256": "107fb35e90c4a39bd211b8eb19bcc584ffa6db9d8bdd48e7b5997793c8847471",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "press_release", "themes": ["crime, law and justice > crime > arson", "disaster, accident and emergency incident > fire"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "New Zealand Police", "kind": "organisation", "role_line": null}],
+ "entities": {
+  "e1": {"name": "Andrew Murphy", "kind": "person", "forms": ["Detective Andrew Murphy"]},
+  "e2": {"name": "Police", "kind": "government", "forms": ["Police", "New Zealand Police"]},
+  "e3": {"name": "Discovery Park", "kind": "place", "forms": ["Discovery Park"]},
+  "e4": {"name": "Hamilton", "kind": "place", "forms": ["Hamilton’s", "Hamilton"]},
+  "e5": {"name": "Discovery Drive", "kind": "place", "forms": ["Discovery Drive"]},
+  "e6": {"name": "Crime Stoppers", "kind": "organisation", "forms": ["Crime Stoppers"]},
+  "e7": {"name": "Scoop Media", "kind": "organisation", "forms": ["Scoop Media", "Scoop"]}
+ },
+ "roles": [{"who": "e1", "role": "Detective", "of": null, "tense": "current", "bound_by": "unbound"}],
+ "relations": [{"a": "e3", "says": "Hamilton’s Discovery Park", "b": "e4"}],
+ "descriptors": [],
+ "quotes": [{"text": "Before the fire was extinguished it caused extensive damage to the building and to sports equipment.", "form": "direct", "speaker": "e1", "speaker_as_printed": "Detective Andrew Murphy", "verb": "says", "channel": "release", "about": ["e3"]},
+            {"text": "Witnesses reported seeing people firing fireworks at each other in the carpark shortly before the fire.", "form": "direct", "speaker": "e1", "speaker_as_printed": "Detective Andrew Murphy", "verb": "says", "channel": "release", "about": []},
+            {"text": "We are particularly interested to hear from anyone with photos, video or information regarding the vehicles seen leaving the area around the time of the fire.", "form": "direct", "speaker": "e1", "speaker_as_printed": "Detective Andrew Murphy", "verb": "says", "channel": "release", "about": []}],
+ "events": [{"kind": "fire (suspicious)", "who": [], "when": "about 11pm on Thursday 5 November", "where": "e3", "modality": "happened"},
+            {"kind": "appeal for information", "who": [{"e": "e2", "part": "appealing"}], "when": null, "where": "e3", "modality": "happened"}],
+ "numbers": [{"text": "261106/5591", "measures": "police file number", "of": null}],
+ "sentiment": [],
+ "traps": [
+  "Hamilton is the city, and the headline says 'Hamilton Park' though the park is Discovery Park",
+  "the quote runs over several paragraphs, each opening a quotation mark and only the last closing it",
+  "a police release republished on Scoop: the author is an organisation, the publisher another",
+  "Detective is a rank, not bound to an organisation by the text (Police is implied, not printed beside it)"
+ ]
+}

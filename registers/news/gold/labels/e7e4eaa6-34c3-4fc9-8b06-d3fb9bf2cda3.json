@@ -1,0 +1,37 @@
+{
+ "id": "e7e4eaa6-34c3-4fc9-8b06-d3fb9bf2cda3", "text_sha256": "7459783d53f7d2efb548dd546b432da806aa2a9e59246f13332f2acf4e622182",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["crime, law and justice > judiciary > trial", "crime, law and justice > crime > sexual assault", "arts, culture, entertainment and media > celebrity"], "dateline": null, "wire_credit": "AP"},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "Russell Brand", "kind": "person", "forms": ["Russell Brand", "Brand", "He", "he"]},
+  "e2": {"name": "Laura Gallacher", "kind": "person", "forms": ["Laura Gallacher", "his wife"]},
+  "e3": {"name": "Southwark Crown Court", "kind": "government", "forms": ["Southwark Crown Court", "a London court", "the court building", "court"]},
+  "e4": {"name": "London", "kind": "place", "forms": ["London"]},
+  "e5": {"name": "River Thames", "kind": "place", "forms": ["the River Thames"]},
+  "e6": {"name": "Labour Party", "kind": "organisation", "forms": ["a Labour Party conference"]},
+  "e7": {"name": "BBC", "kind": "organisation", "forms": ["BBC"]},
+  "e8": {"name": "Forgetting Sarah Marshall", "kind": "work", "forms": ["Forgetting Sarah Marshall"]},
+  "e9": {"name": "Get Him to the Greek", "kind": "work", "forms": ["Get Him to the Greek"]},
+  "e10": {"name": "Florida", "kind": "place", "forms": ["Florida"]},
+  "e11": {"name": "Associated Press", "kind": "organisation", "forms": ["The Associated Press"]},
+  "e12": {"name": "the prosecution", "kind": "government", "forms": ["The prosecution", "Prosecutors"]},
+  "e13": {"name": "six women", "kind": "person", "forms": ["six women", "a woman", "a TV worker’s", "a radio station worker"]}
+ },
+ "roles": [{"who": "e1", "role": "British comedian and actor", "of": null, "tense": "current", "bound_by": "premodifier"}],
+ "relations": [{"a": "e2", "says": "his wife, Laura Gallacher", "b": "e1"}],
+ "descriptors": [{"who": "e1", "text": "51"}, {"who": "e1", "text": "on bail"}, {"who": "e1", "text": "relocated to Florida"}],
+ "quotes": [{"text": "Brand is accused of raping a woman in a hotel room at a Labour Party conference, grabbing a TV worker’s breasts and forcing her into a sex act in a toilet, and kissing and groping a radio station worker", "form": "indirect", "speaker": "e12", "speaker_as_printed": "Prosecutors", "verb": "said", "channel": "court", "about": ["e1"]}],
+ "events": [{"kind": "trial began", "who": [{"e": "e1", "part": "defendant"}, {"e": "e3", "part": "court"}], "when": "on Tuesday", "where": "e3", "modality": "happened"},
+            {"kind": "not guilty plea", "who": [{"e": "e1", "part": "pleaded not guilty"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "rape and sexual assault", "who": [{"e": "e1", "part": "accused"}, {"e": "e13", "part": "complainants"}], "when": "between 1999 and 2009", "where": null, "modality": "alleged"}],
+ "numbers": [{"text": "three counts of rape, three counts of sexual assault and one count of indecent assault", "measures": "charges", "of": "e1"}, {"text": "up to 10 weeks", "measures": "expected length of trial", "of": "e3"}],
+ "sentiment": [],
+ "traps": [
+  "a wire story credited inside its last paragraph ('The Associated Press doesn't name victims')",
+  "every offence is alleged and denied: modality alleged, plea not guilty; never 'happened'",
+  "'Labour Party' is the UK party, not New Zealand's",
+  "complainants are unnamed by law and must stay unnamed; they are one group of six",
+  "'Brand' is a surname and a word"
+ ]
+}

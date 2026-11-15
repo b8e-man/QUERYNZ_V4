@@ -1,0 +1,32 @@
+{
+ "id": "c1b85eaa-472a-4a38-b0cd-9bbf35e60e0b", "text_sha256": "4479c3a67a7f9b51194600aed6b8cc888a0a5572022ed6504f0c236a117ee630",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["arts, culture, entertainment and media > mass media > television", "arts, culture, entertainment and media > award"], "dateline": null, "wire_credit": null},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "Television Academy", "kind": "organisation", "forms": ["The Television Academy"]},
+  "e2": {"name": "Emmys", "kind": "event", "forms": ["the Emmys", "Emmys", "the awards show", "The Emmys"]},
+  "e3": {"name": "Amazon", "kind": "organisation", "forms": ["the Amazon platform", "Amazon"]},
+  "e4": {"name": "Oscars", "kind": "event", "forms": ["The Oscars", "Oscars"]},
+  "e5": {"name": "YouTube", "kind": "organisation", "forms": ["YouTube"]},
+  "e6": {"name": "ABC", "kind": "organisation", "forms": ["the network ABC"]},
+  "e7": {"name": "Grammys", "kind": "event", "forms": ["Grammys"]},
+  "e8": {"name": "Tonys", "kind": "event", "forms": ["Tonys"]}
+ },
+ "roles": [],
+ "relations": [{"a": "e1", "says": "a new six-year deal that will make the awards show available for streaming worldwide without a paywall on the Amazon platform", "b": "e3"},
+               {"a": "e4", "says": "will move to YouTube starting with the 2029 ceremony", "b": "e5"},
+               {"a": "e4", "says": "its contract with the network ABC", "b": "e6"}],
+ "descriptors": [],
+ "quotes": [],
+ "events": [{"kind": "broadcast deal announced", "who": [{"e": "e1", "part": "announcer"}, {"e": "e3", "part": "counterparty"}], "when": "on Tuesday", "where": null, "modality": "happened"},
+            {"kind": "broadcast move", "who": [{"e": "e4", "part": "moving"}, {"e": "e5", "part": "new home"}], "when": "starting with the 2029 ceremony", "where": null, "modality": "planned"}],
+ "numbers": [{"text": "six-year", "measures": "length of the deal", "of": "e1"}, {"text": "79th", "measures": "edition of the Emmys", "of": "e2"}],
+ "sentiment": [],
+ "traps": [
+  "a foreign wire story with its credit stripped: the case the plan reads but does not link",
+  "'ABC' is the US network, not the Australian broadcaster, and the text says only 'the network ABC'",
+  "award shows are events, not organisations",
+  "'Egot' is an acronym, not a name"
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "id": "c7a502cb-a97f-4293-9425-c4d4ed632af1", "text_sha256": "90764c4842b4a43ed51b53d980d1cb7c6c716f5448674a3b7546161429b5da3f",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["politics > government > public employees", "crime, law and justice > crime > fraud", "disaster, accident and emergency incident > emergency response"], "dateline": null, "wire_credit": "RNZ"},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "Brooke van Velden", "kind": "person", "forms": ["Brooke van Velden", "van Velden", "Van Velden"]},
+  "e2": {"name": "Fire and Emergency", "kind": "government", "forms": ["Fire and Emergency’s", "Fire and Emergency (Fenz)", "Fenz", "FENZ", "Fire and Emergency's", "Fire and Emergency", "the organisation's"]},
+  "e3": {"name": "Kerry Gregory", "kind": "person", "forms": ["Kerry Gregory", "Gregory", "the chief executive", "he", "him"]},
+  "e4": {"name": "Serious Fraud Office", "kind": "government", "forms": ["the Serious Fraud Office", "the SFO"]},
+  "e5": {"name": "the board", "kind": "organisation", "forms": ["the board", "The board", "the organisation's board"]},
+  "e6": {"name": "the board chair", "kind": "person", "forms": ["the board chair"]},
+  "e7": {"name": "RNZ", "kind": "organisation", "forms": ["RNZ"]},
+  "e8": {"name": "A Fenz spokesperson", "kind": "person", "forms": ["A Fenz spokesperson"]},
+  "e9": {"name": "Crown Entities Act", "kind": "work", "forms": ["the Crown Entities Act"]},
+  "e10": {"name": "select committee", "kind": "government", "forms": ["A scathing select committee report"]}
+ },
+ "roles": [{"who": "e1", "role": "Internal Affairs Minister", "of": null, "tense": "current", "bound_by": "premodifier"},
+           {"who": "e3", "role": "chief executive", "of": "e2", "tense": "current", "bound_by": "possessive"},
+           {"who": "e6", "role": "board chair", "of": "e5", "tense": "current", "bound_by": "statement"},
+           {"who": "e8", "role": "spokesperson", "of": "e2", "tense": "current", "bound_by": "premodifier"}],
+ "relations": [{"a": "e5", "says": "the organisation's board", "b": "e2"}],
+ "descriptors": [],
+ "quotes": [
+  {"text": "It is of a nature that is so significant that I no longer have confidence in the chief executive of Fire and Emergency (Fenz) or have confidence that the information I'm receiving is correct,", "form": "direct", "speaker": "e1", "speaker_as_printed": "van Velden", "verb": "said", "channel": "interview", "about": ["e3"]},
+  {"text": "serious breach", "form": "partial", "speaker": "e1", "speaker_as_printed": "Internal Affairs Minister Brooke van Velden", "verb": "says", "channel": "interview", "about": ["e3"]},
+  {"text": "chief executive Kerry Gregory withheld information from her for a \"full year\" on a matter of a \"seriously significant incident\"", "form": "mixed", "speaker": "e1", "speaker_as_printed": "She", "verb": "said", "channel": "interview", "about": ["e3"]},
+  {"text": "even after he received external advice telling him that he needed to let me know", "form": "partial", "speaker": "e1", "speaker_as_printed": "She", "verb": "said", "channel": "interview", "about": ["e3"]},
+  {"text": "I immediately contacted the board chair, as well as the chief executive, to let him know that I have no longer any confidence in the chief executive.", "form": "direct", "speaker": "e1", "speaker_as_printed": "She", "verb": "said", "channel": "interview", "about": ["e3", "e6"]},
+  {"text": "Having information of a significant nature withheld from me is not something I would expect of a senior official within the public service.", "form": "direct", "speaker": "e1", "speaker_as_printed": "She", "verb": "said", "channel": "interview", "about": ["e3"]},
+  {"text": "serious breach of trust", "form": "partial", "speaker": "e1", "speaker_as_printed": "She", "verb": "added", "channel": "interview", "about": ["e3"]},
+  {"text": "immediately to maintain or restore my confidence", "form": "partial", "speaker": "e1", "speaker_as_printed": "Van Velden", "verb": "asked", "channel": "interview", "about": ["e5"]},
+  {"text": "things that I can't actually do as a minister", "form": "partial", "speaker": "e1", "speaker_as_printed": "Van Velden", "verb": "noted", "channel": "interview", "about": ["e10"]},
+  {"text": "I'm surprised that those recommendations are in there, because they're of such an operational matter that it would actually be a breach of the Crown Entities Act for me to be that involved.", "form": "direct", "speaker": "e1", "speaker_as_printed": "Van Velden", "verb": "said", "channel": "interview", "about": ["e10"]},
+  {"text": "the original incident, not Gregory, had been referred to the Serious Fraud Office", "form": "indirect", "speaker": "e8", "speaker_as_printed": "A Fenz spokesperson", "verb": "clarified", "channel": "statement", "about": ["e3", "e4"]},
+  {"text": "The matter referred to is historical, from prior to 2021, and relates to Fire and Emergency's administration of the levy scheme.", "form": "direct", "speaker": "e8", "speaker_as_printed": "A Fenz spokesperson", "verb": "clarified", "channel": "statement", "about": ["e2"]},
+  {"text": "Fire and Emergency has proactively referred the matter to the SFO and it is now with them to consider.", "form": "direct", "speaker": "e8", "speaker_as_printed": "A Fenz spokesperson", "verb": "clarified", "channel": "statement", "about": ["e2", "e4"]}
+ ],
+ "events": [{"kind": "loss of ministerial confidence", "who": [{"e": "e1", "part": "minister"}, {"e": "e3", "part": "chief executive"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "information withheld", "who": [{"e": "e3", "part": "accused of withholding"}], "when": "for a \"full year\"", "where": null, "modality": "alleged"},
+            {"kind": "referral to the Serious Fraud Office", "who": [{"e": "e2", "part": "referrer"}, {"e": "e4", "part": "investigator"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "board meeting", "who": [{"e": "e5", "part": "meeting"}], "when": "in the next few days", "where": null, "modality": "planned"}],
+ "numbers": [],
+ "sentiment": [{"toward": "e3", "from": "e1", "value": "negative", "evidence": "I no longer have confidence in the chief executive"}, {"toward": "e2", "from": "article", "value": "negative", "evidence": "A scathing select committee report into FENZ"}],
+ "traps": [
+  "the referral to the SFO: the minister's words suggest the chief executive was referred; the spokesperson corrects that the incident was, not Gregory: the event's participant must be the matter, not the man",
+  "'the chief executive' runs through the minister's quotes for Gregory; the board chair is unnamed",
+  "the organisation is printed four ways (Fire and Emergency, Fenz, FENZ, the organisation)",
+  "'van Velden' and 'Van Velden' are one name, with the particle's case changing at sentence start",
+  "an RNZ story on ODT, credited only by 'clarified to RNZ'",
+  "withholding is the minister's accusation: alleged"
+ ]
+}

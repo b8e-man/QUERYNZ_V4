@@ -1,0 +1,753 @@
+{
+ "id": "99b0902c-2b6e-4e50-8d35-f4fd6c502cc1",
+ "text_sha256": "09b76b62965458bc964c15638ee0826ad16ebf5bbbc75ebd934de150201fb8ee",
+ "labelled_by": "session 40ea495e",
+ "labelled_at": "2026-11-15",
+ "article": {
+  "type": "news",
+  "themes": [
+   "crime, law and justice > crime > fraud",
+   "crime, law and justice > judiciary > sentencing",
+   "crime, law and justice > law enforcement > police"
+  ],
+  "dateline": null,
+  "wire_credit": "NZME"
+ },
+ "authors": [],
+ "entities": {
+  "e1": {
+   "name": "Haimona Keelim Tamati-Te Paki",
+   "kind": "person",
+   "forms": [
+    "Haimona Keelim Tamati-Te Paki",
+    "Tamati-Te Paki",
+    "Tamati-Te Paki's",
+    "Mr Tamati-Te Paki's",
+    "Mr Tamati-Te Paki",
+    "Tamati-Te-Paki's",
+    "The Waikato police officer",
+    "the officer",
+    "The offender",
+    "the former officer's",
+    "the former officer",
+    "this person"
+   ]
+  },
+  "e2": {
+   "name": "the victim",
+   "kind": "person",
+   "forms": [
+    "a pensioner",
+    "the vulnerable pensioner",
+    "the victim",
+    "the woman's",
+    "The victim",
+    "the victim's"
+   ]
+  },
+  "e3": {
+   "name": "Stephen Clark",
+   "kind": "person",
+   "forms": [
+    "Judge Stephen Clark",
+    "Judge Clark",
+    "the judge"
+   ]
+  },
+  "e4": {
+   "name": "Justice Palmer",
+   "kind": "person",
+   "forms": [
+    "Justice Palmer",
+    "She"
+   ]
+  },
+  "e5": {
+   "name": "Justice MacGillivray",
+   "kind": "person",
+   "forms": [
+    "Justice MacGillivray's",
+    "he",
+    "He"
+   ]
+  },
+  "e6": {
+   "name": "Russell Boot",
+   "kind": "person",
+   "forms": [
+    "Russell Boot",
+    "Boot"
+   ]
+  },
+  "e7": {
+   "name": "Jacinda Hamilton",
+   "kind": "person",
+   "forms": [
+    "Jacinda Hamilton",
+    "Hamilton"
+   ]
+  },
+  "e8": {
+   "name": "Scott Gemmell",
+   "kind": "person",
+   "forms": [
+    "Scott Gemmell"
+   ]
+  },
+  "e9": {
+   "name": "a family spokesperson",
+   "kind": "person",
+   "forms": [
+    "a family spokesperson",
+    "The spokesperson"
+   ]
+  },
+  "e10": {
+   "name": "her stepdaughter",
+   "kind": "person",
+   "forms": [
+    "her stepdaughter"
+   ]
+  },
+  "e11": {
+   "name": "his wife",
+   "kind": "person",
+   "forms": [
+    "his wife"
+   ]
+  },
+  "e12": {
+   "name": "Police",
+   "kind": "government",
+   "forms": [
+    "police",
+    "NZ Police",
+    "Waikato police"
+   ]
+  },
+  "e13": {
+   "name": "NZME",
+   "kind": "organisation",
+   "forms": [
+    "NZME"
+   ]
+  },
+  "e14": {
+   "name": "ANZ",
+   "kind": "organisation",
+   "forms": [
+    "ANZ",
+    "her local ANZ branch",
+    "her ANZ branch"
+   ]
+  },
+  "e15": {
+   "name": "Pak'nSave Highland Park",
+   "kind": "organisation",
+   "forms": [
+    "Pak'nSave Highland Park",
+    "the Pak'nSave"
+   ]
+  },
+  "e16": {
+   "name": "Hamilton District Court",
+   "kind": "government",
+   "forms": [
+    "the Hamilton District Court"
+   ]
+  },
+  "e17": {
+   "name": "Court of Appeal",
+   "kind": "government",
+   "forms": [
+    "the Court of Appeal"
+   ]
+  },
+  "e18": {
+   "name": "High Court",
+   "kind": "government",
+   "forms": [
+    "the High Court"
+   ]
+  },
+  "e19": {
+   "name": "Police Association",
+   "kind": "organisation",
+   "forms": [
+    "The Police Association magazine"
+   ]
+  },
+  "e20": {
+   "name": "World Kickboxing and Karate Association",
+   "kind": "organisation",
+   "forms": [
+    "the World Kickboxing and Karate Association World Championships"
+   ]
+  },
+  "e21": {
+   "name": "Ngāruawāhia",
+   "kind": "place",
+   "forms": [
+    "Ngāruawāhia"
+   ]
+  },
+  "e22": {
+   "name": "Whanganui",
+   "kind": "place",
+   "forms": [
+    "Whanganui"
+   ]
+  },
+  "e23": {
+   "name": "Auckland",
+   "kind": "place",
+   "forms": [
+    "Auckland"
+   ]
+  },
+  "e24": {
+   "name": "Prezzy cards",
+   "kind": "product",
+   "forms": [
+    "Prezzy cards"
+   ]
+  },
+  "e25": {
+   "name": "His supervisor",
+   "kind": "person",
+   "forms": [
+    "His supervisor"
+   ]
+  },
+  "e26": {
+   "name": "a colleague",
+   "kind": "person",
+   "forms": [
+    "a colleague"
+   ]
+  },
+  "e27": {
+   "name": "A staff member",
+   "kind": "person",
+   "forms": [
+    "A staff member",
+    "the staff member"
+   ]
+  }
+ },
+ "roles": [
+  {
+   "who": "e1",
+   "role": "constable",
+   "of": "e12",
+   "tense": "former",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e1",
+   "role": "community liaison officer",
+   "of": null,
+   "tense": "former",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e3",
+   "role": "Judge",
+   "of": "e16",
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e4",
+   "role": "Justice",
+   "of": "e17",
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e5",
+   "role": "Justice",
+   "of": "e18",
+   "tense": "current",
+   "bound_by": "statement"
+  },
+  {
+   "who": "e6",
+   "role": "counsel",
+   "of": null,
+   "tense": "current",
+   "bound_by": "possessive"
+  },
+  {
+   "who": "e7",
+   "role": "Crown Solicitor",
+   "of": null,
+   "tense": "current",
+   "bound_by": "premodifier"
+  },
+  {
+   "who": "e8",
+   "role": "Superintendent",
+   "of": "e12",
+   "tense": "current",
+   "bound_by": "premodifier"
+  }
+ ],
+ "relations": [
+  {
+   "a": "e6",
+   "says": "Tamati-Te Paki's counsel",
+   "b": "e1"
+  },
+  {
+   "a": "e11",
+   "says": "his wife and her occupation",
+   "b": "e1"
+  },
+  {
+   "a": "e10",
+   "says": "her stepdaughter",
+   "b": "e2"
+  },
+  {
+   "a": "e14",
+   "says": "ANZ has refunded the victim in full",
+   "b": "e2"
+  }
+ ],
+ "descriptors": [
+  {
+   "who": "e1",
+   "text": "originally from Whanganui"
+  },
+  {
+   "who": "e1",
+   "text": "a father of six"
+  },
+  {
+   "who": "e1",
+   "text": "was a police officer for six years"
+  },
+  {
+   "who": "e1",
+   "text": "won NZ Police Sportsperson of the Year in 2022"
+  },
+  {
+   "who": "e2",
+   "text": "aged in her 70s"
+  },
+  {
+   "who": "e2",
+   "text": "lived alone"
+  }
+ ],
+ "quotes": [
+  {
+   "text": "significantly below",
+   "form": "partial",
+   "speaker": "e4",
+   "speaker_as_printed": "Justice Palmer",
+   "verb": "stated",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "a strong and legitimate public interest in publication of Mr Tamati-Te Paki's name",
+   "form": "partial",
+   "speaker": "e5",
+   "speaker_as_printed": "Justice MacGillivray's",
+   "verb": "stated",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "Yes, there has been a sense of revictimisation,",
+   "form": "direct",
+   "speaker": "e9",
+   "speaker_as_printed": "a family spokesperson",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e2"
+   ]
+  },
+  {
+   "text": "She didn't choose any of this. She continues to live with the consequences, while he has continued fighting to keep his identity secret.",
+   "form": "direct",
+   "speaker": "e9",
+   "speaker_as_printed": "a family spokesperson",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e2",
+    "e1"
+   ]
+  },
+  {
+   "text": "We believe his name should be out there. Thankfully, it is now.",
+   "form": "direct",
+   "speaker": "e9",
+   "speaker_as_printed": "a family spokesperson",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "He came into her life because he was supposed to help her. Yet he came as a snake in the grass.",
+   "form": "direct",
+   "speaker": "e9",
+   "speaker_as_printed": "The spokesperson",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "We don't blame all police for what one officer did ... yet one bad apple is enough to leave a sour taste.",
+   "form": "direct",
+   "speaker": "e9",
+   "speaker_as_printed": "The spokesperson",
+   "verb": "said",
+   "channel": "interview",
+   "about": [
+    "e12",
+    "e1"
+   ]
+  },
+  {
+   "text": "At the time of this, I was already vulnerable. I was not expecting to be harmed again.",
+   "form": "direct",
+   "speaker": "e2",
+   "speaker_as_printed": "her stepdaughter",
+   "verb": "read",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "He was someone I should have been able to trust without hesitation.",
+   "form": "direct",
+   "speaker": "e2",
+   "speaker_as_printed": "she",
+   "verb": "said",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "The offending was manipulative and intentional.",
+   "form": "direct",
+   "speaker": "e2",
+   "speaker_as_printed": "she",
+   "verb": "said",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "He has taken significant steps at rehabilitation, and that should give you some confidence.",
+   "form": "direct",
+   "speaker": "e6",
+   "speaker_as_printed": "Russell Boot",
+   "verb": "urged",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "the case was so unusual, she had been unable to find any other case involving a police officer as serious as this",
+   "form": "indirect",
+   "speaker": "e7",
+   "speaker_as_printed": "Crown Solicitor Jacinda Hamilton",
+   "verb": "said",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "spinning her a yarn",
+   "form": "partial",
+   "speaker": "e7",
+   "speaker_as_printed": "She",
+   "verb": "labelled",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "The reference to a gambling addiction may put it into context, but there is little evidence about that,",
+   "form": "direct",
+   "speaker": "e7",
+   "speaker_as_printed": "she",
+   "verb": "said",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "clearly trusted you to do the best by her",
+   "form": "partial",
+   "speaker": "e3",
+   "speaker_as_printed": "Judge Clark",
+   "verb": "told",
+   "channel": "court",
+   "about": [
+    "e2",
+    "e1"
+   ]
+  },
+  {
+   "text": "I have to say Mr Tamati-Te Paki, it's a really close run thing ... the circumstances are quite extraordinary,",
+   "form": "direct",
+   "speaker": "e3",
+   "speaker_as_printed": "the judge",
+   "verb": "said",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "Perhaps what sways it for me is the steps that you have taken, belatedly, what is clearly a gambling addiction and the offer of reparation.",
+   "form": "direct",
+   "speaker": "e3",
+   "speaker_as_printed": "the judge",
+   "verb": "said",
+   "channel": "court",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "extremely disappointed",
+   "form": "partial",
+   "speaker": "e8",
+   "speaker_as_printed": "Waikato police Superintendent Scott Gemmell",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "far below the standard expected of our staff",
+   "form": "partial",
+   "speaker": "e8",
+   "speaker_as_printed": "Waikato police Superintendent Scott Gemmell",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "It is particularly egregious that this person targeted a vulnerable older person who rightly trusted them in their capacity as an officer.",
+   "form": "direct",
+   "speaker": "e8",
+   "speaker_as_printed": "Waikato police Superintendent Scott Gemmell",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  },
+  {
+   "text": "The public deserves to have trust in us, and police will not hesitate to take action any time offending like this is detected.",
+   "form": "direct",
+   "speaker": "e8",
+   "speaker_as_printed": "Waikato police Superintendent Scott Gemmell",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e12"
+   ]
+  },
+  {
+   "text": "The community can be assured that a full investigation was undertaken and there is no further evidence to indicate any wider offending has been undertaken by this person.",
+   "form": "direct",
+   "speaker": "e8",
+   "speaker_as_printed": "Waikato police Superintendent Scott Gemmell",
+   "verb": "told",
+   "channel": "interview",
+   "about": [
+    "e1"
+   ]
+  }
+ ],
+ "events": [
+  {
+   "kind": "theft by deception",
+   "who": [
+    {
+     "e": "e1",
+     "part": "offender"
+    },
+    {
+     "e": "e2",
+     "part": "victim"
+    }
+   ],
+   "when": "between 21 August and 17 October",
+   "where": null,
+   "modality": "happened"
+  },
+  {
+   "kind": "sentencing",
+   "who": [
+    {
+     "e": "e1",
+     "part": "sentenced to 11 months' home detention"
+    },
+    {
+     "e": "e3",
+     "part": "judge"
+    }
+   ],
+   "when": "in March",
+   "where": "e16",
+   "modality": "happened"
+  },
+  {
+   "kind": "name suppression appeal dismissed",
+   "who": [
+    {
+     "e": "e1",
+     "part": "applicant"
+    },
+    {
+     "e": "e4",
+     "part": "judge"
+    },
+    {
+     "e": "e17",
+     "part": "court"
+    }
+   ],
+   "when": "this week",
+   "where": null,
+   "modality": "happened"
+  },
+  {
+   "kind": "reparation ordered",
+   "who": [
+    {
+     "e": "e1",
+     "part": "to pay $68,000"
+    },
+    {
+     "e": "e2",
+     "part": "to receive $5000"
+    }
+   ],
+   "when": null,
+   "where": null,
+   "modality": "happened"
+  },
+  {
+   "kind": "refund",
+   "who": [
+    {
+     "e": "e14",
+     "part": "refunder"
+    },
+    {
+     "e": "e2",
+     "part": "refunded"
+    }
+   ],
+   "when": null,
+   "where": null,
+   "modality": "happened"
+  },
+  {
+   "kind": "sports award",
+   "who": [
+    {
+     "e": "e1",
+     "part": "winner"
+    }
+   ],
+   "when": "in 2022",
+   "where": null,
+   "modality": "happened"
+  }
+ ],
+ "numbers": [
+  {
+   "text": "$68,000",
+   "measures": "amount stolen",
+   "of": "e1"
+  },
+  {
+   "text": "$56,000 over eight transactions",
+   "measures": "bank transfers stolen",
+   "of": "e1"
+  },
+  {
+   "text": "11 months' home detention",
+   "measures": "sentence",
+   "of": "e1"
+  },
+  {
+   "text": "$30,000",
+   "measures": "reparation available",
+   "of": "e1"
+  },
+  {
+   "text": "40 percent in discounts",
+   "measures": "sentence discount",
+   "of": "e1"
+  }
+ ],
+ "sentiment": [
+  {
+   "toward": "e1",
+   "from": "e9",
+   "value": "negative",
+   "evidence": "he came as a snake in the grass"
+  },
+  {
+   "toward": "e1",
+   "from": "e8",
+   "value": "negative",
+   "evidence": "particularly egregious"
+  },
+  {
+   "toward": "e1",
+   "from": "article",
+   "value": "negative",
+   "evidence": "stole $68,000 from a pensioner he was meant to be helping"
+  },
+  {
+   "toward": "e12",
+   "from": "e9",
+   "value": "mixed",
+   "evidence": "We don't blame all police for what one officer did"
+  }
+ ],
+ "traps": [
+  "Jacinda Hamilton is a person, the Crown Solicitor, in a story heard in the Hamilton District Court: one word, a person and a city",
+  "the victim has name suppression and is never named; her stepdaughter and spokesperson are unnamed too",
+  "the offender's surname is printed two ways (Tamati-Te Paki, Tamati-Te-Paki)",
+  "a lifted suppression: the article names someone whose name was suppressed until this week",
+  "'She' for Justice Palmer, 'he' for Justice MacGillivray: pronouns cross between two judges in two sentences",
+  "the victim's words are read by her stepdaughter: the speaker is the victim",
+  "Pak'nSave Highland Park is a store, a brand with a place, run by an unnamed company",
+  "the officer's role is past ('was a police officer for six years'); the story says 'former officer' later",
+  "a Muay Thai gold and a kickboxing award: sporting facts about a convicted person, kept as printed"
+ ]
+}

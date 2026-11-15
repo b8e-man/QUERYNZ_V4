@@ -1,0 +1,39 @@
+{
+ "id": "27b996bf-91ff-4154-ad13-772daddfa264", "text_sha256": "5a8f9098ff0db46a96326a0627553eed4f2c82ce08f6a0e9401e77135795a353",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["weather > weather forecast", "weather > weather warning"], "dateline": null, "wire_credit": null},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "MetService", "kind": "organisation", "forms": ["MetService"]},
+  "e2": {"name": "Bakker", "kind": "person", "forms": ["Bakker"]},
+  "e3": {"name": "Devlin Lynden", "kind": "person", "forms": ["Devlin Lynden"]},
+  "e4": {"name": "Gisborne", "kind": "place", "forms": ["Gisborne"]},
+  "e5": {"name": "Bay of Plenty", "kind": "place", "forms": ["the Bay of Plenty"]},
+  "e6": {"name": "Auckland", "kind": "place", "forms": ["Auckland"]},
+  "e7": {"name": "Northland", "kind": "place", "forms": ["Northland"]},
+  "e8": {"name": "Waikato", "kind": "place", "forms": ["Waikato"]},
+  "e9": {"name": "North Island", "kind": "place", "forms": ["the North Island"]},
+  "e10": {"name": "The Daily H", "kind": "product", "forms": ["The Daily H"]}
+ },
+ "roles": [{"who": "e3", "role": "meteorologist", "of": "e1", "tense": "current", "bound_by": "premodifier"}],
+ "relations": [],
+ "descriptors": [],
+ "quotes": [
+  {"text": "We’ve got a front that is moving through the region, and that’s travelling kind of southwest, southeastwards towards Gisborne.", "form": "direct", "speaker": null, "speaker_as_printed": null, "verb": null, "channel": "interview", "about": []},
+  {"text": "In general, when there’s a thunderstorm, that’s where you get the risk of heavy rain and also the possibility of hail through there.", "form": "direct", "speaker": null, "speaker_as_printed": null, "verb": null, "channel": "interview", "about": []},
+  {"text": "if thunderstorms occurred, they would likely be accompanied by brief heavy rain with intensities of 10 to 25mm/h, and small hail", "form": "indirect", "speaker": "e1", "speaker_as_printed": "MetService", "verb": "said", "channel": "statement", "about": []},
+  {"text": "the risk for Auckland, Northland and Waikato would likely “ramp up” into the evening after it was considered low this morning", "form": "mixed", "speaker": "e2", "speaker_as_printed": "Bakker", "verb": "said", "channel": "interview", "about": []},
+  {"text": "You can still get heavy rain without there being any kind of active lightning or thunder going on there. So there is still a risk even if there’s no verifiable thunderstorms.", "form": "direct", "speaker": "e2", "speaker_as_printed": "Bakker", "verb": null, "channel": "interview", "about": []},
+  {"text": "In terms of an analogy, if you’re doing popcorn on the stove, you don’t know exactly which kernel is going to pop next, but you can say, ‘Hey well, look, something’s going to happen.’", "form": "direct", "speaker": "e2", "speaker_as_printed": "Bakker", "verb": null, "channel": "interview", "about": []},
+  {"text": "although rain would linger across northern and eastern parts of the North Island, there would be plenty of fine weather elsewhere", "form": "indirect", "speaker": "e3", "speaker_as_printed": "MetService meteorologist Devlin Lynden", "verb": "said", "channel": "interview", "about": []}
+ ],
+ "events": [{"kind": "weather warning", "who": [{"e": "e1", "part": "issuer"}], "when": "in coming hours", "where": "e9", "modality": "possible"}],
+ "numbers": [{"text": "10 to 25mm/h", "measures": "rain intensity", "of": null}],
+ "sentiment": [],
+ "traps": [
+  "the text is truncated: it opens mid-article with a quote whose speaker was introduced in a paragraph we do not hold",
+  "the first two quotes have no speaker in the text; they are probably Bakker's, but the text does not say so",
+  "'Bakker' is known by surname only, with no role or organisation printed",
+  "a newsletter promotion ('Sign up to The Daily H') is in the text"
+ ]
+}

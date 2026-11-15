@@ -1,0 +1,231 @@
+{
+ "tranche": 1,
+ "source": "old_incoming_news_private.articles",
+ "chosen_by": "registers.news.gold.sample",
+ "articles": [
+  {
+   "id": "f3c9c69d-00c9-4535-8fb7-52995e639876",
+   "site": "scoop.co.nz",
+   "title": "What Happens Now After The $1.2 Million Cannabis Discovery In An East Auckland Storage Unit?",
+   "post_date": "2026-09-25T00:00:00+12:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "595aea36-d1d4-4d10-bdd9-58f9cba7acfc",
+   "site": "scoop.co.nz",
+   "title": "Police Appeal For Information Following Fire At Hamilton Park",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "1f7d9d7c-4de7-40f3-824e-6cf7bbd48a13",
+   "site": "stuff.co.nz",
+   "title": "BMW 3 Series revealed: 8th-gen icon gets the Neue Klasse treatment",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "d88169b1-e322-4d11-9a6b-10a6988a5019",
+   "site": "stuff.co.nz",
+   "title": "Australia beat White Ferns by two wickets in first T20 international",
+   "post_date": "2026-10-18T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "2a839c33-8571-4217-9ad8-3cfaaba05d90",
+   "site": "rnz.co.nz",
+   "title": "'The Kia Ora Lady' - Dame Naida Glavish publishes a memoir",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "77a35cf6-1274-40e4-b47f-4aa38cb952b6",
+   "site": "rnz.co.nz",
+   "title": "National attack ads against Labour use crime footage from government's own term",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "e5b57d5e-26f4-4ffc-8adf-1520793e5a81",
+   "site": "odt.co.nz",
+   "title": "Hugo boosts KiwiHarvest impact",
+   "post_date": "2026-10-03T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "5d7a0363-eba4-4521-8d01-1feb844bc9d3",
+   "site": "odt.co.nz",
+   "title": "Waitaki candidates hear rural concerns ahead of election",
+   "post_date": "2026-10-26T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "02a1328e-57f7-4fe6-a241-d08d298094e5",
+   "site": "1news.co.nz",
+   "title": "'We f***ed up': Team 18 lament Bathurst 1000 fuel flop",
+   "post_date": "2026-10-11T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "8316c021-da4b-4504-be13-559280b9333c",
+   "site": "1news.co.nz",
+   "title": "Fatal school trip should have been cancelled after weather warnings – coroner",
+   "post_date": "2026-11-04T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "c1b85eaa-472a-4a38-b0cd-9bbf35e60e0b",
+   "site": "nzherald.co.nz",
+   "title": "Emmys ditch networks by inking deal to stream awards night free on Amazon",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "27b996bf-91ff-4154-ad13-772daddfa264",
+   "site": "nzherald.co.nz",
+   "title": "MetService warns of thunderstorm and heavy rain risk for top half of North Island in coming hours",
+   "post_date": "2026-09-18T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "1fed0a90-c79a-4402-92a6-7d9413c302af",
+   "site": "newsroom.co.nz",
+   "title": "No more Pākehā memoirs",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "4a0e1463-3f36-4c07-9e4a-9cbd2907f580",
+   "site": "newsroom.co.nz",
+   "title": "Labour would ditch Peters’ realpolitik for ‘moral clarity’",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "a9ab02fe-bbf6-4070-b99a-e4ef8ede5e08",
+   "site": "businessdesk.co.nz",
+   "title": "Ways to discourage phoenixes from flying",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "cbb73a98-3ce2-445e-96f4-cbb7392bc391",
+   "site": "businessdesk.co.nz",
+   "title": "Hybrid work grows up",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "2fcd2771-78b4-4739-a35e-b1edd0d5ba83",
+   "site": "interest.co.nz",
+   "title": "Heartland shareholders approve $620 million TSB takeover to establish 'challenger bank', clearing the path for the deal to be completed pending final regulatory approvals and TSB liquidity report",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "fedbe21a-8cef-4a68-a9f2-232a0936ea84",
+   "site": "interest.co.nz",
+   "title": "Dave Ananth says tax debt cannot become permanent business finance, and to be viable any business that owes late taxes needs to have a workable plan to stay on top of current taxes due while it catches up on the older debt",
+   "post_date": "2026-10-03T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "0595ced2-cd3c-403d-b31a-aaba19c20f10",
+   "site": "farmersweekly.co.nz",
+   "title": "National outlines policy commitments for its first 100 days if it leads next government",
+   "post_date": "2026-10-13T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "24aa40b4-f777-46e4-9764-a37a1bbb4898",
+   "site": "farmersweekly.co.nz",
+   "title": "Sheep and beef outlook strong as margins tighten",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "f784d9d5-931b-40be-8929-cd6bb2fcde09",
+   "site": "businessdesk.co.nz",
+   "title": "Vista Group leads the pack on the NZX 50",
+   "post_date": "2026-09-18T00:00:00+12:00",
+   "why": "case:the-warehouse-company"
+  },
+  {
+   "id": "fa788845-0b50-4a88-9ccf-7f0c6e3fa147",
+   "site": "rnz.co.nz",
+   "title": "Lechuan Zhu and Yanan Tang jailed for importing 2.5m black market cigarettes",
+   "post_date": "2026-09-18T00:00:00+12:00",
+   "why": "case:warehouse-the-word"
+  },
+  {
+   "id": "c7a502cb-a97f-4293-9425-c4d4ed632af1",
+   "site": "odt.co.nz",
+   "title": "Minister questions Fenz CEO over withheld information",
+   "post_date": "2026-09-17T00:00:00+12:00",
+   "why": "case:several-chief-executives"
+  },
+  {
+   "id": "3f3874be-d5ef-411e-b711-49600683d905",
+   "site": "pmn.co.nz",
+   "title": "Niue health officials reassure public after two HIV cases found",
+   "post_date": "2026-10-02T00:00:00+13:00",
+   "why": "case:former-and-acting"
+  },
+  {
+   "id": "7b7279c8-3fbf-455d-ba61-d5857490ce18",
+   "site": "rnz.co.nz",
+   "title": "All Blacks: 'Unbelievable' Peter Lakai presses claims for long stint in No.7 jersey",
+   "post_date": "2026-10-19T00:00:00+13:00",
+   "why": "case:sport"
+  },
+  {
+   "id": "90eed83d-8a9a-4751-9a81-67815dd3cf93",
+   "site": "scoop.co.nz",
+   "title": "Thibul Nettle’s The Shadows Of Trust Arrives In New Zealand Cinemas",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "case:entertainment"
+  },
+  {
+   "id": "99b0902c-2b6e-4e50-8d35-f4fd6c502cc1",
+   "site": "odt.co.nz",
+   "title": "Cop who stole $68,000 from pensioner named",
+   "post_date": "2026-09-25T00:00:00+12:00",
+   "why": "case:cannot-be-named"
+  },
+  {
+   "id": "ed2d042e-577e-477c-9cd4-4de1a6687f64",
+   "site": "rnz.co.nz",
+   "title": "Rugby League World Cup: Kiwis vs Australia - which is the greatest win ever?",
+   "post_date": "2026-10-15T00:00:00+13:00",
+   "why": "case:hamilton-a-person"
+  },
+  {
+   "id": "e7032888-a1e4-49bf-bf14-fa4ddd4730f3",
+   "site": "police.govt.nz",
+   "title": "Have you seen Braydon?",
+   "post_date": "2026-09-26T00:00:00+12:00",
+   "why": "case:police-release"
+  },
+  {
+   "id": "e78f9679-fd3e-4c6a-a1ca-428097e9f08a",
+   "site": "stuff.co.nz",
+   "title": "Live: Video confirms what Labour is trying to hide, National says, as new gang footage emerges",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "case:live-blog"
+  },
+  {
+   "id": "e7e4eaa6-34c3-4fc9-8b06-d3fb9bf2cda3",
+   "site": "1news.co.nz",
+   "title": "Russell Brand arrives at London court for rape and sexual assault trial",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "case:wire-story"
+  },
+  {
+   "id": "2d1b2751-2a6c-4dfe-8c41-ed06d6dbf913",
+   "site": "odt.co.nz",
+   "title": "Overseas, digital accessibility is becoming enforceable. New Zealand should not wait.",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "case:opinion"
+  }
+ ]
+}

@@ -1,0 +1,26 @@
+{
+ "id": "e7032888-a1e4-49bf-bf14-fa4ddd4730f3", "text_sha256": "4017234f82e745ccbefde0b23f8dbdcd1ef260560376fa7d8b9201da66f85f8e",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "press_release", "themes": ["crime, law and justice > law enforcement > police", "society > missing person"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "Issued by Police Media Centre", "kind": "organisation", "role_line": null}],
+ "entities": {
+  "e1": {"name": "Braydon", "kind": "person", "forms": ["Braydon", "Braydon’s"]},
+  "e2": {"name": "Police", "kind": "government", "forms": ["Police", "Police Media Centre"]},
+  "e3": {"name": "Linwood", "kind": "place", "forms": ["Linwood"]},
+  "e4": {"name": "Braydon’s family", "kind": "person", "forms": ["Braydon’s family"]}
+ },
+ "roles": [],
+ "relations": [{"a": "e4", "says": "Braydon’s family", "b": "e1"}],
+ "descriptors": [{"who": "e1", "text": "missing 21-year-old"}],
+ "quotes": [],
+ "events": [{"kind": "missing person", "who": [{"e": "e1", "part": "missing"}], "when": "since early September", "where": "e3", "modality": "happened"},
+            {"kind": "last sighting", "who": [{"e": "e1", "part": "seen"}], "when": "on 3 September", "where": "e3", "modality": "happened"}],
+ "numbers": [{"text": "260918/8420", "measures": "police file number", "of": null}],
+ "sentiment": [],
+ "traps": [
+  "a person named by first name only: never matched to anyone",
+  "'[pictured]' points to a photo the text does not hold",
+  "Linwood is a Christchurch suburb; the text does not say Christchurch",
+  "a police release with no person as author"
+ ]
+}

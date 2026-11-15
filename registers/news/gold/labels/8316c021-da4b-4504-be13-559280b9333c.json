@@ -1,0 +1,51 @@
+{
+ "id": "8316c021-da4b-4504-be13-559280b9333c", "text_sha256": "019f47a6d71597c98b7372453fdf3de8efc3d28a57635018ac6352c6f74b4dd7",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "news", "themes": ["crime, law and justice > judiciary > coroner", "education > school", "disaster, accident and emergency incident > accident > drowning", "weather > weather warning"], "dateline": null, "wire_credit": null},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "Karnin Petera", "kind": "person", "forms": ["Karnin Petera", "Petera", "Tino", "Petera's", "the teenager’s", "the boy's"]},
+  "e2": {"name": "Alexander Ho", "kind": "person", "forms": ["Alexander Ho", "Ho", "the coroner"]},
+  "e3": {"name": "Alicia Toki", "kind": "person", "forms": ["Alicia Toki"]},
+  "e4": {"name": "Andre Petera", "kind": "person", "forms": ["Andre Petera"]},
+  "e5": {"name": "Whangārei Boys’ High School", "kind": "organisation", "forms": ["Whangārei Boys’ High School", "the school", "The school's", "the school’s board"]},
+  "e6": {"name": "Abbey Caves", "kind": "place", "forms": ["Abbey Caves", "the cave"]},
+  "e7": {"name": "Whangārei", "kind": "place", "forms": ["Whangārei", "central Whangārei"]},
+  "e8": {"name": "Northland", "kind": "place", "forms": ["Northland"]},
+  "e9": {"name": "Whangārei District Court", "kind": "government", "forms": ["the Whangārei District Court"]},
+  "e10": {"name": "Ministry of Education", "kind": "government", "forms": ["Ministry of Education"]},
+  "e11": {"name": "MetService", "kind": "organisation", "forms": ["MetService"]},
+  "e12": {"name": "WorkSafe", "kind": "government", "forms": ["WorkSafe"]},
+  "e13": {"name": "A teacher", "kind": "person", "forms": ["A teacher"]},
+  "e14": {"name": "an external instructor", "kind": "person", "forms": ["an external instructor"]}
+ },
+ "roles": [{"who": "e2", "role": "coroner", "of": null, "tense": "current", "bound_by": "unbound"},
+           {"who": "e3", "role": "his mother", "of": null, "tense": "current", "bound_by": "possessive"},
+           {"who": "e4", "role": "His father", "of": null, "tense": "current", "bound_by": "possessive"}],
+ "relations": [{"a": "e3", "says": "his mother", "b": "e1"}, {"a": "e4", "says": "His father", "b": "e1"}, {"a": "e1", "says": "his Whangārei Boys’ High School outdoor education group", "b": "e5"}],
+ "descriptors": [{"who": "e1", "text": "15-year-old"}, {"who": "e1", "text": "known as Tino"}],
+ "quotes": [
+  {"text": "overly optimistic risk tolerance", "form": "partial", "speaker": "e2", "speaker_as_printed": "Ho", "verb": "found", "channel": "court", "about": ["e5"]},
+  {"text": "We trusted our son would be safe at school,", "form": "direct", "speaker": "e3", "speaker_as_printed": "his mother, Alicia Toki", "verb": "said", "channel": "court", "about": ["e5"]},
+  {"text": "We never want any other family to be in the same position as us.", "form": "direct", "speaker": "e3", "speaker_as_printed": "his mother, Alicia Toki", "verb": "said", "channel": "court", "about": []},
+  {"text": "did their best", "form": "partial", "speaker": "e2", "speaker_as_printed": "The coroner", "verb": "found", "channel": "court", "about": ["e13", "e14"]},
+  {"text": "no reflection", "form": "partial", "speaker": "e2", "speaker_as_printed": "The coroner", "verb": "found", "channel": "court", "about": ["e13", "e14"]}
+ ],
+ "events": [{"kind": "death by drowning", "who": [{"e": "e1", "part": "died"}], "when": "May 9, 2023", "where": "e6", "modality": "happened"},
+            {"kind": "coronial inquest", "who": [{"e": "e2", "part": "coroner"}], "when": "April and May this year", "where": "e9", "modality": "happened"},
+            {"kind": "coronial findings released", "who": [{"e": "e2", "part": "coroner"}, {"e": "e5", "part": "criticised"}], "when": "today", "where": null, "modality": "happened"},
+            {"kind": "recommendation", "who": [{"e": "e2", "part": "recommends"}, {"e": "e10", "part": "to improve guidance"}, {"e": "e11", "part": "to change presentation"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "investigation finding", "who": [{"e": "e12", "part": "investigator"}, {"e": "e5", "part": "investigated"}], "when": null, "where": null, "modality": "happened"},
+            {"kind": "reparations ordered", "who": [{"e": "e5", "part": "ordered to pay"}], "when": "In September 2024", "where": null, "modality": "happened"}],
+ "numbers": [{"text": "Sixteen other boys and two adults", "measures": "people who escaped", "of": null}, {"text": "more than $500,000", "measures": "reparations ordered", "of": "e5"}],
+ "sentiment": [{"toward": "e5", "from": "e2", "value": "negative", "evidence": "criticised the decision to proceed with the trip"},
+               {"toward": "e13", "from": "e2", "value": "positive", "evidence": "\"did their best\""}],
+ "traps": [
+  "a dead child named in full with a nickname ('Tino'); his parents are named by relation",
+  "two Peteras: the son and the father share a surname; 'Petera' alone is the son",
+  "coroner Alexander Ho: a judicial role unbound to any organisation in the text",
+  "'the school’s board' is a distinct legal body (board of trustees) ordered to pay, printed as the school's",
+  "the teacher and the instructor are unnamed and stay so",
+  "'today' and 'this year' are relative to the article's date"
+ ]
+}

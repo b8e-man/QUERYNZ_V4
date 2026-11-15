@@ -1,0 +1,308 @@
+{
+ "id": "ed2d042e-577e-477c-9cd4-4de1a6687f64",
+ "text_sha256": "dc4bb69d04b5bdda0b6af3d911f28aaaab0c396b40597b1459120c95dd8163d0",
+ "labelled_by": "session 40ea495e",
+ "labelled_at": "2026-11-15",
+ "article": {
+  "type": "feature",
+  "themes": [
+   "sport > rugby league"
+  ],
+  "dateline": null,
+  "wire_credit": null
+ },
+ "authors": [],
+ "entities": {
+  "e1": {
+   "name": "Kiwis",
+   "kind": "team",
+   "forms": [
+    "Kiwis",
+    "the Kiwis",
+    "New Zealand",
+    "Graham Lowe's men",
+    "Michael Maguire's young and energised side"
+   ]
+  },
+  "e2": {
+   "name": "Kangaroos",
+   "kind": "team",
+   "forms": [
+    "Kangaroos",
+    "the Kangaroos",
+    "Australia",
+    "the Australians",
+    "the old enemy"
+   ]
+  },
+  "e3": {
+   "name": "Graham Lowe",
+   "kind": "person",
+   "forms": [
+    "Graham Lowe's"
+   ]
+  },
+  "e4": {
+   "name": "Brian McClennan",
+   "kind": "person",
+   "forms": [
+    "Brian 'Bluey' McClennan"
+   ]
+  },
+  "e5": {
+   "name": "Billy Slater",
+   "kind": "person",
+   "forms": [
+    "Billy Slater"
+   ]
+  },
+  "e6": {
+   "name": "Shaun Kenny-Dowell",
+   "kind": "person",
+   "forms": [
+    "Shaun Kenny-Dowell"
+   ]
+  },
+  "e7": {
+   "name": "Jason Nightingale",
+   "kind": "person",
+   "forms": [
+    "Jason Nightingale"
+   ]
+  },
+  "e8": {
+   "name": "Benji Marshall",
+   "kind": "person",
+   "forms": [
+    "Benji Marshall"
+   ]
+  },
+  "e9": {
+   "name": "Lance Hohaia",
+   "kind": "person",
+   "forms": [
+    "Lance Hohaia"
+   ]
+  },
+  "e10": {
+   "name": "Nathan Fien",
+   "kind": "person",
+   "forms": [
+    "Nathan Fien"
+   ]
+  },
+  "e11": {
+   "name": "Shaun Johnson",
+   "kind": "person",
+   "forms": [
+    "Shaun Johnson"
+   ]
+  },
+  "e12": {
+   "name": "Brandon Smith",
+   "kind": "person",
+   "forms": [
+    "Brandon Smith"
+   ]
+  },
+  "e13": {
+   "name": "Michael Maguire",
+   "kind": "person",
+   "forms": [
+    "Michael Maguire's"
+   ]
+  },
+  "e14": {
+   "name": "Mel Meninga",
+   "kind": "person",
+   "forms": [
+    "Mel Meninga"
+   ]
+  },
+  "e15": {
+   "name": "Lang Park",
+   "kind": "place",
+   "forms": [
+    "Lang Park",
+    "Suncorp Stadium"
+   ]
+  },
+  "e16": {
+   "name": "Elland Road",
+   "kind": "place",
+   "forms": [
+    "Elland Road Leeds"
+   ]
+  },
+  "e17": {
+   "name": "Westpac Stadium",
+   "kind": "place",
+   "forms": [
+    "Westpac Stadium Wellington"
+   ]
+  },
+  "e18": {
+   "name": "Mt Smart Stadium",
+   "kind": "place",
+   "forms": [
+    "Mt Smart Stadium Auckland",
+    "Mt Smart"
+   ]
+  },
+  "e19": {
+   "name": "FMG Stadium Waikato",
+   "kind": "place",
+   "forms": [
+    "FMG Stadium Waikato Hamilton"
+   ]
+  },
+  "e20": {
+   "name": "Allianz Stadium",
+   "kind": "place",
+   "forms": [
+    "Allianz Stadium, Sydney"
+   ]
+  },
+  "e21": {
+   "name": "RNZ",
+   "kind": "organisation",
+   "forms": [
+    "RNZ Sport",
+    "RNZ"
+   ]
+  },
+  "e22": {
+   "name": "Golden Boot",
+   "kind": "event",
+   "forms": [
+    "the Golden Boot award"
+   ]
+  },
+  "e23": {
+   "name": "Kiwi Ferns",
+   "kind": "team",
+   "forms": [
+    "Kiwis Ferns"
+   ]
+  }
+ },
+ "roles": [
+  {
+   "who": "e4",
+   "role": "Kiwis coach",
+   "of": "e1",
+   "tense": "former",
+   "bound_by": "premodifier"
+  },
+  {
+   "who": "e3",
+   "role": "Graham Lowe's men",
+   "of": "e1",
+   "tense": "former",
+   "bound_by": "possessive"
+  },
+  {
+   "who": "e13",
+   "role": "Michael Maguire's young and energised side",
+   "of": "e1",
+   "tense": "former",
+   "bound_by": "possessive"
+  },
+  {
+   "who": "e14",
+   "role": "coach",
+   "of": "e2",
+   "tense": "former",
+   "bound_by": "statement"
+  }
+ ],
+ "relations": [
+  {
+   "a": "e15",
+   "says": "Lang Park (nowadays Suncorp Stadium)",
+   "b": "e15"
+  }
+ ],
+ "descriptors": [],
+ "quotes": [],
+ "events": [
+  {
+   "kind": "sports match",
+   "who": [
+    {
+     "e": "e1",
+     "part": "team"
+    },
+    {
+     "e": "e2",
+     "part": "team"
+    }
+   ],
+   "when": "Thursday 15 October",
+   "where": "e20",
+   "modality": "planned"
+  },
+  {
+   "kind": "sports match result",
+   "who": [
+    {
+     "e": "e1",
+     "part": "winner"
+    },
+    {
+     "e": "e2",
+     "part": "loser"
+    }
+   ],
+   "when": "2005",
+   "where": "e16",
+   "modality": "happened"
+  },
+  {
+   "kind": "award",
+   "who": [
+    {
+     "e": "e11",
+     "part": "winner"
+    }
+   ],
+   "when": "2014",
+   "where": null,
+   "modality": "happened"
+  }
+ ],
+ "numbers": [
+  {
+   "text": "146 test matches",
+   "measures": "tests played since 1908",
+   "of": null
+  },
+  {
+   "text": "108 games",
+   "measures": "Australian wins",
+   "of": "e2"
+  },
+  {
+   "text": "24 - 0",
+   "measures": "score of the 2005 final",
+   "of": "e1"
+  }
+ ],
+ "sentiment": [
+  {
+   "toward": "e1",
+   "from": "article",
+   "value": "positive",
+   "evidence": "there's nothing quite like it"
+  }
+ ],
+ "traps": [
+  "republished: 'This article was originally published in 2024', with a 2026 fixture added; the article's date is not the date of its claims",
+  "each victory has its own year: roles and events carry the year printed, not the article's date",
+  "'Mel Meninga' is the text's spelling (the coach is usually Mal Meninga): kept as printed",
+  "a nickname in quotes inside a name: Brian 'Bluey' McClennan",
+  "stadiums carry company names (Westpac, FMG, Allianz, Suncorp): places, not companies",
+  "'Kiwis Ferns' is the text's misprint for the Kiwi Ferns",
+  "Hamilton appears only inside a stadium's location"
+ ]
+}

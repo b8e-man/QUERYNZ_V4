@@ -1,0 +1,30 @@
+{
+ "id": "2d1b2751-2a6c-4dfe-8c41-ed06d6dbf913", "text_sha256": "458eefc25014ecce7d2664105120f9d42c004d6a58e61b24f0de0b5f997b034e",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "opinion", "themes": ["society > disability", "science and technology > technology > information technology", "politics > government policy"], "dateline": null, "wire_credit": null},
+ "authors": [],
+ "entities": {
+  "e1": {"name": "Carrefour", "kind": "organisation", "forms": ["Carrefour"]},
+  "e2": {"name": "Blind Low Vision NZ", "kind": "organisation", "forms": ["Blind Low Vision NZ’s"]},
+  "e3": {"name": "Shining a Light on Blindness", "kind": "work", "forms": ["Shining a Light on Blindness report"]},
+  "e4": {"name": "Digital Accessibility Standard", "kind": "work", "forms": ["The proposed Digital Accessibility Standard"]},
+  "e5": {"name": "Web Content Accessibility Guidelines", "kind": "work", "forms": ["Web Content Accessibility Guidelines"]},
+  "e6": {"name": "the government", "kind": "government", "forms": ["the government"]},
+  "e7": {"name": "a French court", "kind": "government", "forms": ["a French court"]},
+  "e8": {"name": "Europe", "kind": "place", "forms": ["Europe"]},
+  "e9": {"name": "United States", "kind": "place", "forms": ["the United States"]}
+ },
+ "roles": [],
+ "relations": [{"a": "e2", "says": "Blind Low Vision NZ’s Shining a Light on Blindness report", "b": "e3"}],
+ "descriptors": [],
+ "quotes": [],
+ "events": [{"kind": "court order", "who": [{"e": "e7", "part": "court"}, {"e": "e1", "part": "ordered to make its website and app accessible"}], "when": "In June", "where": null, "modality": "happened"}],
+ "numbers": [{"text": "110,376", "measures": "New Zealanders living with vision loss in 2023", "of": "e2"}],
+ "sentiment": [{"toward": "e6", "from": "article", "value": "mixed", "evidence": "the government is still confirming which agencies will have to comply"}],
+ "traps": [
+  "an opinion column with no byline in the copy; the author is not known",
+  "the text runs a year into a number: 'in 2023,110,376' is the year 2023 and the count 110,376",
+  "'inNew Zealand' has lost its space",
+  "Carrefour is glossed '(a large supermarket)': a foreign company, not a New Zealand one"
+ ]
+}

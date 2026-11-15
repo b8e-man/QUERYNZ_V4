@@ -1,0 +1,35 @@
+{
+ "id": "1f7d9d7c-4de7-40f3-824e-6cf7bbd48a13", "text_sha256": "3b4d3d9264f2c26c02d17fefb7cb81fe5ee9a866ca6691af641568afa2c00693",
+ "labelled_by": "session 40ea495e", "labelled_at": "2026-11-15",
+ "article": {"type": "review", "themes": ["economy, business and finance > products and services > automotive > cars", "science and technology > technology"], "dateline": null, "wire_credit": null},
+ "authors": [{"as_printed": "Nile Bijoux", "kind": "person", "role_line": null}],
+ "entities": {
+  "e1": {"name": "BMW", "kind": "organisation", "forms": ["BMW", "BMW's", "BMW’s"]},
+  "e2": {"name": "3 Series", "kind": "product", "forms": ["3 Series", "the eighth-generation 3 Series", "the combustion 3 Series"]},
+  "e3": {"name": "i3", "kind": "product", "forms": ["i3", "i3 50 xDrive"]},
+  "e4": {"name": "M350 xDrive", "kind": "product", "forms": ["M350 xDrive", "M350"]},
+  "e5": {"name": "320", "kind": "product", "forms": ["320"]},
+  "e6": {"name": "Neue Klasse", "kind": "product", "forms": ["Neue Klasse"]},
+  "e7": {"name": "Amazon Alexa", "kind": "product", "forms": ["Amazon Alexa"]},
+  "e8": {"name": "Bowers and Wilkins", "kind": "brand", "forms": ["Bowers and Wilkins"]},
+  "e9": {"name": "Dolby Atmos", "kind": "product", "forms": ["Dolby Atmos"]},
+  "e10": {"name": "Munich", "kind": "place", "forms": ["Munich"]},
+  "e11": {"name": "Europe", "kind": "place", "forms": ["Europe"]},
+  "e12": {"name": "My BMW App", "kind": "product", "forms": ["My BMW App"]}
+ },
+ "roles": [],
+ "relations": [{"a": "e2", "says": "Based heavily on the Neue Klasse", "b": "e6"}],
+ "descriptors": [],
+ "quotes": [{"text": "completely new form of driver orientation and user interaction", "form": "partial", "speaker": "e1", "speaker_as_printed": "BMW", "verb": "says", "channel": "release", "about": ["e1"]},
+            {"text": "precise spatial perception of navigation and driver assistance information.", "form": "partial", "speaker": null, "speaker_as_printed": null, "verb": null, "channel": "release", "about": []}],
+ "events": [{"kind": "product launch", "who": [{"e": "e1", "part": "maker"}], "when": "for 2027", "where": "e11", "modality": "happened"},
+            {"kind": "product launch", "who": [{"e": "e1", "part": "maker"}], "when": "mid-2027", "where": null, "modality": "planned"}],
+ "numbers": [{"text": "155kW/330Nm", "measures": "output of the 320", "of": "e5"}, {"text": "326kW/580Nm", "measures": "output of the M350 xDrive", "of": "e4"}, {"text": "108kWh", "measures": "battery of the i3", "of": "e3"}, {"text": "900km", "measures": "driving range of the i3", "of": "e3"}],
+ "sentiment": [{"toward": "e2", "from": "article", "value": "positive", "evidence": "combining cutting-edge tech with BMW’s traditionally superb driving dynamics"}],
+ "traps": [
+  "product names are not companies: '320', 'i3' and 'M350' are models of BMW",
+  "BMW is the German maker, not BMW New Zealand Ltd, which the article never names",
+  "the second partial quote has no speaker in the text; it is BMW's material, but the text does not say so",
+  "'in Munich' is the place of an earlier launch, not this one"
+ ]
+}
