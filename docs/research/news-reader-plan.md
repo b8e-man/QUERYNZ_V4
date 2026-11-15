@@ -196,20 +196,130 @@ name a register row, and the order is set by Arthur (question 4). Every article 
   is a cost we accept; a wrong one is not.
 - **Then the links method.** 20 pairs per new rule, and Arthur rules.
 
-## Questions for Arthur
+## Arthur's answers (15 November 2026)
 
-1. **What the reader extracts.** People, organisations and roles only. Or also what the article says they did
-   (charged, appointed, donated, won a contract)? I recommend roles first and events second, because events carry
-   the defamation risk.
-2. **Sport, racing and entertainment.** Read them and tag the section, or leave them out? I recommend reading
-   sport (directors and owners appear there), but leaving out racing results and TV listings.
-3. **Foreign wire stories.** Leave them out, or read them with no link to New Zealand registers unless a mention is
-   anchored? I recommend reading them unlinked.
-4. **Order.** Newest first, or articles that name the most register rows first? I recommend newest first within
-   the gate.
-5. **Suppression as a ruling.** "A description the article gives in place of a suppressed name is never resolved,
-   and a court story's people are checked against the courts lane's suppression flags before any link." I
-   recommend making this a hard rule.
+Arthur: "dont build, just use this for further planning and interviewing".
+
+1. **Scope: be ambitious, question later.** Read people, organisations, roles *and* events (what the article
+   says they did), and add **sentiment**.
+2. **Sport and entertainment** are read.
+3. **Foreign wire stories** are read, and not linked to New Zealand registers unless a mention is anchored.
+4. **Order: newest first, to keep things fresh, then walk back.**
+5. **No suppression rule in the reader.** It would complicate things. A suppression register suppresses before
+   export. (Section G's suppression defence is withdrawn from the reader; G's other points stand as written until
+   discussed.)
+6. **Correlation by article-wide themes.** Step 5 links by *theme tags* as well as anchors, in the horse farm
+   pattern (rulings 153 and 157). The Warehouse appears in NZ media too often without any of section A's anchors,
+   so the link needs either rich anchoring or themes. One theme alone is not reliable: "retail" fits The Warehouse,
+   but also a warehouse burglary at a retail park. What is obvious to a person is not to a machine, so the system
+   needs **many kinds of correlating evidence**. This also helps the other links, and the names that are something
+   else (section E).
+
+## Correlation: theme tags and the other evidence (planning, from Arthur's point 6)
+
+Correlation means the article and a register row agree on things *other than the name*. No single agreement is
+proof; a link is made by a rule that names the combination it needs, measured on 20 pairs (rulings 105 to 109).
+
+### The evidence kinds
+
+1. **Themes, on both sides.** The reader tags each article with themes from one vocabulary. Each register row gets
+   themes from the same vocabulary, derived from what the register itself says:
+   - companies: their industry code (BIC, which maps to ANZSIC). We do not hold it yet; the NZBN register carries
+     it where the company gave it. This is a question below;
+   - charities: main_sector and charitable_purpose;
+   - grants: category_1 and category_2, and the purpose as published;
+   - tenders and award notices: the GETS product categories;
+   - Commerce Commission cases: industry and category;
+   - insolvency: industry;
+   - the iwi directory: primary_purpose;
+   - councillor and MP interests: their declared category.
+   
+   A candidate whose register themes overlap the article's gains evidence; one whose themes contradict loses it.
+2. **Co-mentions through the registers (the horse farm, widened).** The article names other things the registers
+   tie to the candidate. For The Warehouse, that could be its subsidiaries (Noel Leeming, Torpedo7), its directors
+   or officers, or its NZX code. One article naming two things one register ties together is far stronger than
+   either alone.
+3. **Place.** The article's places against the candidate's registered office, its trading places, and its
+   council or electorate.
+4. **The sentence itself.** Capital letters mid-sentence; "The Warehouse's"; "at The Warehouse"; "The Warehouse
+   Group"; a role binding (section C).
+5. **The article's own frame.** The headline, the site's section (business, sport, local), the article type, and
+   the dateline.
+6. **Time.** The candidate existed on the article's date (it was incorporated before it and not removed), and the
+   person held the role on that date.
+
+### Why themes alone fail, and the defence
+
+- **One theme says little.** "Retail" fits The Warehouse and a burglary at a retail park. A theme is
+  evidence only when it is *specific* (bloodstock is specific; "business" is not) and *agrees with another kind*
+  of evidence (co-mention, place, sentence).
+- **Contradicting themes count.** "Crime", "a warehouse fire" or "logistics" against a retailer lowers the score.
+- **A specific thing in the article may be the only link** (the horse farm). A distinctive trading name ties to
+  its owner through the register, with or without the owner's name.
+- **Themes are tagged per article *and* per paragraph.** Live blogs and round-ups carry many themes; the theme
+  nearest the mention counts most.
+
+### The vocabulary
+
+- **For articles:** IPTC Media Topics, the news industry's free standard: over 1,200 terms in a five-level tree,
+  revised yearly. Its upper levels are broad; its lower ones are specific enough to matter (for example horse
+  racing and equestrian).
+- **For business sides:** ANZSIC, through BIC, which is New Zealand's own classification.
+- **A map between the two is ours to write.** Kept as a table, measured and corrected like any rule.
+
+### Names that are something else (section E), by the same evidence
+
+- Hamilton, the city or the person: the city's council and places are co-mentioned; the person's register roles
+  match the article's themes.
+- A horse called after a person: the themes are racing and bloodstock, and the person has no register tie to
+  them.
+
+### A tension to raise
+
+How often a company appears in the media is a fame prior, and Arthur's ruling is that prominence never scores.
+Correlation must therefore use only what the article and the registers say, never how often a name is reported.
+**Question:** does that ruling hold here, or does Arthur mean a company's frequency in the media may count?
+
+## Sentiment (planning, from Arthur's point 1)
+
+- **Sentiment is per mention, not per article.** One article can praise one company and criticise another.
+- **Three sentiments differ:**
+  - the article's tone toward the entity;
+  - what someone quoted says about it;
+  - the entity's own words.
+  
+  These are recorded separately.
+- **Research says news is hard:** opinion is implicit, and document-level and sentence-level labels do not
+  predict overall entity sentiment well. The headline's tone does correlate with the entity sentiment, so the
+  headline is read with it.
+- **Reported events are not sentiment.** "Charged with fraud" is an event of the kind charged, not the article's
+  opinion. Keep the event and the sentiment apart, or sentiment becomes a back door for allegations.
+- **A scale:** negative, mixed, neutral or positive per mention, with the sentence that carries it. The test set
+  labels it, and release needs agreement with a person's reading.
+
+## Events (planning, from Arthur's point 1)
+
+- **The kinds:** appointed, resigned, charged, convicted, acquitted, fined, won a contract, donated, acquired,
+  went into liquidation, sold, sued, and so on.
+- **Each event carries:** its participants and their roles in it, the date the article gives, and its *modality*
+  (happened, alleged, denied, planned, rumoured).
+- **The kinds come from the registers we have.** An event of a kind a register also records (an appointment, a
+  liquidation, a contract award) is checked against that register.
+
+## Questions for the next interview
+
+1. **Industry codes.** Should we ask for the companies' BIC codes from the NZBN register (we hold the key), so that
+   companies have themes? Companies that keep their code private will have none.
+2. **The vocabulary.** IPTC Media Topics for articles and ANZSIC for businesses, with our own map between them? Or
+   one vocabulary of our own?
+3. **Prominence.** Does the "prominence never scores" ruling bar a company's media frequency as evidence (above)?
+4. **What makes a link.** Is the bar a person's reading of 20 pairs per rule, as for the other links? Or does news
+   carry a lower bar, given that a news link says "this article names them", not "these are one person"?
+5. **Sentiment.** What is it for: the report, a score per person or company over time, or the products? The answer
+   sets its scale.
+6. **Events.** Which kinds come first?
+7. **Anchored or unlinked.** A mention that no rule links: is it kept and shown as "named, not linked"? Or held
+   only for the search Arthur has yet to talk about?
 
 ## Sources
 
@@ -230,6 +340,13 @@ name a register row, and the order is set by Arthur (question 4). Every article 
   [BSA, jigsaw identification](https://www.bsa.govt.nz/decisions/all-decisions/wicks/)
 - Time: [ATOM, temporal knowledge graphs](https://arxiv.org/pdf/2510.22590);
   [temporal edges](https://dev.to/hannune/temporal-edges-in-knowledge-graphs-why-static-edges-break-graph-rag-1ll)
+- Themes: [IPTC Media Topics](https://iptc.org/standards/media-topics/);
+  [IPTC NewsCodes](https://iptc.org/std/NewsCodes/guidelines/);
+  [BIC codes on the NZBN register (OIA response)](https://fyi.org.nz/request/18515-list-of-new-zealand-businesses-based-on-bic-codes);
+  [ANZSIC](https://Www.Wikipedia.org/wiki/ANZSIC)
+- Sentiment: [open-domain targeted sentiment](https://arxiv.org/pdf/2204.06893);
+  [entity-level sentiment survey](https://aitopics.org/doc/arxivorg:E5088E31);
+  [headline tone and entity sentiment (BSNLP 2023)](https://aclanthology.org/2023.bsnlp-1.10.pdf)
 - Long documents: [lost in the middle](https://arxiv.org/pdf/2307.03172);
   [assessing the quality of information extraction](https://arxiv.org/pdf/2404.04068);
   [recall them all](https://arxiv.org/pdf/2405.02732)
