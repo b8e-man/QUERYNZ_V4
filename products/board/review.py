@@ -208,6 +208,8 @@ def render(qs: dict) -> str:
     script = f'<script src="{esc(assets.url("review.js"))}" defer></script>'
     name = one("set")
     names = sets()
+    if name and name not in names:
+        name = ""                     # a retired set's address (an open tab) opens what is waiting now
     if not name and len(names) == 1:
         name = names[0]
     if not name:
