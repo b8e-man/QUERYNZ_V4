@@ -73,6 +73,24 @@ def _window(text: str, needles: list, need_all: bool = False, most: int = 2) -> 
     return " … ".join(u for _, _, u in best[:most]) if best else ""
 
 
+def _named_before(text: str, ctx: str, names: list, back: int = 3) -> str:
+    """The context, with the nearest paragraph before it that names the speaker when the context itself only says
+    "he said": up to BACK paragraphs back. The context alone when none does."""
+    low = [n.lower() for n in names if n]
+    if not ctx or not low or any(n in ctx.lower() for n in low):
+        return ctx
+    ps = _paras(text)
+    first = ctx.split(" … ")[0][:60]
+    at = next((i for i, p in enumerate(ps) if first in p), None)
+    if at is None:
+        return ctx
+    for j in range(at - 1, max(-1, at - 1 - back), -1):
+        if any(n in ps[j].lower() for n in low):
+            u = ps[j] if len(ps[j]) <= 600 else next((x for x in T._sentences(ps[j]) if any(n in x.lower() for n in low)), ps[j])
+            return u + " … " + ctx
+    return ctx
+
+
 def _marks(context: str, groups: dict) -> list:
     """[{"text", "mark"}] runs: each group's words marked where they fall (longest first, no overlap)."""
     spans = []
@@ -336,6 +354,12 @@ def build2(tranche: int, run: str = "run6") -> dict:
             skipped[kind] = skipped.get(kind, 0) + 1
             return
         marked = _marks(context, groups)
+        # Arthur, 17 November 2026: text shown "irrelevant to the question". The text shown is the evidence the model
+        # cited; when it does not name who the question is about, the model cited the wrong text. That is a reading
+        # fault, counted here, and never asked.
+        if kind in ("sentiment", "claim") and groups.get("who") and not any(p.get("mark") == "who" for p in marked):
+            skipped[f"{kind} (evidence names nobody asked about)"] = skipped.get(f"{kind} (evidence names nobody asked about)", 0) + 1
+            return
         need = {"claim": "role", "quote": "quote"}.get(kind)
         if need and not any(p.get("mark") == need for p in marked):
             skipped[kind] = skipped.get(kind, 0) + 1          # the words asked about are not in the text shown
@@ -397,6 +421,8 @@ def build2(tranche: int, run: str = "run6") -> dict:
                         if writer > WRITER_CLAIMS:
                             continue
                     ctx = _window(body, [span[:80]], most=1)
+                    if says != "writer":
+                        ctx = _named_before(body, ctx, _forms(xe, says))
                     verb = {"charged": "charging", "decided": "finding"}.get(cl.get("stance"), "saying")
                     # short and laid out in lines (Arthur: the Israel questions were "too long and convoluted"): the
                     # claimant by the shortest name the sentence prints, the statement on its own line
@@ -454,10 +480,13 @@ def build2(tranche: int, run: str = "run6") -> dict:
                 voice = "the writer" if s.get("from") in ("article", "own") else _name(xe, s.get("from"))
                 ev_ = s.get("evidence") or ""
                 ctx = _window(body, [ev_[:80]], most=1)
+                if voice != "the writer":
+                    ctx = _named_before(body, ctx, _forms(xe, s.get("from")))
                 ask("sentiment", aid, ("tone", s.get("toward"), s.get("from")),
                     [{"text": "In this text, how does " + voice + " treat "}, {"text": _name(xe, s.get("toward")), "mark": "who"},
                      {"text": "?"}],
-                    ctx, {"who": _forms(xe, s.get("toward"))[:3], "role": [ev_]},
+                    ctx, {"who": _forms(xe, s.get("toward"))[:3] + ([] if voice == "the writer" else _forms(xe, s.get("from"))[:2]),
+                          "role": [ev_]},
                     [{"key": k, "label": k} for k in ("negative", "mixed", "neutral", "positive")], s.get("value"))
 
     qs.sort(key=lambda q: (ORDER2.index(q["kind"]), q["article"]))
