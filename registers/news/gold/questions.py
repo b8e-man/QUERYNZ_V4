@@ -298,7 +298,7 @@ def _sections(url) -> list:
     """The site's own sections, from the article's address: every path step but the last (the slug), less dates,
     numbers and plumbing ("/sport/motorsport/formula-1/<slug>" gives sport, motorsport, formula-1)."""
     steps = re.sub(r"^https?://[^/]+", "", url or "").strip("/").split("/")[:-1]
-    return [x for x in steps if x and not re.fullmatch(r"[\d.]+|v\d.*|api|stuff|stories|story|article|release|[A-Z]{1,2}\d+", x)]
+    return [x for x in steps if x and x.count("-") < 3 and not re.fullmatch(r"[\d.]+|v\d.*|api|stuff|stories|story|article|release|[A-Z]{1,2}\d+", x)]
 
 
 def build2(tranche: int, run: str = "run6") -> dict:
