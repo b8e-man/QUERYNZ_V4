@@ -285,7 +285,7 @@ def _whole_claim(claim: str) -> bool:
 BAD = {"key": "bad", "label": "Bad question: unclear, incomplete, or I can't answer it as asked"}
 
 
-def build2(tranche: int, run: str = "run5") -> dict:
+def build2(tranche: int, run: str = "run6") -> dict:
     from registers.news.gold import trial as T2
     meta = {a["id"]: a for a in json.loads((HERE / f"tranche-{tranche}.json").read_text())["articles"]}
     articles, qs, skipped = {}, [], {}
@@ -348,11 +348,17 @@ def build2(tranche: int, run: str = "run5") -> dict:
                             continue
                     ctx = _window(body, [span[:80]], most=1)
                     verb = {"charged": "charging", "decided": "finding"}.get(cl.get("stance"), "saying")
-                    who = ([{"text": "the writer", "mark": "who"}, {"text": " stating, as plain fact"}] if says == "writer"
-                           else [{"text": _name(xe, says), "mark": "who"}, {"text": f" {verb}"}])
+                    # short and laid out in lines (Arthur: the Israel questions were "too long and convoluted"): the
+                    # claimant by the shortest name the sentence prints, the statement on its own line
+                    flat = " ".join(ctx.split()).lower()
+                    printed = [f for f in _forms(xe, says) if f.lower() in flat] if says != "writer" else []
+                    short = min(printed, key=len) if printed else (_name(xe, says) if says != "writer" else "")
+                    head = {"charged": "Charges", "decided": "Finds"}.get(cl.get("stance"), "Says")
+                    who = ([{"text": "Who: "}, {"text": "the writer, as plain fact", "mark": "who"}] if says == "writer"
+                           else [{"text": "Who: "}, {"text": short, "mark": "who"}])
                     n0 = len(qs)
                     ask("claim", aid, ("claim2", stmt[:80]),
-                        [{"text": "Does this text show "}] + who + [{"text": ": "}, {"text": stmt, "mark": "role"}, {"text": "?"}],
+                        who + [{"text": f"\n{head}: "}, {"text": stmt, "mark": "role"}, {"text": "\nDoes the text show this?"}],
                         ctx, {"role": [span], "who": _forms(xe, says)[:3] if says != "writer" else []},
                         [{"key": "yes", "label": "Yes"},
                          {"key": "other", "label": "No: it's someone else's claim"} if says != "writer" else
@@ -410,7 +416,7 @@ def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     opt = lambda k, d: argv[argv.index(k) + 1] if k in argv else d
     tranche = int(opt("--tranche", 1))
-    out = build(tranche, opt("--run", "run2")) if tranche == 1 else build2(tranche, opt("--run", "run5"))
+    out = build(tranche, opt("--run", "run2")) if tranche == 1 else build2(tranche, opt("--run", "run6"))
     if out.get("skipped"):
         print("skipped (no sentence shows it):", out["skipped"])
     OUT.mkdir(parents=True, exist_ok=True)

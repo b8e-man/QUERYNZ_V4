@@ -90,7 +90,7 @@ def href(name: str, q: str = "", after: str = "") -> str:
 
 
 def _runs(parts: list) -> str:
-    return "".join(f'<mark class="{esc(p["mark"])}">{esc(p["text"])}</mark>' if p.get("mark") else esc(p.get("text") or "")
+    return "".join(f'<mark class="{esc(p["mark"])}">{esc(p["text"])}</mark>' if p.get("mark") else esc(p.get("text") or "").replace("\n", "<br>")
                    for p in parts or [] if p.get("text"))
 
 

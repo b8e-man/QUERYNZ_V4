@@ -196,7 +196,7 @@ CLAIM_PROMPT = """You find the claims in one New Zealand news article and record
 
 Each claim has:
 - "says": the id of the entity whose claim it is (from the ENTITIES given), or "writer".
-- "statement": what is claimed, and only that: never the claimant, never "said", "alleged", "accused", "found", "asserts" or "claims". One whole plain-English sentence a reader understands without the article: who did what, with what the act needs to be a fact (where from or where to, to whom, what). "fled" alone is not a statement; "Alastair Paton fled New Zealand for Australia" is. Names, never "he", "she", "it" or "they". Only what the article prints; if it does not print what the act needs, leave the claim out.
+- "statement": what is claimed, and only that: never the claimant, never "said", "alleged", "accused", "found", "asserts" or "claims". One short, whole plain-English sentence of at most 15 words, the core act only, that a reader understands without the article: who did what, with what the act needs to be a fact (where from or where to, to whom, what). "fled" alone is not a statement; "Alastair Paton fled New Zealand for Australia" is. Names, never "he", "she", "it" or "they". Only what the article prints; if it does not print what the act needs, leave the claim out.
 - "span": the article's own words the claim rests on, copied character for character, one sentence or less.
 - "stance": "happened" (the claimant says it is so), "did_not_happen" (the claimant denies it), "charged" (a charge or a case before a court, not decided), "decided" (a court, regulator or official body has ruled or found it).
 
@@ -407,7 +407,7 @@ def main(argv=None) -> int:
         run(tranche, opt("--url", URL), opt("--model", MODEL), int(opt("--workers", 4)), opt("--run", ""))
         return 0
     if argv[:1] == ["claims"]:
-        claims_run(tranche, opt("--from", "run3"), opt("--run", "run5"), opt("--url", URL), opt("--model", MODEL),
+        claims_run(tranche, opt("--from", "run3"), opt("--run", "run6"), opt("--url", URL), opt("--model", MODEL),
                    int(opt("--workers", 4)))
         return 0
     if argv[:1] == ["score"]:
