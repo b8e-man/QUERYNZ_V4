@@ -19,7 +19,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 T = "old_incoming_news_private.articles"
 HOST = r"split_part(regexp_replace(news_url, '^https?://(www\.)?', ''), '/', 1)"
-RECENT = "post_date > now() - interval '60 days' AND length(text_content) BETWEEN 600 AND 20000"
+#: a stub that ends at a paywall prompt is never sampled (Arthur, 17 November 2026: two of tranche 2's Newsroom
+#: articles were the opening paragraph only, from the old copy collected before the provider had his logins)
+PAYWALL = (r"(14-day free trial|free trial now|Subscribe to (continue|read)|subscribers? only|Already a subscriber|"
+           r"Premium (content|article)|Sign in to (continue|read)|Unlock this (story|article))")
+RECENT = ("post_date > now() - interval '60 days' AND length(text_content) BETWEEN 600 AND 20000"
+          f" AND right(text_content, 400) !~* '{PAYWALL}'")
 
 #: twenty from ten sites: the commonest news sites of the last sixty days (te reo sites wait for their own session)
 SITES = ["scoop.co.nz", "stuff.co.nz", "rnz.co.nz", "odt.co.nz", "1news.co.nz", "nzherald.co.nz", "newsroom.co.nz",

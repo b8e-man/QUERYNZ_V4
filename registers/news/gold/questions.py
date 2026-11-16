@@ -294,6 +294,31 @@ def _whole_claim(claim: str) -> bool:
 BAD = {"key": "bad", "label": "Bad question: unclear, incomplete, or I can't answer it as asked"}
 
 
+#: Arthur, 17 November 2026: "the tags say what the article is in many cases these should be left out of the sample
+#: unless there is a reason you want them in". Where the site's own metadata names the kind of article, the kind is
+#: not asked; the model's answer is checked against the site's word instead. Only tags that leave no doubt.
+_SITE_TYPE = [
+    ("sponsored", r"sponsored|advertorial|partner-content|brand-?insight"),
+    ("opinion", r"^(opinion|comment|columnists?|letters|editorial|analysis|perspectives?)$"),
+    ("live_updates", r"^live(-updates|-blog)?$"),
+    ("review", r"^(reviews?|readingroom|book-reviews?)$"),
+]
+
+
+def site_type(site, cats, url, title, body) -> str | None:
+    tags = [str(t).strip().lower() for t in list(cats or []) + _sections(url)]
+    for kind, pat in _SITE_TYPE:
+        if any(re.search(pat, t) for t in tags):
+            return kind
+    if site == "police.govt.nz" and "/news/release/" in (url or ""):
+        return "media_release"
+    if site == "scoop.co.nz" and re.search(r"Find more from .+ on InfoPages\.?\s*$", body or ""):
+        return "media_release"              # Scoop's own marker of a release posted by its maker
+    if re.match(r"(?i)live\b|.*\blive( updates|:)", title or ""):
+        return "live_updates"
+    return None
+
+
 def _sections(url) -> list:
     """The site's own sections, from the article's address: every path step but the last (the slug), less dates,
     numbers and plumbing ("/sport/motorsport/formula-1/<slug>" gives sport, motorsport, formula-1)."""
@@ -415,9 +440,14 @@ def build2(tranche: int, run: str = "run6") -> dict:
 
             typ = (x.get("article") or {}).get("type")
             lead = " ".join(body.split())[:700]
-            ask("type", aid, "type", [{"text": "What kind of article is this?"}],
-                f"{a['title']} — {lead} …", {},
-                [{"key": k, "label": v} for k, v in TYPE_LABEL2.items()], typ)
+            told = site_type(a["site"], cats, url, a["title"], body)
+            articles[aid]["tags"]["site_type"] = told
+            if told:                      # the site already says what it is: checked against the model, not asked
+                skipped["type (the site says)"] = skipped.get("type (the site says)", 0) + 1
+            else:
+              ask("type", aid, "type", [{"text": "What kind of article is this?"}],
+                  f"{a['title']} — {lead} …", {},
+                  [{"key": k, "label": v} for k, v in TYPE_LABEL2.items()], typ)
 
             tones = [s for s in x.get("sentiment") or [] if isinstance(s, dict) and s.get("value") != "neutral"][:TONE_PER_ARTICLE]
             for s in tones:
