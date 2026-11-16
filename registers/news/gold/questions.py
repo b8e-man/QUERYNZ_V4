@@ -262,6 +262,24 @@ CLAIMS_PER_ARTICLE = 2
 TONE_PER_ARTICLE = 1
 
 
+#: Arthur, 16 November 2026, of "fled — Alastair Paton": "fled is a word not a fact. fled must always include either a
+#: place of departure or a destination". A claim is asked only when it reads as a whole statement: someone did
+#: something, with what the act needs (a place, a thing, a person), not a bare verb, a fragment or a headline.
+_CLAIM_VERB = re.compile(r"\b(is|are|was|were|be|been|has|have|had|will|would|could|can|may|might|must|should|did|does|do|"
+                         r"\w+ed|\w+s|said|says|told|went|made|took|left|fled|got|gave|won|lost|ran|came|"
+                         r"became|began|found|held|kept|met|paid|put|sent|set|sold|spent|stood|struck|cut|hit|led)\b")
+_CLAIM_OPENS_ON_VERB = re.compile(r"^(is|are|was|were|has|have|had|will|would|did|does|do|been|being|to|and|but|or|"
+                                  r"who|which|that|after|before|when|while|as|earlier|later|also|then|now|still|yet|caught|seen|found|charged|accused|arrested|alleged|sentenced|convicted|given|taken|held|known|told|sold|left|\w+ed|\w+ing|\w+ly)\b", re.I)
+
+
+def _whole_claim(claim: str) -> bool:
+    words = claim.split()
+    first = words[0].lower() if words else ""
+    irregular = _CLAIM_VERB.fullmatch(first) and not re.fullmatch(r"\w+(ed|s)", first)     # "went on to…": no subject
+    return (len(words) >= 6 and not _CLAIM_OPENS_ON_VERB.match(claim) and not irregular
+            and bool(_CLAIM_VERB.search(" ".join(words[1:]))))
+
+
 def build2(tranche: int, run: str = "run3") -> dict:
     from registers.news.gold import trial as T2
     meta = {a["id"]: a for a in json.loads((HERE / f"tranche-{tranche}.json").read_text())["articles"]}
@@ -271,8 +289,13 @@ def build2(tranche: int, run: str = "run3") -> dict:
         if not context:
             skipped[kind] = skipped.get(kind, 0) + 1
             return
+        marked = _marks(context, groups)
+        need = {"claim": "role", "quote": "quote"}.get(kind)
+        if need and not any(p.get("mark") == need for p in marked):
+            skipped[kind] = skipped.get(kind, 0) + 1          # the words asked about are not in the text shown
+            return
         qs.append({"id": _qid(kind, aid, key), "kind": kind, "label": LABEL2[kind], "article": aid, "ask": ask_parts,
-                   "context": _marks(context, groups), "choices": choices + ([{"key": "unsure", "label": "Can't tell from this text"}] if len(choices) < 9 else []),
+                   "context": marked, "choices": choices + ([{"key": "unsure", "label": "Can't tell from this text"}] if len(choices) < 9 else []),
                    "sides": {"model": model}})
 
     with _conn() as c:
@@ -310,7 +333,7 @@ def build2(tranche: int, run: str = "run3") -> dict:
                 if asked >= CLAIMS_PER_ARTICLE:
                     break
                 claim = (ev.get("claim") or "").strip()
-                if not claim or claim not in " ".join(body.split()) and claim not in body:
+                if not claim or claim not in " ".join(body.split()) and claim not in body or not _whole_claim(claim):
                     skipped["claim"] = skipped.get("claim", 0) + 1
                     continue
                 if ev.get("stands_behind") == "writer":
