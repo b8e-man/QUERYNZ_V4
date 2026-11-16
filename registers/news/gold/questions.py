@@ -243,7 +243,7 @@ def build(tranche: int = 1, run: str = "run2") -> dict:
 # answers; a claim question asks who stands behind it, in the article's own words. Every question is judged on the
 # sentence shown, and says so.
 
-ORDER2 = ["role", "claim", "quote", "type", "sentiment"]
+ORDER2 = ["claim", "role", "quote", "type", "sentiment"]
 LABEL2 = {"role": "Job title", "claim": "Who stands behind a claim", "quote": "Who is speaking",
           "type": "Kind of article", "sentiment": "Tone"}
 TYPE_LABEL2 = {"news": "news report", "opinion": "opinion, column or letter", "feature": "feature (long-form)",
@@ -258,7 +258,7 @@ QUOTES_PER_ARTICLE = 2
 #: claims the model says the writer vouches for, at most this many per article (the rest are all asked)
 WRITER_CLAIMS = 1
 #: claims asked per article, at most
-CLAIMS_PER_ARTICLE = 2
+CLAIMS_PER_ARTICLE = 4
 TONE_PER_ARTICLE = 1
 
 
@@ -280,7 +280,12 @@ def _whole_claim(claim: str) -> bool:
             and bool(_CLAIM_VERB.search(" ".join(words[1:]))))
 
 
-def build2(tranche: int, run: str = "run3") -> dict:
+#: Arthur, 16 November 2026: "None of the answers I am giving are golden corpus candidates. we are refining your ability
+#: to ask so we need to find the bad review questions". Every question carries this answer, on key 0.
+BAD = {"key": "bad", "label": "Bad question: unclear, incomplete, or I can't answer it as asked"}
+
+
+def build2(tranche: int, run: str = "run5") -> dict:
     from registers.news.gold import trial as T2
     meta = {a["id"]: a for a in json.loads((HERE / f"tranche-{tranche}.json").read_text())["articles"]}
     articles, qs, skipped = {}, [], {}
@@ -295,7 +300,8 @@ def build2(tranche: int, run: str = "run3") -> dict:
             skipped[kind] = skipped.get(kind, 0) + 1          # the words asked about are not in the text shown
             return
         qs.append({"id": _qid(kind, aid, key), "kind": kind, "label": LABEL2[kind], "article": aid, "ask": ask_parts,
-                   "context": marked, "choices": choices + ([{"key": "unsure", "label": "Can't tell from this text"}] if len(choices) < 9 else []),
+                   "context": marked, "choices": choices + ([{"key": "unsure", "label": "Can't tell from this text"}] if len(choices) < 9 else [])
+                   + [BAD],
                    "sides": {"model": model}})
 
     with _conn() as c:
@@ -328,28 +334,34 @@ def build2(tranche: int, run: str = "run3") -> dict:
                      {"key": "not_org", "label": "No: wrong organisation, or not a proper name"},
                      {"key": "unsaid", "label": "No: this text doesn't say so"}], "yes")
 
-            writer = asked = 0
-            for ev in x.get("events") or []:
-                if asked >= CLAIMS_PER_ARTICLE:
-                    break
-                claim = (ev.get("claim") or "").strip()
-                if not claim or claim not in " ".join(body.split()) and claim not in body or not _whole_claim(claim):
-                    skipped["claim"] = skipped.get("claim", 0) + 1
-                    continue
-                if ev.get("stands_behind") == "writer":
-                    writer += 1
-                    if writer > WRITER_CLAIMS:
+            if x.get("claims") is not None:        # run 5 on: claims in layers, each "who says what"
+                writer = asked = 0
+                for cl in x["claims"]:
+                    if asked >= CLAIMS_PER_ARTICLE:
+                        break
+                    span, stmt, says = (cl.get("span") or "").strip(), (cl.get("statement") or "").strip(), cl.get("says")
+                    if not span or not stmt:
                         continue
-                asked += 1
-                whos = [w.get("e") for w in ev.get("who") or [] if isinstance(w, dict)]
-                src = ev.get("source")
-                ctx = _window(body, [claim[:80]], most=1) or claim
-                ask("claim", aid, ("claim", claim[:80]),
-                    [{"text": "Who stands behind the marked claim?"}],
-                    ctx, {"role": [claim], "who": _forms(xe, src)[:2] if src else [],
-                          "org": [f for w in whos if w != src for f in _forms(xe, w)[:1]]},
-                    [{"key": k, "label": v} for k, v in BEHIND_LABEL.items()], ev.get("stands_behind"))
-
+                    if says == "writer":
+                        writer += 1
+                        if writer > WRITER_CLAIMS:
+                            continue
+                    ctx = _window(body, [span[:80]], most=1)
+                    verb = {"charged": "charging", "decided": "finding"}.get(cl.get("stance"), "saying")
+                    who = ([{"text": "the writer", "mark": "who"}, {"text": " stating, as plain fact"}] if says == "writer"
+                           else [{"text": _name(xe, says), "mark": "who"}, {"text": f" {verb}"}])
+                    n0 = len(qs)
+                    ask("claim", aid, ("claim2", stmt[:80]),
+                        [{"text": "Does this text show "}] + who + [{"text": ": "}, {"text": stmt, "mark": "role"}, {"text": "?"}],
+                        ctx, {"role": [span], "who": _forms(xe, says)[:3] if says != "writer" else []},
+                        [{"key": "yes", "label": "Yes"},
+                         {"key": "other", "label": "No: it's someone else's claim"} if says != "writer" else
+                         {"key": "other", "label": "No: it's someone in the article's claim, not the writer's"},
+                         {"key": "writer", "label": "No: the writer states it as plain fact"} if says != "writer" else
+                         {"key": "opinion", "label": "No: it's the writer's opinion, a prediction or a plan, not a fact"},
+                         {"key": "changed", "label": "No: the statement says more, less or other than the text"},
+                         {"key": "unsaid", "label": "No: the text doesn't say this at all"}], "yes")
+                    asked += len(qs) > n0
             risk = lambda q: (0 if not q.get("speaker") else 1 if q.get("channel") == "document" else
                               2 if q.get("form") in ("indirect", "mixed") else 3)
             quotes = sorted((q for q in x.get("quotes") or [] if isinstance(q, dict) and (q.get("text") or "").strip()), key=risk)
@@ -398,7 +410,7 @@ def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     opt = lambda k, d: argv[argv.index(k) + 1] if k in argv else d
     tranche = int(opt("--tranche", 1))
-    out = build(tranche, opt("--run", "run2")) if tranche == 1 else build2(tranche, opt("--run", "run3"))
+    out = build(tranche, opt("--run", "run2")) if tranche == 1 else build2(tranche, opt("--run", "run5"))
     if out.get("skipped"):
         print("skipped (no sentence shows it):", out["skipped"])
     OUT.mkdir(parents=True, exist_ok=True)

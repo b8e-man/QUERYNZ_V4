@@ -58,6 +58,7 @@ mark.quote{background:#3b2a5c;box-shadow:inset 0 -2px #b48cff}
 .rv-choices button{font-size:15px;text-align:left;padding:.6rem .75rem;border-radius:6px;border:1px solid #5a6270;background:#232833;cursor:pointer}
 .rv-choices button:hover,.rv-choices button:focus{border-color:#5aa9ff;background:#1b2a40}
 .rv-choices button.was{border-color:#4cc38a;background:#173f2a}
+.rv-choices button.bad{border-style:dashed;border-color:#c38a4c}
 kbd{display:inline-block;min-width:1.2em;text-align:center;font:12px ui-monospace,monospace;padding:0 .3em;margin-right:.5em;border:1px solid #5a6270;border-bottom-width:2px;border-radius:3px;color:#aab1bc}
 .rv-note{width:100%;box-sizing:border-box;font-size:14px;padding:.45rem .6rem;margin-bottom:.75rem}
 .rv-nav{display:flex;justify-content:space-between;font-size:13px}
@@ -169,9 +170,11 @@ def render_set(name: str, d: dict, done: dict, qid: str = "", after: str = "") -
     i = [x["id"] for x in qs].index(q["id"])
     prev = qs[i - 1]["id"] if i else ""
     was = done.get(q["id"])
+    keyed = [(0 if c["key"] == "bad" else n, c) for n, c in enumerate([c for c in q["choices"] if c["key"] != "bad"], 1)]
+    keyed += [(0, c) for c in q["choices"] if c["key"] == "bad"]      # "bad question" is always 0, and last
     buttons = "".join(
-        f'<button name="choice" value="{esc(c["key"])}" data-key="{n}" class="{"was" if was and was["choice"] == c["key"] else ""}">'
-        f'<kbd>{n}</kbd>{esc(c["label"])}</button>' for n, c in enumerate(q["choices"], 1))
+        f'<button name="choice" value="{esc(c["key"])}" data-key="{n}" class="{"was" if was and was["choice"] == c["key"] else ""}{" bad" if c["key"] == "bad" else ""}">'
+        f'<kbd>{n}</kbd>{esc(c["label"])}</button>' for n, c in keyed)
     src = ""
     if art:
         src = (f'<div class="rv-src">From <b>{esc(art.get("title") or "")}</b> · {esc(art.get("site") or "")} · {esc(art.get("date") or "")}'

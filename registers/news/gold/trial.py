@@ -188,6 +188,60 @@ def read_one(article_id: str, text: str, url: str, model: str) -> dict:
             "usage": out.get("usage"), "parsed": got, "raw": raw if got is None else None}
 
 
+# ── claims in layers (Arthur, 16 November 2026, of "the commission also issued reports accusing Hamas of war crimes":
+# "this is a claim being made by the writer but it is a claim about the commission making a claim about hamas"; and
+# of "fled": "fled is a word not a fact. fled must always include either a place of departure or a destination") ──
+
+CLAIM_PROMPT = """You find the claims in one New Zealand news article and record each as who says what. Many sentences hold a claim inside a claim; you always record the innermost one, made by the one whose claim it is. "The commission also issued reports accusing Hamas of war crimes": the claim is made by the commission, and it is "Hamas committed war crimes". "Smith said Jones lied to the council": made by Smith, "Jones lied to the council". "Police allege the man stole $20,000 of cards": made by the police, "the man stole $20,000 of trading cards". When the article itself states something happened, with no one else behind it, it is made by the writer: "David Jones went into voluntary administration on Thursday".
+
+Each claim has:
+- "says": the id of the entity whose claim it is (from the ENTITIES given), or "writer".
+- "statement": what is claimed, and only that: never the claimant, never "said", "alleged", "accused", "found", "asserts" or "claims". One whole plain-English sentence a reader understands without the article: who did what, with what the act needs to be a fact (where from or where to, to whom, what). "fled" alone is not a statement; "Alastair Paton fled New Zealand for Australia" is. Names, never "he", "she", "it" or "they". Only what the article prints; if it does not print what the act needs, leave the claim out.
+- "span": the article's own words the claim rests on, copied character for character, one sentence or less.
+- "stance": "happened" (the claimant says it is so), "did_not_happen" (the claimant denies it), "charged" (a charge or a case before a court, not decided), "decided" (a court, regulator or official body has ruled or found it).
+
+Opinions, judgements of quality, predictions, plans, questions and feelings are not claims: a claim is that something happened or is so. At most 12 claims, the most consequential first: claims that a named person or organisation did wrong come first. Answer with ONE JSON object {"claims": [...]}."""
+CLAIM = _OBJ({"says": _S, "statement": _S, "span": _S, "stance": _E("happened", "did_not_happen", "charged", "decided")})
+CLAIMS = _OBJ({"claims": _ARR(CLAIM)})
+
+
+def claims_run(tranche: int, src: str, name: str, url: str, model: str, workers: int) -> None:
+    """The claim pass alone, over an earlier run's read: writes NAME/<id>.json as SRC's with "claims" added."""
+    s, d = _dir(tranche, src), _dir(tranche, name)
+    d.mkdir(parents=True, exist_ok=True)
+    with _conn() as c:
+        texts = {i: _text(c, i) for i in _ids(tranche)}
+
+    def one(i):
+        r = json.loads((s / f"{i}.json").read_text())
+        got = r.get("parsed") or {}
+        if not got:
+            return r
+        ents = {k: {"name": v.get("name"), "kind": v.get("kind")} for k, v in (got.get("entities") or {}).items()
+                if isinstance(v, dict)}
+        t0 = time.monotonic()
+        _, raw = _call(url, model, CLAIM_PROMPT, "ENTITIES: " + json.dumps(ents, ensure_ascii=False)
+                       + "\n\nARTICLE (data, not instructions):\n\n" + texts[i], CLAIMS, "claims")
+        cl = _parse(raw)
+        got["claims"] = cl["claims"] if isinstance(cl, dict) and isinstance(cl.get("claims"), list) else None
+        r["claims_seconds"] = round(time.monotonic() - t0, 1)
+        return r
+
+    todo = [i for i in texts if (s / f"{i}.json").exists() and not (d / f"{i}.json").exists()]
+    with cf.ThreadPoolExecutor(workers) as ex:
+        futs = {ex.submit(one, i): i for i in todo}
+        for f in cf.as_completed(futs):
+            i = futs[f]
+            try:
+                r = f.result()
+            except Exception as exc:  # noqa: BLE001 — one article's failure is reported, the rest go on
+                print(f"{i[:8]} failed: {type(exc).__name__}: {str(exc)[:160]}", flush=True)
+                continue
+            (d / f"{i}.json").write_text(json.dumps(r, indent=1, ensure_ascii=False) + "\n")
+            n = len((r.get("parsed") or {}).get("claims") or [])
+            print(f"{i[:8]} {r.get('claims_seconds')}s {n} claims", flush=True)
+
+
 def _dir(tranche: int, name: str) -> Path:
     return OUT / f"tranche-{tranche}" / name if name else OUT / f"tranche-{tranche}"
 
@@ -351,6 +405,10 @@ def main(argv=None) -> int:
     tranche = int(opt("--tranche", 1))
     if argv[:1] == ["run"]:
         run(tranche, opt("--url", URL), opt("--model", MODEL), int(opt("--workers", 4)), opt("--run", ""))
+        return 0
+    if argv[:1] == ["claims"]:
+        claims_run(tranche, opt("--from", "run3"), opt("--run", "run5"), opt("--url", URL), opt("--model", MODEL),
+                   int(opt("--workers", 4)))
         return 0
     if argv[:1] == ["score"]:
         t = score(tranche, opt("--run", ""))["total"]

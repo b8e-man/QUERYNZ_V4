@@ -1,4 +1,4 @@
-// The review tab's keys (products/board/review.py): 1 to 9 answer, N a note, S skip, B back, Escape leaves the note.
+// The review tab's keys (products/board/review.py): 1 to 9 answer, 0 "bad question", N a note, S skip, B back, Escape leaves the note.
 (function () {
   var form = document.getElementById("rv-form");
   if (!form) return;
@@ -12,7 +12,7 @@
       return;
     }
     var k = e.key.toLowerCase();
-    if (k >= "1" && k <= "9") {
+    if (k >= "0" && k <= "9") {
       var b = form.querySelector('button[data-key="' + k + '"]');
       if (b) { e.preventDefault(); b.click(); }
     } else if (k === "n") {
