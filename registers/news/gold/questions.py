@@ -244,7 +244,7 @@ def build(tranche: int = 1, run: str = "run2") -> dict:
 # sentence shown, and says so.
 
 ORDER2 = ["claim", "role", "quote", "type", "sentiment"]
-LABEL2 = {"role": "Job title", "claim": "Who stands behind a claim", "quote": "Who is speaking",
+LABEL2 = {"role": "Job title", "claim": "Who claims what", "quote": "Who is speaking",
           "type": "Kind of article", "sentiment": "Tone"}
 TYPE_LABEL2 = {"news": "news report", "opinion": "opinion, column or letter", "feature": "feature (long-form)",
                "review": "review (rates a product or work)", "market_or_trade": "market or trade report",
@@ -339,7 +339,7 @@ def build2(tranche: int, run: str = "run5") -> dict:
                 for cl in x["claims"]:
                     if asked >= CLAIMS_PER_ARTICLE:
                         break
-                    span, stmt, says = (cl.get("span") or "").strip(), (cl.get("statement") or "").strip(), cl.get("says")
+                    span, stmt, says = (cl.get("span") or "").strip(), (cl.get("statement") or "").strip().rstrip("."), cl.get("says")
                     if not span or not stmt:
                         continue
                     if says == "writer":
