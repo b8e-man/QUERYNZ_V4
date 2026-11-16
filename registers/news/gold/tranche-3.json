@@ -1,0 +1,231 @@
+{
+ "tranche": 3,
+ "source": "old_incoming_news_private.articles",
+ "chosen_by": "registers.news.gold.sample",
+ "articles": [
+  {
+   "id": "8568147c-3ea7-447b-9924-87f997d63c57",
+   "site": "scoop.co.nz",
+   "title": "Debt Platitudes Won’t Reassure The World",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "418cd3f9-7e53-43fc-a634-19455442250c",
+   "site": "scoop.co.nz",
+   "title": "Ngāti Porou Calls For Scrutiny Of Gisborne District Council Forestry Record",
+   "post_date": "2026-11-06T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "0109a0aa-6fa4-421e-9adf-b5f437d3bf01",
+   "site": "stuff.co.nz",
+   "title": "Deported ‘high-risk’ 501 raped, tried to kill, and then set stranger’s bed alight",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "d1bf140d-5af2-470b-b2a3-3e348b7816f7",
+   "site": "stuff.co.nz",
+   "title": "Franco Colapinto calls out his fans for social media attacks on F1 rivals",
+   "post_date": "2026-10-15T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "41e15049-33eb-4994-8838-215ed60d6acb",
+   "site": "rnz.co.nz",
+   "title": "Nelson court: Parolee Peter Coulsen jailed again after meth crash blamed on rabbit",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "bab000c5-9adc-4dd8-97bf-241488e3930a",
+   "site": "rnz.co.nz",
+   "title": "Alarm sounded over double risk of AI and quantum threat",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "ecef762f-9d1d-4b24-a181-3528c16a6926",
+   "site": "odt.co.nz",
+   "title": "Steelers out bat development team nine hits to one",
+   "post_date": "2026-11-05T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "c0bc5897-c316-475a-a8dd-a87733af6675",
+   "site": "odt.co.nz",
+   "title": "A new dawn for toi Māori",
+   "post_date": "2026-09-25T23:00:00+12:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "3ed30673-470b-4099-ab4a-b38d2ef17da1",
+   "site": "1news.co.nz",
+   "title": "Piggery operators banned over injured and emaciated animals",
+   "post_date": "2026-10-15T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "c47fcb0d-b0c9-43ae-af6c-9438e310fff4",
+   "site": "1news.co.nz",
+   "title": "Chinese restaurant duped out of $15,000 by group-booking scam",
+   "post_date": "2026-11-06T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "ccfab4fe-5143-4b39-bfc4-80b28540cd20",
+   "site": "nzherald.co.nz",
+   "title": "Embattled Merz vows to keep ruling for 'democratic future' of Germany",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "c66cc308-5ec1-492a-a3b8-f7a0478d256a",
+   "site": "nzherald.co.nz",
+   "title": "Senior lawyer seeks 'redemption' after 'appalling' treatment of staff",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "ac37977f-c417-4be8-b005-c317ace9d169",
+   "site": "newsroom.co.nz",
+   "title": "Labour candidate warns Te Pāti Māori gang photos hand right wing ammunition",
+   "post_date": "2026-10-19T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "6aed0668-6d26-49fa-b1b5-f2d2db5217bd",
+   "site": "newsroom.co.nz",
+   "title": "How do we solve a problem like bottom trawling?",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "6b06dfc5-ca1f-4446-897a-fbf4d3432284",
+   "site": "businessdesk.co.nz",
+   "title": "Oregon lines up majority control of NZ King Salmon",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "6ee8367f-ae28-428c-b6b5-2d40262b6e51",
+   "site": "businessdesk.co.nz",
+   "title": "Water sector 10,000 workers short of meeting spending plans",
+   "post_date": "2026-09-21T00:00:00+12:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "821562ab-5369-4125-9f0a-b858b9e1d8f1",
+   "site": "interest.co.nz",
+   "title": "US treasury curve steepened as the front end rallied while the long-end remained under pressure. 30-year yield above 5.50%. The US dollar weakened, with the yen outperforming. Lower oil prices supported risk sentiment",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "3c4f6cb1-41a6-4de5-a4b2-af976bb29ae8",
+   "site": "interest.co.nz",
+   "title": "Şebnem Kalemli-Özcan argues that concerns over the AI buildout, bond yields, and public debt cannot be divorced from supply shocks",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "f36ff958-d78a-41e8-b27f-41c096905ccf",
+   "site": "farmersweekly.co.nz",
+   "title": "Shareholders call for Hewett’s head over AgriZeroNZ investment",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "e00234e8-55d7-41a8-9ec4-90789c603665",
+   "site": "farmersweekly.co.nz",
+   "title": "Mackenzie growth puts pressure on workers and housing",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "54a8889d-5139-42cc-bb82-fc9fc306edcc",
+   "site": "businessdesk.co.nz",
+   "title": "The Warehouse CEO says profit boost will go to store improvements",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "case:the-warehouse-company"
+  },
+  {
+   "id": "ecd91345-1bb9-4920-9e6d-a3341704b15b",
+   "site": "scoop.co.nz",
+   "title": "Improving Warehouse Safety: Essential Equipment And Best Practices",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "case:warehouse-the-word"
+  },
+  {
+   "id": "77653718-a4ad-4f9f-a9ab-4ff4ce2d9e8d",
+   "site": "1news.co.nz",
+   "title": "Southland councils pay out hundreds of thousands in severance",
+   "post_date": "2026-10-27T00:00:00+13:00",
+   "why": "case:several-chief-executives"
+  },
+  {
+   "id": "dd553bd9-f976-4889-87d8-5fbcd7154f59",
+   "site": "scoop.co.nz",
+   "title": "Nature Investment Pathways Shortlisted For National Economic Development Award",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "case:former-and-acting"
+  },
+  {
+   "id": "6d5b2a81-1c69-4da3-a910-9f8d2954750d",
+   "site": "odt.co.nz",
+   "title": "Four All Blacks ruled out of Sydney test with injury",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "case:sport"
+  },
+  {
+   "id": "f6319839-e5b8-4c37-88c6-a6b8be9fe586",
+   "site": "stuff.co.nz",
+   "title": "Kiwi star to play convicted murderer Erin Patterson in first TV drama covering the case",
+   "post_date": "2026-10-28T00:00:00+13:00",
+   "why": "case:entertainment"
+  },
+  {
+   "id": "43c2b421-e862-421a-a938-cf7e3cc74272",
+   "site": "rnz.co.nz",
+   "title": "Names of teens charged with murder of child in Southland remain suppressed",
+   "post_date": "2026-10-13T00:00:00+13:00",
+   "why": "case:cannot-be-named"
+  },
+  {
+   "id": "c5e5ca1c-6246-4235-bcd3-5bb328b6b033",
+   "site": "stuff.co.nz",
+   "title": "Nesian Mystik, Home Brew and Hollie Smith added to Homegrown 2027 lineup",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "case:hamilton-a-person"
+  },
+  {
+   "id": "66896736-363f-4ce7-bec5-0e20dd85372d",
+   "site": "police.govt.nz",
+   "title": "Police seek information after unprovoked assault",
+   "post_date": "2026-09-23T00:00:00+12:00",
+   "why": "case:police-release"
+  },
+  {
+   "id": "4cc74f91-bf14-44ef-a3db-64126b2d218c",
+   "site": "times.co.nz",
+   "title": "Property Facts: Live large by living smaller",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "case:live-blog"
+  },
+  {
+   "id": "6b7a031b-0978-4e82-9b36-0c9f8b7affc5",
+   "site": "1news.co.nz",
+   "title": "Who pays for a $2B riot? Europe looks past rioters to their parents and apps",
+   "post_date": "2026-10-30T00:00:00+13:00",
+   "why": "case:wire-story"
+  },
+  {
+   "id": "c71af9cc-9115-46e0-b0aa-c9a8542d0aea",
+   "site": "newsroom.co.nz",
+   "title": "Co-governance seen as undemocratic when Māori are involved",
+   "post_date": "2026-11-11T00:00:00+13:00",
+   "why": "case:opinion"
+  }
+ ]
+}
