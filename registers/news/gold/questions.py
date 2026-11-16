@@ -115,7 +115,16 @@ def build(tranche: int = 1, run: str = "run2") -> dict:
             text = T._text(c, aid)
             body = text.split("\n\n", 1)[1] if "\n\n" in text else text
             a = meta[aid]
-            articles[aid] = {"title": a["title"], "site": a["site"], "date": (a["post_date"] or "")[:10], "body": body}
+            cats, url = c.execute("SELECT categories, news_url FROM old_incoming_news_private.articles WHERE id = %s",
+                                  (aid,)).fetchone()
+            art = x.get("article") or {}
+            # Arthur, 17 November 2026: "I need to know what you have tagged an article inside the reviewer and also
+            # what the article is tagged by the website metadata"
+            articles[aid] = {"title": a["title"], "site": a["site"], "date": (a["post_date"] or "")[:10], "body": body,
+                             "tags": {"model_type": TYPE_LABEL2.get(art.get("type"), art.get("type")),
+                                      "model_themes": art.get("themes") or [],
+                                      "model_wire": art.get("wire_credit"),
+                                      "site_categories": list(cats or []), "site_sections": _sections(url)}}
             ge, xe = g["entities"], x.get("entities") or {}
             m = T._match_entities(ge, xe)
             inv = {v: k for k, v in m.items()}
@@ -285,6 +294,13 @@ def _whole_claim(claim: str) -> bool:
 BAD = {"key": "bad", "label": "Bad question: unclear, incomplete, or I can't answer it as asked"}
 
 
+def _sections(url) -> list:
+    """The site's own sections, from the article's address: every path step but the last (the slug), less dates,
+    numbers and plumbing ("/sport/motorsport/formula-1/<slug>" gives sport, motorsport, formula-1)."""
+    steps = re.sub(r"^https?://[^/]+", "", url or "").strip("/").split("/")[:-1]
+    return [x for x in steps if x and not re.fullmatch(r"[\d.]+|v\d.*|api|stuff|stories|story|article|release|[A-Z]{1,2}\d+", x)]
+
+
 def build2(tranche: int, run: str = "run6") -> dict:
     from registers.news.gold import trial as T2
     meta = {a["id"]: a for a in json.loads((HERE / f"tranche-{tranche}.json").read_text())["articles"]}
@@ -315,7 +331,16 @@ def build2(tranche: int, run: str = "run6") -> dict:
             text = T2._text(c, aid)
             body = text.split("\n\n", 1)[1] if "\n\n" in text else text
             a = meta[aid]
-            articles[aid] = {"title": a["title"], "site": a["site"], "date": (a["post_date"] or "")[:10], "body": body}
+            cats, url = c.execute("SELECT categories, news_url FROM old_incoming_news_private.articles WHERE id = %s",
+                                  (aid,)).fetchone()
+            art = x.get("article") or {}
+            # Arthur, 17 November 2026: "I need to know what you have tagged an article inside the reviewer and also
+            # what the article is tagged by the website metadata"
+            articles[aid] = {"title": a["title"], "site": a["site"], "date": (a["post_date"] or "")[:10], "body": body,
+                             "tags": {"model_type": TYPE_LABEL2.get(art.get("type"), art.get("type")),
+                                      "model_themes": art.get("themes") or [],
+                                      "model_wire": art.get("wire_credit"),
+                                      "site_categories": list(cats or []), "site_sections": _sections(url)}}
             xe = x.get("entities") or {}
 
             for r in x.get("roles") or []:

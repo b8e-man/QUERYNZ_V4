@@ -58,6 +58,7 @@ mark.quote{background:#3b2a5c;box-shadow:inset 0 -2px #b48cff}
 .rv-choices button{font-size:15px;text-align:left;padding:.6rem .75rem;border-radius:6px;border:1px solid #5a6270;background:#232833;cursor:pointer}
 .rv-choices button:hover,.rv-choices button:focus{border-color:#5aa9ff;background:#1b2a40}
 .rv-choices button.was{border-color:#4cc38a;background:#173f2a}
+.rv-tags{display:flex;flex-direction:column;gap:.15rem;margin:.3rem 0}.rv-tags b{font-weight:500;color:#d8dde5}
 .rv-choices button.bad{border-style:dashed;border-color:#c38a4c}
 kbd{display:inline-block;min-width:1.2em;text-align:center;font:12px ui-monospace,monospace;padding:0 .3em;margin-right:.5em;border:1px solid #5a6270;border-bottom-width:2px;border-radius:3px;color:#aab1bc}
 .rv-note{width:100%;box-sizing:border-box;font-size:14px;padding:.45rem .6rem;margin-bottom:.75rem}
@@ -177,7 +178,15 @@ def render_set(name: str, d: dict, done: dict, qid: str = "", after: str = "") -
         f'<kbd>{n}</kbd>{esc(c["label"])}</button>' for n, c in keyed)
     src = ""
     if art:
-        src = (f'<div class="rv-src">From <b>{esc(art.get("title") or "")}</b> · {esc(art.get("site") or "")} · {esc(art.get("date") or "")}'
+        tg = art.get("tags") or {}
+        tags = ""
+        if tg:
+            mine = " · ".join(x for x in [tg.get("model_type") or "", ", ".join(tg.get("model_themes") or []),
+                                          f'wire: {tg["model_wire"]}' if tg.get("model_wire") else ""] if x)
+            site = ", ".join(dict.fromkeys(list(tg.get("site_categories") or []) + list(tg.get("site_sections") or [])))
+            tags = (f'<div class="rv-tags"><span>Model tagged: <b>{esc(mine or "nothing")}</b></span>'
+                    f'<span>Site tagged: <b>{esc(site or "nothing")}</b></span></div>')
+        src = (f'<div class="rv-src">From <b>{esc(art.get("title") or "")}</b> · {esc(art.get("site") or "")} · {esc(art.get("date") or "")}{tags}'
                f'<details><summary>the whole article</summary><div class="body">{_mark_body(art.get("body") or "", q.get("context"))}</div></details></div>')
     card = (f'<div class="rv-card"><div class="rv-kind">{esc(q.get("label") or q["kind"])} · question {i + 1} of {len(qs)}</div>'
             f'<div class="rv-ask">{_runs(q.get("ask"))}</div>'
