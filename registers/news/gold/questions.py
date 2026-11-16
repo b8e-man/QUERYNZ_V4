@@ -78,7 +78,7 @@ def _marks(context: str, groups: dict) -> list:
     spans = []
     for mark, words in groups.items():
         for w in sorted({w for w in words if w}, key=len, reverse=True):
-            for m in re.finditer(re.escape(w), context, re.I):
+            for m in re.finditer((r"(?<!\w)" if w[:1].isalnum() else "") + re.escape(w) + (r"(?!\w)" if w[-1:].isalnum() else ""), context, re.I):
                 if not any(a < m.end() and m.start() < b for a, b, _ in spans):
                     spans.append((m.start(), m.end(), mark))
     spans.sort()
@@ -237,10 +237,147 @@ def build(tranche: int = 1, run: str = "run2") -> dict:
             "made_by": "registers.news.gold.questions", "run": run, "articles": articles, "questions": qs}
 
 
+# ── tranche 2 onward: the model's read alone, asked of Arthur (16 November 2026: his verdicts on tranche 1 matched the
+# hand labels no better than the model, so the labels are his answers). Questions redesigned from his notes: a title
+# question says what kind of "no" it is; a quote question asks who is speaking, the writer and a document among the
+# answers; a claim question asks who stands behind it, in the article's own words. Every question is judged on the
+# sentence shown, and says so.
+
+ORDER2 = ["role", "claim", "quote", "type", "sentiment"]
+LABEL2 = {"role": "Job title", "claim": "Who stands behind a claim", "quote": "Who is speaking",
+          "type": "Kind of article", "sentiment": "Tone"}
+TYPE_LABEL2 = {"news": "news report", "opinion": "opinion, column or letter", "feature": "feature (long-form)",
+               "review": "review (rates a product or work)", "market_or_trade": "market or trade report",
+               "media_release": "media release (an organisation's own voice)", "live_updates": "live updates",
+               "sponsored": "paid or advertorial", "stub": "cut off or paywalled"}
+BEHIND_LABEL = {"writer": "The writer, as a plain fact", "someone_in_article": "Someone in the article: it's their claim",
+                "finding": "A court, regulator or official finding", "before_court": "Charged or before a court, not yet decided",
+                "denial": "The article says it didn't happen"}
+#: of the model's quotes, at most QUOTES_PER_ARTICLE, the riskiest first (unattributed, from a document, reported)
+QUOTES_PER_ARTICLE = 2
+#: claims the model says the writer vouches for, at most this many per article (the rest are all asked)
+WRITER_CLAIMS = 1
+#: claims asked per article, at most
+CLAIMS_PER_ARTICLE = 2
+TONE_PER_ARTICLE = 1
+
+
+def build2(tranche: int, run: str = "run3") -> dict:
+    from registers.news.gold import trial as T2
+    meta = {a["id"]: a for a in json.loads((HERE / f"tranche-{tranche}.json").read_text())["articles"]}
+    articles, qs, skipped = {}, [], {}
+
+    def ask(kind, aid, key, ask_parts, context, groups, choices, model):
+        if not context:
+            skipped[kind] = skipped.get(kind, 0) + 1
+            return
+        qs.append({"id": _qid(kind, aid, key), "kind": kind, "label": LABEL2[kind], "article": aid, "ask": ask_parts,
+                   "context": _marks(context, groups), "choices": choices + ([{"key": "unsure", "label": "Can't tell from this text"}] if len(choices) < 9 else []),
+                   "sides": {"model": model}})
+
+    with _conn() as c:
+        for aid in T2._ids(tranche):
+            f = T2.OUT / f"tranche-{tranche}" / run / f"{aid}.json"
+            if not f.exists():
+                continue
+            x = json.loads(f.read_text())["parsed"] or {}
+            if not x:
+                continue          # an article the model could not read: nothing to ask
+            text = T2._text(c, aid)
+            body = text.split("\n\n", 1)[1] if "\n\n" in text else text
+            a = meta[aid]
+            articles[aid] = {"title": a["title"], "site": a["site"], "date": (a["post_date"] or "")[:10], "body": body}
+            xe = x.get("entities") or {}
+
+            for r in x.get("roles") or []:
+                if not r.get("of"):
+                    continue
+                pf, of_f = _forms(xe, r["who"]), _forms(xe, r["of"])
+                need = [pf[-1] if pf else "", r["role"], of_f[-1] if of_f else ""]      # the shortest forms: the likeliest printed
+                ctx = _window(body, need, need_all=True, most=1)
+                ask("role", aid, (r["who"], r["role"], r["of"]),
+                    [{"text": "Does this text say "}, {"text": _name(xe, r["who"]), "mark": "who"}, {"text": " holds the title “"},
+                     {"text": r["role"], "mark": "role"}, {"text": "” at "}, {"text": _name(xe, r["of"]), "mark": "org"},
+                     {"text": "?"}],
+                    ctx, {"who": pf, "role": [r["role"]], "org": of_f},
+                    [{"key": "yes", "label": "Yes"},
+                     {"key": "not_title", "label": "No: not a title (a verb, a description, a nickname)"},
+                     {"key": "not_org", "label": "No: wrong organisation, or not a proper name"},
+                     {"key": "unsaid", "label": "No: this text doesn't say so"}], "yes")
+
+            writer = asked = 0
+            for ev in x.get("events") or []:
+                if asked >= CLAIMS_PER_ARTICLE:
+                    break
+                claim = (ev.get("claim") or "").strip()
+                if not claim or claim not in " ".join(body.split()) and claim not in body:
+                    skipped["claim"] = skipped.get("claim", 0) + 1
+                    continue
+                if ev.get("stands_behind") == "writer":
+                    writer += 1
+                    if writer > WRITER_CLAIMS:
+                        continue
+                asked += 1
+                whos = [w.get("e") for w in ev.get("who") or [] if isinstance(w, dict)]
+                src = ev.get("source")
+                ctx = _window(body, [claim[:80]], most=1) or claim
+                ask("claim", aid, ("claim", claim[:80]),
+                    [{"text": "Who stands behind the marked claim?"}],
+                    ctx, {"role": [claim], "who": _forms(xe, src)[:2] if src else [],
+                          "org": [f for w in whos if w != src for f in _forms(xe, w)[:1]]},
+                    [{"key": k, "label": v} for k, v in BEHIND_LABEL.items()], ev.get("stands_behind"))
+
+            risk = lambda q: (0 if not q.get("speaker") else 1 if q.get("channel") == "document" else
+                              2 if q.get("form") in ("indirect", "mixed") else 3)
+            quotes = sorted((q for q in x.get("quotes") or [] if isinstance(q, dict) and (q.get("text") or "").strip()), key=risk)
+            for q in quotes[:QUOTES_PER_ARTICLE]:
+                t = q["text"].strip()
+                spk = q.get("speaker")
+                sname = _name(xe, spk) if spk else None
+                ctx = _window(body, [t[:60]], most=1) or _window(body, [t[-60:]], most=1)
+                model = "yes" if spk and q.get("channel") != "document" else ("document" if q.get("channel") == "document" else "nobody")
+                ask("quote", aid, ("quote", t[:80]),
+                    [{"text": "Who is speaking the marked words?"}],
+                    ctx, {"quote": [t[:300]], "who": _forms(xe, spk)[:3] if spk else []},
+                    ([{"key": "yes", "label": sname}] if sname else [])
+                    + [{"key": "other", "label": "Someone else in the article"},
+                       {"key": "writer", "label": "The writer: not a quote"},
+                       {"key": "document", "label": "A book, report or document" + (f" ({sname})" if sname else "")},
+                       {"key": "nobody", "label": "A quote, but nobody is named"},
+                       {"key": "span", "label": "A quote, but the marking takes in the speaker or misses words"}],
+                    model)
+
+            typ = (x.get("article") or {}).get("type")
+            lead = " ".join(body.split())[:700]
+            ask("type", aid, "type", [{"text": "What kind of article is this?"}],
+                f"{a['title']} — {lead} …", {},
+                [{"key": k, "label": v} for k, v in TYPE_LABEL2.items()], typ)
+
+            tones = [s for s in x.get("sentiment") or [] if isinstance(s, dict) and s.get("value") != "neutral"][:TONE_PER_ARTICLE]
+            for s in tones:
+                voice = "the writer" if s.get("from") in ("article", "own") else _name(xe, s.get("from"))
+                ev_ = s.get("evidence") or ""
+                ctx = _window(body, [ev_[:80]], most=1)
+                ask("sentiment", aid, ("tone", s.get("toward"), s.get("from")),
+                    [{"text": "In this text, how does " + voice + " treat "}, {"text": _name(xe, s.get("toward")), "mark": "who"},
+                     {"text": "?"}],
+                    ctx, {"who": _forms(xe, s.get("toward"))[:3], "role": [ev_]},
+                    [{"key": k, "label": k} for k in ("negative", "mixed", "neutral", "positive")], s.get("value"))
+
+    qs.sort(key=lambda q: (ORDER2.index(q["kind"]), q["article"]))
+    return {"set": f"news-gold-{tranche}", "title": f"News golden sample, tranche {tranche}",
+            "about": ("Every question is about what the boxes' model read, and is judged on the text shown alone. "
+                      "If no answer fits, note it and pick the nearest."),
+            "made_by": "registers.news.gold.questions", "run": run, "skipped": skipped, "articles": articles, "questions": qs}
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     opt = lambda k, d: argv[argv.index(k) + 1] if k in argv else d
-    out = build(int(opt("--tranche", 1)), opt("--run", "run2"))
+    tranche = int(opt("--tranche", 1))
+    out = build(tranche, opt("--run", "run2")) if tranche == 1 else build2(tranche, opt("--run", "run3"))
+    if out.get("skipped"):
+        print("skipped (no sentence shows it):", out["skipped"])
     OUT.mkdir(parents=True, exist_ok=True)
     f = OUT / f"{out['set']}.json"
     f.write_text(json.dumps(out, ensure_ascii=False, indent=0) + "\n")

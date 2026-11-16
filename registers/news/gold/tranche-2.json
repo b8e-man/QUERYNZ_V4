@@ -1,0 +1,231 @@
+{
+ "tranche": 2,
+ "source": "old_incoming_news_private.articles",
+ "chosen_by": "registers.news.gold.sample",
+ "articles": [
+  {
+   "id": "4fad983f-2dad-436a-bb7e-f3d69d6da19b",
+   "site": "scoop.co.nz",
+   "title": "More Competition, Not Less Cooperation",
+   "post_date": "2026-09-18T00:00:00+12:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "40f295cf-61a2-45bc-a87d-ea30a795ea68",
+   "site": "scoop.co.nz",
+   "title": "109 Years Since The Balfour Declaration: A Century Of Denied Palestinian Self-Determination",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "5e209cef-ab82-46a1-bd12-51393da71dd0",
+   "site": "stuff.co.nz",
+   "title": "Told to stop, this developer kept going anyway. Now they’ve admitted their guilt",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "f0f621fb-e6af-4b9c-972b-238b1e414cab",
+   "site": "stuff.co.nz",
+   "title": "Grieving families’ ‘incredibly stressful’ wait for answers after major NZ cyber attack",
+   "post_date": "2026-10-26T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "3427d267-7cfc-4d7a-ad6e-6155788e7d19",
+   "site": "rnz.co.nz",
+   "title": "National sharpens spending pledge on eve of Treasury update",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "f5cfcb9c-7e02-477b-b7e3-3129a44c6d3e",
+   "site": "rnz.co.nz",
+   "title": "Live: Black Caps look to make comeback against India in third ODI",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "aeacf7dd-5afb-40a7-8fc1-65973b1ae5ff",
+   "site": "odt.co.nz",
+   "title": "Medical research is a life changer that never stands still",
+   "post_date": "2026-10-13T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "24d8db0b-62be-4305-a17e-72ee9c336abf",
+   "site": "odt.co.nz",
+   "title": "Regional council boosts flood warning system",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "97af9ba4-1216-4743-894e-8389b036a5df",
+   "site": "1news.co.nz",
+   "title": "'It's going to get scrappy': Tova O'Brien and Jack Tame predict a heated Election 2026",
+   "post_date": "2026-09-25T23:00:00+12:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "5f1073dd-2bac-4395-8eff-28751a4e3185",
+   "site": "1news.co.nz",
+   "title": "Shoppers back David Jones as administrator seeks buyer",
+   "post_date": "2026-11-09T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "80880aca-accf-4ef7-980b-e3a1157b6ef2",
+   "site": "nzherald.co.nz",
+   "title": "Rental firm 'deeply concerned' after person critically injured in fall from moving van",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "669675da-4a59-42ac-acac-d91add3909c5",
+   "site": "nzherald.co.nz",
+   "title": "'Continual power imbalance': Lawyer fined after touching junior colleagues while dancing",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "ca9fc9a1-2ec1-4c7d-a599-6406e3cd7ffa",
+   "site": "newsroom.co.nz",
+   "title": "Book of the Week: Lloyd Jones wishes to tell us things we already know",
+   "post_date": "2026-10-29T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "361cfd33-abd6-4695-899e-d3cfa26ccbbb",
+   "site": "newsroom.co.nz",
+   "title": "Raw Politics: The end of an era for the two major parties",
+   "post_date": "2026-09-18T00:00:00+12:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "fd69879b-476c-4d2c-8d4e-1904b0505a84",
+   "site": "businessdesk.co.nz",
+   "title": "Noah Kahan brings joy to Spark Arena",
+   "post_date": "2026-10-17T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "c51ecc39-fae0-4b1f-b961-bcf2eeeaf03f",
+   "site": "businessdesk.co.nz",
+   "title": "Ebos share price jumps amid efforts to market it to private equity",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "3c0b3fce-1e23-41b8-89c1-cc030347e715",
+   "site": "interest.co.nz",
+   "title": "Eswar Prasad and Thomas Riveros see promising growth trajectories in both developed and developing economies, despite inflationary pressures",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "b2ca452e-e601-4c52-97a0-a21e71e61829",
+   "site": "interest.co.nz",
+   "title": "More properties are being offered at auction but the sales rate continues to hover at just above a third",
+   "post_date": "2026-10-24T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "cdff5db3-96b9-4974-879f-03715b27a0d1",
+   "site": "farmersweekly.co.nz",
+   "title": "Protein is what’s for tea in UK homes",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "f91584f5-d31e-463b-ab7e-be124b108ac6",
+   "site": "farmersweekly.co.nz",
+   "title": "Central Otago flower grower ready to pass on her dream",
+   "post_date": "2026-11-07T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "feb7a259-05db-44ee-a878-aa6ead3dc5d4",
+   "site": "1news.co.nz",
+   "title": "Solar firm Lodestone lists on NZX in first major float in five years",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "case:the-warehouse-company"
+  },
+  {
+   "id": "227b72e3-150c-4657-87f0-dd0518eea1b4",
+   "site": "1news.co.nz",
+   "title": "Russia bombs Ukrainian aid centre and shelter. killing 24",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "case:warehouse-the-word"
+  },
+  {
+   "id": "518a7be0-0c5a-46f5-873e-3f2e973826c9",
+   "site": "scoop.co.nz",
+   "title": "Southland Council Chief Executives Earn Combined $1.5m A Year",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "case:several-chief-executives"
+  },
+  {
+   "id": "35b83b35-f625-4365-85aa-f238818ac108",
+   "site": "newsroom.co.nz",
+   "title": "‘Fairly inconsequential’: The legacy of Finance Minister Nicola Willis",
+   "post_date": "2026-11-11T00:00:00+13:00",
+   "why": "case:former-and-acting"
+  },
+  {
+   "id": "7f5cb5c2-0703-4a87-9dda-897780484abd",
+   "site": "odt.co.nz",
+   "title": "Court action to protect ‘Chiefs’ name",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "case:sport"
+  },
+  {
+   "id": "4f3dac48-b8a5-499d-946c-9e7f920ebf06",
+   "site": "scoop.co.nz",
+   "title": "Nick Oliver Crowned New Zealand Trials Champion In Alexandra At The Weekend",
+   "post_date": "2026-10-29T00:00:00+13:00",
+   "why": "case:entertainment"
+  },
+  {
+   "id": "d1064b75-91b5-4186-9392-a2b42c49bc02",
+   "site": "odt.co.nz",
+   "title": "Man who stole at least $20k worth of Pokémon and other cards has sentencing delayed",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "case:cannot-be-named"
+  },
+  {
+   "id": "622ce5a0-08ae-49f0-91e6-9c22ef5b7844",
+   "site": "nzherald.co.nz",
+   "title": "Lawson returns to F1 points in chaotic Grand Prix in Malaysia",
+   "post_date": "2026-10-04T00:00:00+13:00",
+   "why": "case:hamilton-a-person"
+  },
+  {
+   "id": "737b286f-9c87-4431-8e0f-6a3939b56c7d",
+   "site": "police.govt.nz",
+   "title": "Additional charges laid against former child psychologist; Police seek further victims",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "case:police-release"
+  },
+  {
+   "id": "af37dede-231a-48d8-9118-3259123b40b3",
+   "site": "nzherald.co.nz",
+   "title": "'Live with dignity': What older Kiwis want from politicians this election",
+   "post_date": "2026-10-03T00:00:00+13:00",
+   "why": "case:live-blog"
+  },
+  {
+   "id": "186a8efc-466a-45e2-989b-05b5309a5903",
+   "site": "1news.co.nz",
+   "title": "Jurist Navi Pillay wins Nobel Peace Prize for international justice work",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "case:wire-story"
+  },
+  {
+   "id": "4e974096-50fe-4d00-94dd-857cd8e83285",
+   "site": "newsroom.co.nz",
+   "title": "GDP tells us nothing about our success – or lack of it",
+   "post_date": "2026-09-25T00:00:00+12:00",
+   "why": "case:opinion"
+  }
+ ]
+}

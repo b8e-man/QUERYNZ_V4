@@ -31,32 +31,35 @@ LANE = "news-trial"
 PROMPT = """You read one New Zealand news article and record what it says, as data. You never decide who anyone is beyond what the article prints, and you never add anything you know from outside the article.
 
 Answer with ONE JSON object, no words before or after it, with these keys:
-- "article": {"type": one of news | opinion | press_release | live_blog | review | feature | obituary | market_wrap | letter | sponsored | stub (a review rates a work; a market_wrap reports a day's prices or trading across companies; a feature is long-form and not about one day's event; an opinion argues a view under a columnist's name), "themes": IPTC Media Topic labels broad to specific, "dateline": as printed or null, "wire_credit": the agency or outlet it was first published by, or null}
+- "article": {"type": one of news | opinion | feature | review | market_or_trade | media_release | live_updates | sponsored | stub (news reports an event; opinion argues a view, letters included; a feature is long-form and not about one day's event; a review rates a product or work; market_or_trade reports prices, trading or an industry for its own readers; a media_release is an organisation's own announcement in its own voice; sponsored is paid or advertorial, even when written like news; a stub is cut off or paywalled), "themes": IPTC Media Topic labels broad to specific, "dateline": as printed or null, "wire_credit": the agency or outlet it was first published by, or null}
 - "authors": [{"as_printed", "kind": person | staff | agency | organisation, "role_line": the author's own bio or credit line as printed, or null}]
-- "entities": {"e1": {"name": the fullest form printed, "kind": person | organisation | place | team | government | brand | product | thing | work | event, "forms": [every way the text prints it, exactly]}, ...}. One entity per real thing; "Mr Smith" and "Smith" are forms of the same person. Pronouns are not forms. A person known only by relation ("his wife", "a spokesperson") is an entity with that as its name. Fictional characters are kind "thing". A thing named after a person (a stadium, a trust, a company) is never a person. "name" is the name alone: never a title, rank or job ("Scott Gemmell", not "Superintendent Scott Gemmell"; the rank goes in roles).
-- "roles": [{"who": entity id, "role": the role words exactly as printed, "of": the entity id of the organisation the TEXT binds it to, or null, "tense": current | former | acting | interim | incoming | designate, "bound_by": apposition | possessive | premodifier | statement | unbound}]. Bind a role to an organisation only when the text itself does ("X chief executive Y", "Y, chief executive of X", "X's chief executive"). If the article does not say whose chief executive someone is, "of" is null and "bound_by" is "unbound". The binding must be printed in the same sentence as the person's name; never carry a role from one sentence to a person named in another, and never give a person the role of someone else in the sentence (an appointed liquidator is not the director whose company failed). "of" is an organisation, team or government, never a place and never a person: "Kāpiti Coast builder" is a descriptor, and "his lawyer" or "her mother" is a relation. Never bind a minister to a party or a detective to the police unless the text prints that binding.
+- "entities": {"e1": {"name": the fullest form printed, "kind": person | organisation | place | team | government | brand | product | thing | work | event, "forms": [every way the text prints it, exactly]}, ...}. One entity per real thing; "Mr Smith" and "Smith" are forms of the same person. Pronouns are not forms. A person known only by relation ("his wife", "a spokesperson") is an entity with that as its name. Fictional characters are kind "thing". A thing named after a person (a stadium, a trust, a company) is never a person. "name" is the name alone: never a title, rank or job ("Scott Gemmell", not "Superintendent Scott Gemmell"; the rank goes in roles). An honorific or title before a surname is a role, never a first name: "Justice Palmer" is the person "Palmer" (forms "Justice Palmer", "Palmer") with the role "Justice". A nickname that stands for a team or organisation the article also names properly is a form of that entity, and its name is the proper one.
+- "roles": [{"who": entity id, "role": the role words exactly as printed, "of": the entity id of the organisation the TEXT binds it to, or null, "tense": current | former | acting | interim | incoming | designate, "bound_by": apposition | possessive | premodifier | statement | unbound}]. Bind a role to an organisation only when the text itself does ("X chief executive Y", "Y, chief executive of X", "X's chief executive"). If the article does not say whose chief executive someone is, "of" is null and "bound_by" is "unbound". The binding must be printed in the same sentence as the person's name; never carry a role from one sentence to a person named in another, and never give a person the role of someone else in the sentence (an appointed liquidator is not the director whose company failed). "of" is an organisation, team or government, never a place and never a person: "Kāpiti Coast builder" is a descriptor, and "his lawyer" or "her mother" is a relation. Never bind a minister to a party or a detective to the police unless the text prints that binding. A person (the subject) holds a position at an organisation (the object), and the object is always a proper noun printed in full: "University of Fiji School of Nursing", never "School of Nursing", "the board" or "the company"; a generic noun is no binding. A role is a position held: never a verb phrase ("produced by", "led by", "coached by"), never an informal descriptor ("legends", "Graham Lowe's men", "the young and energised side"). A person the article never names ("a Fenz spokesperson", "the board chair") gets no role at all: the words are their name.
 - "relations": [{"a": id, "says": the words exactly as printed, "b": id}] for relations the text states (owns, subsidiary of, wife of, mother of, lawyer for, donated to, hired). Everything between two people goes here, never in roles.
 - "descriptors": [{"who": id, "text": exactly as printed}] for age, town, occupation, nationality.
 - "quotes": [{"text": exactly as printed, "form": direct | partial | indirect | mixed, "speaker": id or null, "speaker_as_printed": the words that name the speaker at that quote, "verb": said | told | … , "channel": interview | statement | court | social | earlier_article | release | unknown, "about": [ids]}]. One entry per quoted sentence or run of sentences between attributions. Indirect speech counts: every "X said (that) ...", "X told ... that ...", "according to X, ...", "X believes/argued/warned/explained ..." without quotation marks is an indirect quote; copy the reported words after the verb. If the text does not say who spoke, speaker is null.
-- "events": [{"kind": a short plain phrase, "who": [{"e": id, "part": their part}], "when": as printed or null, "where": id or null, "modality": happened | alleged | denied | planned | rumoured | possible}]. A charge, an accusation, a claim by one party against another, "allegedly", "is accused of", "said it was dishonest", "likely offended", or anything a court has not yet decided is alleged, never happened. A denial is its own event with modality denied.
+- "events": [{"kind": a short plain phrase, "claim": the words of the article that state it, exactly as printed, "who": [{"e": id, "part": their part}], "when": as printed or null, "where": id or null, "modality": happened | alleged | denied | planned | rumoured | possible, "stands_behind": writer | someone_in_article | finding | before_court | denial, "source": the id of who makes the claim, or null}]. "stands_behind" says who vouches for the claim: the writer stating it as plain fact; someone in the article whose claim it is (the article reports that they said it); a court, regulator or official finding; a charge or case before a court, not yet decided; or the article saying it did not happen. A charge, an accusation, a claim by one party against another, "allegedly", "is accused of", "said it was dishonest", "likely offended", or anything a court has not yet decided is alleged, never happened. A denial is its own event with modality denied.
 - "numbers": [{"text": exactly as printed, "measures": what it counts, "of": id or null}]
-- "sentiment": [{"toward": id, "from": "article" or "own" or the id of a quoted speaker, "value": negative | mixed | neutral | positive, "evidence": the words that carry it, exactly as printed}]
+- "sentiment": [{"toward": id, "from": "article" or "own" or the id of a quoted speaker, "value": negative | mixed | neutral | positive, "evidence": the words that carry it, exactly as printed}]. Neutral is the default: record negative or positive only where the words themselves judge (praise, blame, criticism, contempt), never because the facts are bad or good news.
 - "traps": [] (leave empty)
 
 Every value marked "exactly as printed" must be copied character for character from the article. A street address shows as [street address]; leave it so."""
 
 
+#: run 3 (Arthur's verdicts on tranche 1, 16 November 2026): the kinds of article, and who vouches for a claim
+TYPES = ("news", "opinion", "feature", "review", "market_or_trade", "media_release", "live_updates", "sponsored", "stub")
+BEHIND = ("writer", "someone_in_article", "finding", "before_court", "denial")
 _S = {"type": "string"}
 _SN = {"type": ["string", "null"]}
 _E = lambda *v: {"type": "string", "enum": list(v)}
 _OBJ = lambda props, req=None: {"type": "object", "properties": props, "required": req or list(props)}
 _ARR = lambda item: {"type": "array", "items": item}
 QUOTE = _OBJ({"text": _S, "form": _E("direct", "partial", "indirect", "mixed"), "speaker": _SN, "speaker_as_printed": _SN,
-              "verb": _SN, "channel": _E("interview", "statement", "court", "social", "earlier_article", "release", "unknown"),
+              "verb": _SN, "channel": _E("interview", "statement", "court", "social", "earlier_article", "release",
+                                         "document", "unknown"),
               "about": _ARR(_S)})
 SCHEMA = _OBJ({
-    "article": _OBJ({"type": _E("news", "opinion", "press_release", "live_blog", "review", "feature", "obituary",
-                                "market_wrap", "letter", "sponsored", "stub"),
+    "article": _OBJ({"type": _E(*TYPES),
                      "themes": _ARR(_S), "dateline": _SN, "wire_credit": _SN}),
     "authors": _ARR(_OBJ({"as_printed": _S, "kind": _E("person", "staff", "agency", "organisation"), "role_line": _SN})),
     "entities": {"type": "object", "additionalProperties": _OBJ({
@@ -68,14 +71,15 @@ SCHEMA = _OBJ({
     "relations": _ARR(_OBJ({"a": _S, "says": _S, "b": _S})),
     "descriptors": _ARR(_OBJ({"who": _S, "text": _S})),
     "quotes": _ARR(QUOTE),
-    "events": _ARR(_OBJ({"kind": _S, "who": _ARR(_OBJ({"e": _S, "part": _S})), "when": _SN, "where": _SN,
-                         "modality": _E("happened", "alleged", "denied", "planned", "rumoured", "possible")})),
+    "events": _ARR(_OBJ({"kind": _S, "claim": _S, "who": _ARR(_OBJ({"e": _S, "part": _S})), "when": _SN, "where": _SN,
+                         "modality": _E("happened", "alleged", "denied", "planned", "rumoured", "possible"),
+                         "stands_behind": _E(*BEHIND), "source": _SN})),
     "numbers": _ARR(_OBJ({"text": _S, "measures": _S, "of": _SN})),
     "sentiment": _ARR(_OBJ({"toward": _S, "from": _S, "value": _E("negative", "mixed", "neutral", "positive"),
                             "evidence": _S})),
     "traps": _ARR(_S)})
 
-QUOTE_PROMPT = """You find every quotation in one New Zealand news article: direct (in quotation marks), partial (a few quoted words inside a sentence), indirect (reported speech with no quotation marks: "X said that ...", "X told RNZ ...", "according to X", "X warned/argued/believes/explained ..."), and mixed. Statements a press release or report makes count, with the organisation as speaker. You are given the article's entities with their ids; the speaker is one of those ids, or null when the text does not say who spoke. Copy "text" character for character from the article: for indirect speech, the reported words after the verb. Answer with ONE JSON object {"quotes": [...]}, each {"text", "form", "speaker", "speaker_as_printed", "verb", "channel", "about": [ids]}."""
+QUOTE_PROMPT = """You find every quotation in one New Zealand news article: direct (in quotation marks), partial (a few quoted words inside a sentence), indirect (reported speech with no quotation marks: "X said that ...", "X told RNZ ...", "according to X", "X warned/argued/believes/explained ..."), and mixed. A quote needs someone who says it: quotation marks attributed to a speaker, or a verb of saying with its subject. These are never quotes: the writer's own sentences, however opinionated; a turn of phrase in quotation marks with no speaker ("best possible truths", as the PR gurus put it); scare quotes; a name or title in quotation marks; and an article written in an organisation's own voice (a police appeal, a media release) is not a quote of that organisation. Words quoted from a book, report, court decision or post: the speaker is its author or maker, and channel is "document" (or "court", "social"). A group can be the speaker ("Niue health officials"). When the text names the person behind a role ("the coroner, Alexander Ho"), the speaker is that person. You are given the article's entities with their ids; the speaker is one of those ids, or null when the text does not say who spoke. Copy "text" character for character from the article, and only the reported words: never the speaker's name, never "said", "told" or "according to". For indirect speech, the words after "said (that)". Answer with ONE JSON object {"quotes": [...]}, each {"text", "form", "speaker", "speaker_as_printed", "verb", "channel", "about": [ids]}."""
 QUOTES = _OBJ({"quotes": _ARR(QUOTE)})
 
 
@@ -101,14 +105,38 @@ def check(got: dict, text: str) -> dict:
             r["of"], r["bound_by"], r["checked"] = None, "unbound", "moved to relations: of is a person"
         elif kind == "place":
             r["of"], r["bound_by"], r["checked"] = None, "unbound", "unbound: of is a place"
+        elif not _proper((ents.get(o) or {}).get("name")):
+            r["of"], r["bound_by"], r["checked"] = None, "unbound", "unbound: of is not a proper noun"
+        elif re.search(r"\bby$", (r.get("role") or "").strip(), re.I):
+            r["of"], r["bound_by"], r["checked"] = None, "unbound", "unbound: a verb phrase, not a title"
         elif not any(any(f in s for f in forms(r.get("who"))) and any(f in s for f in forms(o))
                      and (r.get("role") or "").lower() in s for s in sents):
             r["of"], r["bound_by"], r["checked"] = None, "unbound", "unbound: not printed in one sentence"
         else:
             continue
         notes.append(r["checked"])
+    flat = " ".join(text.split())
+    for q in got.get("quotes") or []:
+        t = q.get("text") or ""
+        if t and " ".join(t.split()) not in flat and re.match(r"that\s+", t):
+            q["text"] = re.sub(r"^that\s+", "", t)
+            notes.append("quote: a leading 'that' the text does not hold, dropped")
     got["checks"] = notes
     return got
+
+
+def _proper(name) -> bool:
+    """A proper noun: some word after any leading article starts with a capital ("the National Party" yes,
+    "the board" and "School of nursing" no: the first content word must be capitalised and the name not a bare
+    generic like "Board")."""
+    w = re.sub(r"^(the|a|an)\s+", "", (name or "").strip(), flags=re.I).split()
+    if not w or not w[0][:1].isupper():
+        return False
+    return not (len(w) == 1 and w[0].lower() in GENERIC)
+
+
+GENERIC = {"board", "council", "court", "company", "government", "police", "school", "university", "ministry",
+           "department", "team", "club", "party", "committee", "trust", "union", "agency", "group", "firm"}
 
 
 def _ids(tranche: int) -> list:

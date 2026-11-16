@@ -66,6 +66,10 @@ def _order(seed: str) -> str:
 
 def choose(tranche: int) -> list:
     picked, seen = [], set()
+    for earlier in range(1, tranche):           # never an article an earlier tranche already holds
+        f = HERE / f"tranche-{earlier}.json"
+        if f.exists():
+            seen |= {a["id"] for a in json.loads(f.read_text())["articles"]}
     with _conn() as c:
         def take(where, n, why):
             rows = c.execute(f"SELECT id::text, {HOST}, title, post_date FROM {T} WHERE {RECENT} AND {where} "
