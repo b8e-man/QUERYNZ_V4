@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import email.utils
 import os
+import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
@@ -135,11 +136,42 @@ def parse_article_date(date_str: str | None) -> datetime | None:
             return None
 
 
+#: the site's own note above every premium body; the body under it is whole when fetched under the session
+_PREMIUM_NOTE = re.compile(r"^Reminder, this is a Premium article", re.I)
+
+
+def _extract_arc(soup, html: str, url: str) -> base.Extracted | None:
+    """The site's current (Arc) layout, read 18 November 2026: the body is the `section.article__body` blocks."""
+    parts = []
+    for sec in soup.select("section.article__body"):
+        for p in sec.find_all(["p", "h2", "h3", "li"]):
+            t = _text(p)
+            if t and not _PREMIUM_NOTE.match(t):
+                parts.append(t)
+    text = base.clean_text(parts)
+    if not text:
+        return None
+    og = soup.find("meta", property="og:title")
+    title = (og.get("content") if og else None) or _text(soup.find("h1")) or url
+    m = re.search(r'"(?:display_date|displayDate|publish_date|datePublished|first_publish_date)"\s*:\s*"([^"]+)"', html)
+    published_at = None
+    if m:
+        try:
+            published_at = datetime.fromisoformat(m.group(1).replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    m = re.search(r'"credits"\s*:\s*\{\s*"by"\s*:\s*\[\s*\{[^{}]*?"name"\s*:\s*"([^"]+)"', html)
+    return base.Extracted(title=title, text=text, author=m.group(1) if m else None, published_at=published_at,
+                          categories=[])
+
+
 def extract(html: str, url: str) -> base.Extracted | None:
     soup = BeautifulSoup(html, "html.parser")
     for br in soup.find_all("br"):
         br.replace_with("\n")
 
+    if soup.select_one("section.article__body"):
+        return _extract_arc(soup, html, url)
     article = (soup.select_one("div.row.individual-story")
                or soup.select_one("section div.row"))
     if article is None:

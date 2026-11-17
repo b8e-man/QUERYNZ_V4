@@ -92,10 +92,15 @@ def take_old(conn) -> int:
 
 # ── the provider's pages ──
 
+#: parsers this estate added for sites the old estate never collected (registers/news/extract)
+OWN_PARSERS = {"thepost.co.nz": "stuffmasthead", "thepress.co.nz": "stuffmasthead", "waikatotimes.co.nz": "stuffmasthead"}
+
+
 def parser_for(host: str):
     """(name, module) of the old estate's parser for a host: the host, else each parent domain, else the generic."""
     from registers.news.extract.registry import REGISTRY
     keys = {k.split("/")[0].removeprefix("www."): v.module for k, v in REGISTRY.items()}
+    keys.update(OWN_PARSERS)
     h = (host or "").removeprefix("www.")
     while h:
         if h in keys:
@@ -113,14 +118,18 @@ def _when(t):
     return None
 
 
-def read_provider(conn, limit: int = None, read=None) -> dict:
-    """The provider's landed pages not yet read: each read by its site's parser and offered to the table."""
+def read_provider(conn, limit: int = None, read=None, reread_empty: bool = False) -> dict:
+    """The provider's landed pages not yet read: each read by its site's parser and offered to the table. With
+    `reread_empty`, the pages whose ledger line says no text, no parser or failed are read again (after a parser is
+    fixed); their line is replaced by the new outcome."""
     if read is None:
         from support.docstore.landing import read_bytes as read
+    again = " OR r.state IN ('no text', 'no parser', 'failed')" if reread_empty else ""
     rows = conn.execute(
         "SELECT DISTINCT ON (f.capture_sha256, f.url) f.capture_sha256, f.url, f.done_at FROM mcpsource.files f "
         "WHERE f.corpus = %s AND f.state IN ('landed', 'held') AND NOT EXISTS (SELECT 1 FROM news_private.provider_read r "
-        "WHERE r.capture_sha256 = f.capture_sha256 AND r.url = f.url) ORDER BY f.capture_sha256, f.url, f.done_at DESC"
+        f"WHERE r.capture_sha256 = f.capture_sha256 AND r.url = f.url AND NOT (false{again})) "
+        "ORDER BY f.capture_sha256, f.url, f.done_at DESC"
         + (f" LIMIT {int(limit)}" if limit else ""), (CORPUS,)).fetchall()
     n = {"read": 0, "stub": 0, "no text": 0, "no parser": 0, "failed": 0}
     for sha, url, fetched in rows:
@@ -136,7 +145,9 @@ def read_provider(conn, limit: int = None, read=None) -> dict:
         state = "failed" if why else ("stub" if is_stub(text) else "read") if text else "no text"
         with conn.transaction():
             conn.execute("INSERT INTO news_private.provider_read (capture_sha256, url, state, parser, chars, why) "
-                         "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                         "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (capture_sha256, url) DO UPDATE SET state = EXCLUDED.state, "
+                         "parser = EXCLUDED.parser, chars = EXCLUDED.chars, why = EXCLUDED.why, at = now() "
+                         "WHERE news_private.provider_read.state IN ('no text', 'no parser', 'failed')",
                          (sha, url, state, name, len(text) if text else None, why))
             if state == "read":
                 conn.execute("""
@@ -243,6 +254,7 @@ def main(argv=None) -> int:
     ap.add_argument("--provider", action="store_true")
     ap.add_argument("--sites", action="store_true")
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--reread-empty", action="store_true", help="read again the pages that gave no text")
     a = ap.parse_args(argv)
     every = a.job or not (a.old or a.provider or a.sites)
     started, counts = jobrun.now(), {}
@@ -254,7 +266,7 @@ def main(argv=None) -> int:
                 counts["old"] = take_old(conn)
                 print("old estate rows offered:", counts["old"], flush=True)
             if every or a.provider:
-                counts["provider"] = read_provider(conn, a.limit)
+                counts["provider"] = read_provider(conn, a.limit, reread_empty=a.reread_empty)
                 print("provider pages:", counts["provider"], flush=True)
             if every or a.sites:
                 counts["sites"] = sites(conn)

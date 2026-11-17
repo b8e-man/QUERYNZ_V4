@@ -84,3 +84,17 @@ def test_only_a_ready_site_is_listed_and_logging_waits_for_the_old_registry(tmp_
     assert out["listed"] == ["scoop.co.nz"] and out["not ready"] == ["rnz.co.nz"] and not c.logged
     out = retire.retire(c, None, path=path, reads=True)
     assert out["listed"] == ["stuff.co.nz"] and c.logged == ["scoop.co.nz", "stuff.co.nz"]
+
+
+def test_the_stuff_mastheads_are_read_from_their_json():
+    import json
+    from registers.news.extract import stuffmasthead
+    assert load.parser_for("www.thepress.co.nz")[0] == "stuffmasthead"
+    page = json.dumps({"content": {"title": "A title", "contentBody": {"body": "<p>" + "The board met on Monday. " * 5
+                                                                        + "</p><p>It voted to sell the land.</p>"}},
+                       "author": [{"name": "A Writer"}], "publishedDate": "2026-11-15T23:08:35Z",
+                       "metadata": {"section": "NZ news", "topic": ["Councils"]}})
+    x = stuffmasthead.extract(page, "https://www.thepress.co.nz/nz-news/1/a")
+    assert x.title == "A title" and "sell the land" in x.text and x.author == "A Writer"
+    assert x.published_at.year == 2026 and x.categories == ["NZ news", "Councils"]
+    assert stuffmasthead.extract("<html></html>", "u") is None
