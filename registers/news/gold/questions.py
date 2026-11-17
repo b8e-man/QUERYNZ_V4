@@ -288,6 +288,10 @@ WRITER_CLAIMS = 1
 CLAIMS_PER_ARTICLE = 4
 #: Arthur, 18 November 2026: tone scored well but wants more samples; neutral tones are asked too
 TONE_PER_ARTICLE = 3
+#: the most questions one article gives, from tranche 5 (Arthur, 18 November 2026: tranche 4 showed "many of the same
+#: articles"; 32 articles gave 283 questions, up to 17 each). Taken one kind at a time in ORDER2, so an article's
+#: questions differ in kind before any kind repeats
+PER_ARTICLE = 3
 #: a quoted fragment under this many words is a name, term or turn of phrase, not speech (Arthur's tranche 3 notes)
 QUOTE_MIN_WORDS = 4
 
@@ -350,6 +354,27 @@ def _sections(url) -> list:
     numbers and plumbing ("/sport/motorsport/formula-1/<slug>" gives sport, motorsport, formula-1)."""
     steps = re.sub(r"^https?://[^/]+", "", url or "").strip("/").split("/")[:-1]
     return [x for x in steps if x and x.count("-") < 3 and not re.fullmatch(r"[\d.]+|v\d.*|api|stuff|stories|story|article|release|[A-Z]{1,2}\d+", x)]
+
+
+def _spread(qs: list, most: int, skipped: dict) -> list:
+    """At most `most` questions an article: each round takes the next kind (ORDER2) the article still has, so its
+    questions differ in kind before a kind repeats. What is left over is counted, never asked."""
+    by = {}
+    for q in qs:
+        by.setdefault(q["article"], []).append(q)
+    out = []
+    for aid, mine in by.items():
+        pools = {k: [q for q in mine if q["kind"] == k] for k in ORDER2}
+        took = []
+        while len(took) < most and any(pools.values()):
+            for k in ORDER2:
+                if pools[k] and len(took) < most:
+                    took.append(pools[k].pop(0))
+        out += took
+        left = len(mine) - len(took)
+        if left:
+            skipped["over the per-article limit"] = skipped.get("over the per-article limit", 0) + left
+    return out
 
 
 def build2(tranche: int, run: str = "run6") -> dict:
@@ -504,6 +529,8 @@ def build2(tranche: int, run: str = "run6") -> dict:
                           "role": [ev_]},
                     [{"key": k, "label": k} for k in ("negative", "mixed", "neutral", "positive")], s.get("value"))
 
+    if tranche >= 5:
+        qs = _spread(qs, PER_ARTICLE, skipped)
     qs.sort(key=lambda q: (ORDER2.index(q["kind"]), q["article"]))
     return {"set": f"news-gold-{tranche}", "title": f"News golden sample, tranche {tranche}",
             "about": ("Every question is about what the boxes' model read, and is judged on the text shown alone. "

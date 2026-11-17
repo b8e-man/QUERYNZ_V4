@@ -26,7 +26,12 @@ PAYWALL = (r"(14-day free trial|free trial now|Subscribe to (continue|read)|subs
 RECENT = ("post_date > now() - interval '60 days' AND length(text_content) BETWEEN 600 AND 20000"
           f" AND right(text_content, 400) !~* '{PAYWALL}'")
 
-#: twenty from ten sites: the commonest news sites of the last sixty days (te reo sites wait for their own session)
+#: articles per site and per hard case. Tranches 1-4 took 2 and 1 (32 articles, up to 17 questions each); from tranche 5
+#: more articles and fewer questions each (Arthur, 18 November 2026: "it is important for you to bring me fresh
+#: articles"), so 7 and 2 (94 articles, at most questions.PER_ARTICLE each)
+PER_SITE, PER_SEED = 7, 2
+
+#: the commonest news sites of the last sixty days (te reo sites wait for their own session)
 SITES = ["scoop.co.nz", "stuff.co.nz", "rnz.co.nz", "odt.co.nz", "1news.co.nz", "nzherald.co.nz", "newsroom.co.nz",
          "businessdesk.co.nz", "interest.co.nz", "farmersweekly.co.nz"]
 
@@ -89,10 +94,10 @@ def choose(tranche: int) -> list:
             if got < n:
                 print(f"short: {why} {got} of {n}", file=sys.stderr)
         for s in SITES:
-            take(f"{HOST} = '{s}'", 2, f"site:{s}")
+            take(f"{HOST} = '{s}'", PER_SITE if tranche >= 5 else 2, f"site:{s}")
         news = " OR ".join(f"{HOST} = '{x}'" for x in SITES + ["thespinoff.co.nz", "sunlive.co.nz", "pmn.co.nz", "times.co.nz", "police.govt.nz"])
         for why, where in SEEDS:
-            take(f"({where}) AND ({news})", 1, f"case:{why}")
+            take(f"({where}) AND ({news})", PER_SEED if tranche >= 5 else 1, f"case:{why}")
     out = {"tranche": tranche, "source": T, "chosen_by": "registers.news.gold.sample", "articles": picked}
     (HERE / f"tranche-{tranche}.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     return picked
