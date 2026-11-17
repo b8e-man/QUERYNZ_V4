@@ -23,6 +23,7 @@ import argparse
 import datetime as dt
 import importlib
 import os
+import re
 import sys
 
 from support import db, jobrun
@@ -35,6 +36,18 @@ OLD = "old_incoming_news_private.articles"
 PROVIDING_DAYS = 7
 #: the most days between where the old copy stops and the provider's earliest article that is not a gap
 GAP_DAYS = 2
+#: the largest share of a site's provider pages that may be stubs (a paywall prompt, no text, or under half the old
+#: copy's text for the same address) and the site still be ready (Arthur, 18 November 2026: gathering stubs from
+#: paywalls "would undermine the system")
+STUB_SHARE = 0.05
+#: a paywall prompt in a page's last 400 characters
+PAYWALL = re.compile(r"(14-day free trial|free trial now|Subscribe to (continue|read)|subscribers? only|"
+                     r"Already a subscriber|Premium (content|article)|Sign in to (continue|read)|"
+                     r"Unlock this (story|article))", re.I)
+
+
+def is_stub(text: str) -> bool:
+    return bool(PAYWALL.search((text or "")[-400:]))
 
 
 def create(conn) -> None:
@@ -109,7 +122,7 @@ def read_provider(conn, limit: int = None, read=None) -> dict:
         "WHERE f.corpus = %s AND f.state IN ('landed', 'held') AND NOT EXISTS (SELECT 1 FROM news_private.provider_read r "
         "WHERE r.capture_sha256 = f.capture_sha256 AND r.url = f.url) ORDER BY f.capture_sha256, f.url, f.done_at DESC"
         + (f" LIMIT {int(limit)}" if limit else ""), (CORPUS,)).fetchall()
-    n = {"read": 0, "no text": 0, "no parser": 0, "failed": 0}
+    n = {"read": 0, "stub": 0, "no text": 0, "no parser": 0, "failed": 0}
     for sha, url, fetched in rows:
         host = conn.execute("SELECT news_private.host_of(%s)", (url,)).fetchone()[0]
         name, why, x = None, None, None
@@ -120,7 +133,7 @@ def read_provider(conn, limit: int = None, read=None) -> dict:
         except Exception as exc:  # noqa: BLE001 — one page's failure is a ledger line, not the run's end
             why = f"{type(exc).__name__}: {str(exc)[:200]}"
         text = (getattr(x, "text", None) or "").strip() if x else ""
-        state = "failed" if why else ("read" if text else "no text")
+        state = "failed" if why else ("stub" if is_stub(text) else "read") if text else "no text"
         with conn.transaction():
             conn.execute("INSERT INTO news_private.provider_read (capture_sha256, url, state, parser, chars, why) "
                          "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
@@ -160,21 +173,45 @@ WITH o AS (
 p AS (
     SELECT host, count(*) AS n, min(published_at)::date AS earliest, max(published_at)::date AS newest,
            count(*) FILTER (WHERE published_at > now() - interval '{PROVIDING_DAYS} days') AS week
-    FROM news_private.articles WHERE 'provider' = ANY (held_by) GROUP BY host)
+    FROM news_private.articles WHERE 'provider' = ANY (held_by) GROUP BY host),
+b AS (
+    SELECT host, count(*) AS held FROM news_private.articles
+    WHERE 'old estate' = ANY (held_by) AND 'provider' = ANY (held_by) GROUP BY host),
+s AS (
+    SELECT news_private.host_of(r.url) AS host, count(*) AS pages,
+           count(*) FILTER (WHERE r.state IN ('stub', 'no text')
+                            OR (r.state = 'read' AND a.old_id IS NOT NULL AND r.chars < a.chars / 2)) AS stubs
+    FROM news_private.provider_read r
+    LEFT JOIN news_private.articles a ON a.url_key = news_private.url_key(r.url)
+    GROUP BY 1)
 SELECT coalesce(o.host, p.host), coalesce(o.n, 0), o.newest, o.last_fetch, coalesce(p.n, 0), p.earliest, p.newest,
-       coalesce(p.week, 0), r.host IS NOT NULL
+       coalesce(p.week, 0), r.host IS NOT NULL, coalesce(s.pages, 0), coalesce(s.stubs, 0), coalesce(b.held, 0)
 FROM o FULL JOIN p ON p.host = o.host LEFT JOIN news.retirements r ON r.host = coalesce(o.host, p.host)
+LEFT JOIN b ON b.host = coalesce(o.host, p.host) LEFT JOIN s ON s.host = coalesce(o.host, p.host)
 """
 
 
-def judge(old_n, old_newest, prov_n, prov_earliest, prov_newest, week, retired) -> tuple:
-    """(state, why) for one site."""
+def judge(old_n, old_newest, prov_n, prov_earliest, prov_newest, week, retired, pages=0, stubs=0,
+          old_held=0) -> tuple:
+    """(state, why) for one site. `pages`: provider pages read; `stubs`: of them, stubs (STUB_SHARE); `old_held`:
+    the old copy's addresses the provider also holds."""
+    share = stubs / pages if pages else 0.0
     if retired:
+        if share > STUB_SHARE:
+            return "retired", (f"the old collection is stopped for this site, but {stubs} of the provider's {pages} "
+                               f"pages are stubs: ask the provider")
         return "retired", "the old collection is stopped for this site; the provider carries it"
     if not prov_n:
         return "old only", "the provider has delivered nothing from this site yet"
     if not old_n:
         return "provider only", "only the provider holds this site; the old estate never collected it"
+    if share > STUB_SHARE:
+        return "providing, stubs", (f"{stubs} of the provider's {pages} pages are stubs (a paywall prompt, no text, "
+                                    f"or under half the old copy's text)")
+    if prov_newest is None:     # an undated site: ready when the provider holds every address the old copy holds
+        if old_held >= old_n:
+            return "ready", f"undated; the provider holds all {old_n} of the old copy's addresses"
+        return "providing, gap", f"undated; the provider holds {old_held} of the old copy's {old_n} addresses"
     if not week:
         return "providing, gap", f"the provider's newest article is {prov_newest}: nothing in the last {PROVIDING_DAYS} days"
     if old_newest and prov_earliest and (prov_earliest - old_newest).days > GAP_DAYS:
@@ -186,8 +223,8 @@ def judge(old_n, old_newest, prov_n, prov_earliest, prov_newest, week, retired) 
 def sites(conn) -> dict:
     rows = conn.execute(SITES).fetchall()
     out = []
-    for host, on, onew, olast, pn, pe, pnew, week, retired in rows:
-        state, why = judge(on, onew, pn, pe, pnew, week, retired)
+    for host, on, onew, olast, pn, pe, pnew, week, retired, pages, stubs, held in rows:
+        state, why = judge(on, onew, pn, pe, pnew, week, retired, pages, stubs, held)
         out.append((host, on, onew, olast, pn, pe, pnew, week, state, why))
     with conn.transaction():
         conn.execute("DELETE FROM news.sites")

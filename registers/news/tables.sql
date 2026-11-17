@@ -43,13 +43,17 @@ CREATE INDEX IF NOT EXISTS articles_host ON news_private.articles (host, publish
 CREATE TABLE IF NOT EXISTS news_private.provider_read (
     capture_sha256  text NOT NULL,
     url             text NOT NULL,
-    state           text NOT NULL CHECK (state IN ('read', 'no text', 'no parser', 'failed')),
+    state           text NOT NULL CHECK (state IN ('read', 'stub', 'no text', 'no parser', 'failed')),
     parser          text,
     chars           integer,
     why             text,
     at              timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (capture_sha256, url)
 );
+-- 'stub' (18 Nov 2026): a page that ends on a paywall prompt is a ledger line, never an article
+ALTER TABLE news_private.provider_read DROP CONSTRAINT IF EXISTS provider_read_state_check;
+ALTER TABLE news_private.provider_read ADD CONSTRAINT provider_read_state_check
+    CHECK (state IN ('read', 'stub', 'no text', 'no parser', 'failed'));
 
 -- how far the old estate's copy has been taken (never wiped)
 CREATE TABLE IF NOT EXISTS news_private.old_taken (

@@ -26,6 +26,24 @@ def test_a_retired_site_says_so_whatever_else_holds():
     assert load.judge(100, D(2026, 11, 1), 0, None, None, 0, True)[0] == "retired"
 
 
+def test_a_site_whose_provider_pages_are_stubs_is_never_ready():
+    state, why = load.judge(100, D(2026, 11, 16), 40, D(2026, 11, 15), D(2026, 11, 17), 12, False, 40, 3)
+    assert state == "providing, stubs" and "3 of" in why
+    assert load.judge(100, D(2026, 11, 16), 40, D(2026, 11, 15), D(2026, 11, 17), 12, False, 40, 2)[0] == "ready"
+
+
+def test_a_paywall_prompt_at_the_end_is_a_stub():
+    assert load.is_stub("The council voted on Tuesday. " * 20 + "Already a subscriber? Sign in to continue reading")
+    assert not load.is_stub("The council voted on Tuesday. " * 20)
+
+
+def test_an_undated_site_is_ready_only_when_the_provider_holds_every_old_address():
+    assert load.judge(87, None, 88, None, None, 0, False, 88, 0, 87)[0] == "ready"
+    state, why = load.judge(2845, None, 75, None, None, 0, False, 75, 0, 73)
+    assert state == "providing, gap" and "73 of" in why
+    assert load.judge(87, None, 88, None, None, 0, False, 88, 9, 87)[0] == "providing, stubs"
+
+
 def test_the_parser_is_the_sites_own_then_a_parent_domains_then_the_generic():
     assert load.parser_for("www.rnz.co.nz")[0] == "rnzscraper"
     assert load.parser_for("1news.co.nz")[0] == "onenews"
