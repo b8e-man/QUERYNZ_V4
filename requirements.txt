@@ -5,3 +5,5 @@ pytest>=8
 psycopg[binary]==3.3.4
 boto3==1.43.78
 tantivy==0.27.0   # the Papers Past keyword index (step 8.6; Arthur, 2 November 2026: tantivy)
+beautifulsoup4==4.15.0   # the news register's article extraction, the old estate's parsers carried over (17 November 2026: Arthur, news site by site into the new estate)
+soupsieve==2.9.1

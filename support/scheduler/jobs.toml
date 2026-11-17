@@ -1424,7 +1424,7 @@ command = ["python", "-m", "support.mcpsource", "--budget-s", "12600", "--corpus
            "--corpus", "parliament-hansard-debates", "--corpus", "parliament-bills-historical", "--corpus", "parliament-sops",
            "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts", "--corpus", "estate-disclosures", "--corpus", "estate-candidate_returns", "--corpus", "estate-fma", "--corpus", "estate-worksafe", "--corpus", "estate-commerce_commission", "--corpus", "estate-councillor_interests", "--corpus", "estate-building_practitioners", "--corpus", "estate-local_elections", "--corpus", "estate-council_minutes", "--corpus", "estate-courts-jdo", "--corpus", "estate-courts-era", "--corpus", "estate-tenancy_tribunal", "--corpus", "estate-real_estate_authority",
            "--corpus", "estate-news", "--corpus", "estate-charities", "--corpus", "estate-grants", "--corpus", "estate-iwi_directory", "--corpus", "estate-settlement_commitments", "--corpus", "estate-council_procurement", "--corpus", "estate-tenders", "--corpus", "estate-courts", "--corpus", "estate-courts-finder", "--corpus", "estate-courts-survey", "--corpus", "estate-elections"]
-then = ["qv4-courts-read", "qv4-courts-load", "qv4-council-minutes-load", "qv4-councillor-interests-load", "qv4-beehive-load", "qv4-hansard-load", "qv4-parliament-load"]   # 15 November 2026 (Arthur: the readers running around the clock): each reader lane loads what the pull lands, and its chain (names, name pass, reader) follows, so new documents are read within hours, not the next day. qv4-courts-read stays first: it reads whatever is waiting even when a load goes red (3 November: a red load left 6,447 unread)
+then = ["qv4-courts-read", "qv4-courts-load", "qv4-council-minutes-load", "qv4-councillor-interests-load", "qv4-beehive-load", "qv4-hansard-load", "qv4-parliament-load", "qv4-news-load"]   # 15 November 2026 (Arthur: the readers running around the clock): each reader lane loads what the pull lands, and its chain (names, name pass, reader) follows, so new documents are read within hours, not the next day. qv4-courts-read stays first: it reads whatever is waiting even when a load goes red (3 November: a red load left 6,447 unread)
 every_s = 21600   # every six hours from 31 October (Arthur: the MCP is gathered continuously); was nightly 02:30 NZDT
 nice = 10
 
@@ -1456,6 +1456,17 @@ pieces_command = ["python", "-m", "registers.beehive.model_read", "--pieces"]   
 pieces = true
 can_share = true
 concurrency = 4
+
+[jobs.qv4-news-load]
+description = "The news register (Arthur, 17 November 2026: news site by site into the new estate, then the old collection retired): the old estate's copy since the last take and the provider's estate-news pages not yet read, by the old estate's own parsers, into news_private.articles; then each site's move into news.sites (ready: the provider published in the last 7 days and reaches back to where the old copy stops). Queued by each qv4-mcp-pull. Fetches nothing."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 7200
+query_timeout_s = 5400
+class = "due"
+priority = 130
+command = ["python", "-m", "registers.news.load", "--job"]
+nice = 10
 
 [jobs.qv4-beehive-load]
 description = "Beehive: rebuild the lane's tables from the MCP's beehive documents and the old estate's export, publish pub.beehive_releases and its tables on green. Nightly at 04:00 NZDT, after the pull (ruling 96)."

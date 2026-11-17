@@ -109,6 +109,11 @@ def record_url(record: dict):
     return None
 
 
+#: a news article's capture names no content type; its pointer waits with this one, and the download's answer
+#: (`meta.content_type`) replaces it when the file lands
+UNTYPED = "application/octet-stream"
+
+
 def file_pointer(record: dict):
     """(url, content_type, sha256, bytes) for the file a record points at:
     a `capture` block with a sha256, a content type (the record's or the
@@ -118,6 +123,8 @@ def file_pointer(record: dict):
         return None
     sha = cap.get("sha256")
     ctype = record.get("content_type") or cap.get("content_type")
+    if not ctype and record.get("kind") == "article":
+        ctype = UNTYPED          # estate-news names no type: the download's own answer names it (17 November 2026)
     url = record_url(record)
     if not (isinstance(sha, str) and _SHA.match(sha) and isinstance(ctype, str) and ctype.strip()
             and isinstance(url, str) and url.startswith(("http://", "https://"))):
@@ -558,6 +565,10 @@ def _take_file(conn, client, t: "Tables", fp: tuple, root, land, held, log, slee
                 data = None
             cap = meta.get("capture") if isinstance(meta.get("capture"), dict) else {}
             fetched_at = _stamp(cap.get("fetched_at"))                  # the provider's fetch time, where it is one
+            if ctype == UNTYPED:
+                said = meta.get("content_type") or cap.get("content_type")
+                if isinstance(said, str) and said.strip():
+                    ctype = said.strip()
         except (McpError, ShapeError) as e:
             if isinstance(e, McpError) and e.transient:
                 raise                                             # the server is away: the run stops, the row waits
@@ -582,6 +593,32 @@ def _take_file(conn, client, t: "Tables", fp: tuple, root, land, held, log, slee
             if log:
                 log(f"mcpsource: {corpus} seq {seq}: file not landed ({why[:160]})")
     return state, calls
+
+
+def point_held(conn, corpus: str, schema: str = SCHEMA, read=None) -> int:
+    """File pointers for records already landed whose pointer the pull did not make then (estate-news before
+    17 November 2026: its records name no content type). Reads each landed record from the store; writes only
+    `files` rows, each waiting, so the next pull downloads them. Returns the pointers added."""
+    if read is None:
+        from support.docstore.landing import read_bytes as read
+    t = Tables(conn, schema)
+    rows = conn.execute(f"SELECT a.seq, a.sha256, a.record_id FROM {t.t('arrivals')} a WHERE a.corpus = %s "
+                        f"AND NOT EXISTS (SELECT 1 FROM {t.t('files')} f WHERE f.corpus = a.corpus AND f.seq = a.seq "
+                        f"AND f.record_sha256 = a.sha256)", (corpus,)).fetchall()
+    out = []
+    for seq, sha, rid in rows:
+        try:
+            fp = file_pointer(json.loads(read(sha)))
+        except (OSError, ValueError, TypeError):
+            continue
+        if fp:
+            out.append((corpus, seq, sha, rid, fp[0], fp[1], fp[2], fp[3]))
+    with conn.transaction():
+        with conn.cursor() as cur:
+            cur.executemany(f"INSERT INTO {t.t('files')} (corpus, seq, record_sha256, record_id, url, content_type, "
+                            "capture_sha256, bytes) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                            "ON CONFLICT (corpus, seq, record_sha256) DO NOTHING", out)
+    return len(out)
 
 
 def files_waiting(conn, schema: str = SCHEMA) -> dict:
