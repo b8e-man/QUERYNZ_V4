@@ -1,0 +1,231 @@
+{
+ "tranche": 4,
+ "source": "old_incoming_news_private.articles",
+ "chosen_by": "registers.news.gold.sample",
+ "articles": [
+  {
+   "id": "a045ec50-f316-44d6-aa01-ad9e84c5b68b",
+   "site": "scoop.co.nz",
+   "title": "Cuffs On Six Offenders Following Drug And Cash Operation",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "aec227b4-8d34-4fa1-9ea5-e59bab7fb6bc",
+   "site": "scoop.co.nz",
+   "title": "The Cheapest Home Loan Isn't Necessarily The Right Home Loan",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "8dc8932c-eef5-4a6b-b1e9-0e483a568882",
+   "site": "stuff.co.nz",
+   "title": "Kiwi boxer David Nyika's world title showdown put on hold",
+   "post_date": "2026-10-30T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "de6a7af7-5383-4a9e-a244-78afc724303f",
+   "site": "stuff.co.nz",
+   "title": "Earth’s driest desert is covered in wildflowers right now",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "eb4e21c3-8a0f-436c-905f-8ed472d468c5",
+   "site": "rnz.co.nz",
+   "title": "'The green cow': World's Jersey breeders coming to New Zealand",
+   "post_date": "2026-10-27T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "e6b5c678-fd02-4707-8b19-eba53c85e171",
+   "site": "rnz.co.nz",
+   "title": "Timaru teenager facing cannabis charges after $54k found in shoebox",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "df65b0a6-665f-4f64-9a10-8af413e53e68",
+   "site": "odt.co.nz",
+   "title": "Top fire chief still on leave after rebuke by minister",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "ea49631d-aaa3-4977-b0be-7334e3b240c0",
+   "site": "odt.co.nz",
+   "title": "Cyclist killed in Port Hills crash",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "77c07372-67f9-490d-96a9-116778e1576f",
+   "site": "1news.co.nz",
+   "title": "Youngest victim in Oregon school shooting loved climbing, stuffed animals",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "3e9f5330-34e5-4e34-aa0b-a32551c03267",
+   "site": "1news.co.nz",
+   "title": "Voice recorder from US jet crash that killed 9 recovered",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "f158c545-a7b7-44a7-be24-d8f19bd99d11",
+   "site": "nzherald.co.nz",
+   "title": "Ukraine accuses US of helping Russia’s war effort with Starlink changes",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "04e11ea9-a85c-4d98-a7b9-1731404ce014",
+   "site": "nzherald.co.nz",
+   "title": "Blair's book strikes fear into bookies",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "65e5a8b2-0103-4854-a634-1461d51393a1",
+   "site": "newsroom.co.nz",
+   "title": "Campaign Cut-through: The $15.6 billion Treasury doesn’t need",
+   "post_date": "2026-11-04T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "b8e7636c-e11b-481b-8e74-045f8da291db",
+   "site": "newsroom.co.nz",
+   "title": "Why the world is working around the US",
+   "post_date": "2026-10-24T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "0bdf9eb4-9b85-413b-93f2-0d8f464c2418",
+   "site": "businessdesk.co.nz",
+   "title": "What Radius, Promisia, MCK and Echelon want: Stable policy and more",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "b0e7e792-2bd0-4266-8a2c-0824864b2355",
+   "site": "businessdesk.co.nz",
+   "title": "One Big Idea: Sarah Sinclair on a tax incentive for investing in people",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "45d2f265-2a5f-4723-9166-9fea9e5b4286",
+   "site": "interest.co.nz",
+   "title": "National shares 100-day plan if elected into government, Opportunity proposes a Future Generations Commissioner ‘to give future New Zealanders a voice’",
+   "post_date": "2026-10-25T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "b3680601-7337-4a8f-89d8-88fe69d13369",
+   "site": "interest.co.nz",
+   "title": "From nitpicky councils to no-cause evictions: Four housing voices on what this election’s housing policies get right and what they leave out",
+   "post_date": "2026-10-23T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "19c97895-1c62-4b4c-8932-a12bedca70d7",
+   "site": "farmersweekly.co.nz",
+   "title": "Spring cattle fairs deliver strong prices",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "6da39ca2-9c12-400a-ae51-f13e0b1642c7",
+   "site": "farmersweekly.co.nz",
+   "title": "Meat export value rises but volatility remains",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "48cbe3f4-81b5-48c2-8cfb-b0fa3c1c9f17",
+   "site": "businessdesk.co.nz",
+   "title": "The Warehouse Group returns to profit with $11.2m earnings",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "case:the-warehouse-company"
+  },
+  {
+   "id": "7d8405d7-185a-4de8-83fb-1f9464e25a42",
+   "site": "1news.co.nz",
+   "title": "Mothers and babies pay the price as Fiji's HIV emergency worsens",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "case:warehouse-the-word"
+  },
+  {
+   "id": "b08d1f5c-c8cd-46cb-a715-587354de026d",
+   "site": "businessdesk.co.nz",
+   "title": "Meta’s new AI agent is an instant hit—and the backlash has already begun",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "case:several-chief-executives"
+  },
+  {
+   "id": "09f79e09-f5fb-490e-9c8e-6b8a0c1fe1db",
+   "site": "businessdesk.co.nz",
+   "title": "Fonterra follows the milk south",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "case:former-and-acting"
+  },
+  {
+   "id": "668e32fc-2c01-4508-a2a5-578bdf6d5a79",
+   "site": "stuff.co.nz",
+   "title": "Marnus Labuschagne axing confirmed for test series against New Zealand",
+   "post_date": "2026-11-09T00:00:00+13:00",
+   "why": "case:sport"
+  },
+  {
+   "id": "6c59a09e-a389-4e78-9a45-7400901f0f2a",
+   "site": "scoop.co.nz",
+   "title": "National Champion Joins Field As Rotorua Prepares For 50km Title Race",
+   "post_date": "2026-09-21T00:00:00+12:00",
+   "why": "case:entertainment"
+  },
+  {
+   "id": "47bf37a9-a44d-4c8f-858f-dc197f3a8f47",
+   "site": "scoop.co.nz",
+   "title": "Elder Housing Tenant Awarded $5000 After Man On Home Detention Moves In Next Door",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "case:cannot-be-named"
+  },
+  {
+   "id": "54ac8026-1eef-41ff-a33a-bc9ba01007c6",
+   "site": "nzherald.co.nz",
+   "title": "Fat Freddy's Drop, Sir Dave Dobbyn lead Homegrown's 20th lineup",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "case:hamilton-a-person"
+  },
+  {
+   "id": "45f61563-6e3a-4836-bfe3-4ffacf459479",
+   "site": "police.govt.nz",
+   "title": "Shoplifter faces over $10k in charges",
+   "post_date": "2026-10-18T00:00:00+13:00",
+   "why": "case:police-release"
+  },
+  {
+   "id": "c0e0de47-d5b0-4560-b629-76b220e4a737",
+   "site": "stuff.co.nz",
+   "title": "Live: Rosé, road trips, and a horse race",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "case:live-blog"
+  },
+  {
+   "id": "14241477-5a1a-4f16-8520-bd4e2449d3d4",
+   "site": "odt.co.nz",
+   "title": "Alberta votes to remain part of Canada",
+   "post_date": "2026-10-20T00:00:00+13:00",
+   "why": "case:wire-story"
+  },
+  {
+   "id": "78018ba1-7627-4eff-a385-c3a7f5ad294d",
+   "site": "odt.co.nz",
+   "title": "How things can change in 30 years",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "case:opinion"
+  }
+ ]
+}

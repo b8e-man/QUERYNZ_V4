@@ -286,7 +286,10 @@ QUOTES_PER_ARTICLE = 2
 WRITER_CLAIMS = 1
 #: claims asked per article, at most
 CLAIMS_PER_ARTICLE = 4
-TONE_PER_ARTICLE = 1
+#: Arthur, 18 November 2026: tone scored well but wants more samples; neutral tones are asked too
+TONE_PER_ARTICLE = 3
+#: a quoted fragment under this many words is a name, term or turn of phrase, not speech (Arthur's tranche 3 notes)
+QUOTE_MIN_WORDS = 4
 
 
 #: Arthur, 16 November 2026, of "fled — Alastair Paton": "fled is a word not a fact. fled must always include either a
@@ -304,7 +307,12 @@ def _whole_claim(claim: str) -> bool:
     first = words[0].lower() if words else ""
     irregular = _CLAIM_VERB.fullmatch(first) and not re.fullmatch(r"\w+(ed|s)", first)     # "went on to…": no subject
     return (len(words) >= 6 and not _CLAIM_OPENS_ON_VERB.match(claim) and not irregular
-            and bool(_CLAIM_VERB.search(" ".join(words[1:]))))
+            and bool(_CLAIM_VERB.search(" ".join(words[1:]))) and not _POINTS_BACK.search(claim))
+
+
+#: Arthur, tranche 3: "to be a useful claim we need to know which payments ... 'those' needs a specified target";
+#: "'the tag' need[s] a specified target". A statement that points back to something it does not name is not whole.
+_POINTS_BACK = re.compile(r"\b(those|these|such|this)\s+(?!year\b|week\b|month\b|morning\b|afternoon\b|evening\b|season\b|is\b|was\b)[a-z]+", re.I)
 
 
 #: Arthur, 16 November 2026: "None of the answers I am giving are golden corpus candidates. we are refining your ability
@@ -428,7 +436,9 @@ def build2(tranche: int, run: str = "run6") -> dict:
                     # claimant by the shortest name the sentence prints, the statement on its own line
                     flat = " ".join(ctx.split()).lower()
                     printed = [f for f in _forms(xe, says) if f.lower() in flat] if says != "writer" else []
-                    short = min(printed, key=len) if printed else (_name(xe, says) if says != "writer" else "")
+                    # Arthur, tranche 3: "it is Senior Constable Paul Stanko speaking": the full name and title shown,
+                    # the printed form marked in the text
+                    short = (_name(xe, says) or (min(printed, key=len) if printed else "")) if says != "writer" else ""
                     head = {"charged": "Charges", "decided": "Finds"}.get(cl.get("stance"), "Says")
                     who = ([{"text": "Who: "}, {"text": "the writer, as plain fact", "mark": "who"}] if says == "writer"
                            else [{"text": "Who: "}, {"text": short, "mark": "who"}])
@@ -447,6 +457,10 @@ def build2(tranche: int, run: str = "run6") -> dict:
             risk = lambda q: (0 if not q.get("speaker") else 1 if q.get("channel") == "document" else
                               2 if q.get("form") in ("indirect", "mixed") else 3)
             quotes = sorted((q for q in x.get("quotes") or [] if isinstance(q, dict) and (q.get("text") or "").strip()), key=risk)
+            short = [q for q in quotes if len(q["text"].split()) < QUOTE_MIN_WORDS]
+            if short:
+                skipped["quote (a term, not speech)"] = skipped.get("quote (a term, not speech)", 0) + len(short)
+            quotes = [q for q in quotes if len(q["text"].split()) >= QUOTE_MIN_WORDS]
             for q in quotes[:QUOTES_PER_ARTICLE]:
                 t = q["text"].strip()
                 spk = q.get("speaker")
@@ -475,7 +489,8 @@ def build2(tranche: int, run: str = "run6") -> dict:
                   f"{a['title']} — {lead} …", {},
                   [{"key": k, "label": v} for k, v in TYPE_LABEL2.items()], typ)
 
-            tones = [s for s in x.get("sentiment") or [] if isinstance(s, dict) and s.get("value") != "neutral"][:TONE_PER_ARTICLE]
+            tones = [s for s in x.get("sentiment") or [] if isinstance(s, dict)]
+            tones = sorted(tones, key=lambda s: s.get("value") == "neutral")[:TONE_PER_ARTICLE]
             for s in tones:
                 voice = "the writer" if s.get("from") in ("article", "own") else _name(xe, s.get("from"))
                 ev_ = s.get("evidence") or ""
