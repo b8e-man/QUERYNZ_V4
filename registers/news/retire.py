@@ -39,9 +39,25 @@ def old_reads_the_list(path: str = OLD_REGISTRY) -> bool:
         return False
 
 
-def retire(conn, hosts: list = None, path: str = RETIRED, reads: bool = None) -> dict:
-    """List each `ready` host (all of them when none named); log each listed host once the old registry reads it."""
+def in_registry(path: str = OLD_REGISTRY) -> set:
+    """The hosts the old registry holds: only these does the list stop. The old estate collects others (the Gazette)
+    by programs of their own, which the list cannot stop."""
+    import re
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {m.removeprefix("www.") for m in re.findall(r'^\s*"([a-z0-9.-]+\.[a-z]+)[^"]*"\s*:\s*Entry\(', f.read(), re.M)}
+    except OSError:
+        return set()
+
+
+def retire(conn, hosts: list = None, path: str = RETIRED, reads: bool = None, registry: set = None) -> dict:
+    """List each `ready` host (all of them when none named) the old registry holds; log each listed host once the old
+    registry reads the list. A ready host outside the registry is returned under "outside the registry", for
+    Arthur."""
     ready = {h for (h,) in conn.execute("SELECT host FROM news.sites WHERE state = 'ready'").fetchall()}
+    registry = in_registry() if registry is None else registry
+    outside = sorted(h for h in ready if h not in registry)
+    ready -= set(outside)
     want = ready if not hosts else {h for h in hosts if h in ready}
     refused = sorted(set(hosts or []) - ready)
     have = listed(path)
@@ -60,7 +76,8 @@ def retire(conn, hosts: list = None, path: str = RETIRED, reads: bool = None) ->
                                    "retired:qv4, so its coverage job and runners skip it", WORD))
             if cur.rowcount:
                 logged.append(h)
-    return {"listed": add, "not ready": refused, "logged": logged, "old reads the list": reads}
+    return {"listed": add, "not ready": refused, "logged": logged, "old reads the list": reads,
+            "outside the registry": outside}
 
 
 def main(argv=None) -> int:

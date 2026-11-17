@@ -181,13 +181,16 @@ SITES = f"""
 WITH o AS (
     SELECT host, count(*) AS n, max(published_at)::date AS newest, max(fetched_at)::date AS last_fetch
     FROM news_private.articles WHERE 'old estate' = ANY (held_by) GROUP BY host),
+n AS (
+    SELECT host, url_key, published_at::date AS d FROM news_private.articles WHERE 'provider' = ANY (held_by)
+    {{others}}),
 p AS (
-    SELECT host, count(*) AS n, min(published_at)::date AS earliest, max(published_at)::date AS newest,
-           count(*) FILTER (WHERE published_at > now() - interval '{PROVIDING_DAYS} days') AS week
-    FROM news_private.articles WHERE 'provider' = ANY (held_by) GROUP BY host),
+    SELECT host, count(DISTINCT url_key) AS n, min(d) AS earliest, max(d) AS newest,
+           count(DISTINCT url_key) FILTER (WHERE d > (now() - interval '{PROVIDING_DAYS} days')::date) AS week
+    FROM n GROUP BY host),
 b AS (
-    SELECT host, count(*) AS held FROM news_private.articles
-    WHERE 'old estate' = ANY (held_by) AND 'provider' = ANY (held_by) GROUP BY host),
+    SELECT a.host, count(*) AS held FROM news_private.articles a
+    WHERE 'old estate' = ANY (a.held_by) AND EXISTS (SELECT 1 FROM n WHERE n.url_key = a.url_key) GROUP BY a.host),
 s AS (
     SELECT news_private.host_of(r.url) AS host, count(*) AS pages,
            count(*) FILTER (WHERE r.state IN ('stub', 'no text')
@@ -200,6 +203,23 @@ SELECT coalesce(o.host, p.host), coalesce(o.n, 0), o.newest, o.last_fetch, coale
 FROM o FULL JOIN p ON p.host = o.host LEFT JOIN news.retirements r ON r.host = coalesce(o.host, p.host)
 LEFT JOIN b ON b.host = coalesce(o.host, p.host) LEFT JOIN s ON s.host = coalesce(o.host, p.host)
 """
+
+
+#: the sites the new estate takes by a lane of its own, not estate-news (Arthur, 18 November 2026: count them so the
+#: Gazette and the Beehive move and retire on the same rules): each lane's rows from its new source only, never the
+#: rows it took from the old estate's export
+OTHER_SOURCES = [
+    ("beehive.releases", "SELECT news_private.host_of(url), news_private.url_key(url), published_on "
+                         "FROM beehive.releases WHERE origin = 'mcp'"),
+    ("gazette.notices", "SELECT news_private.host_of(url), news_private.url_key(url), published_on "
+                        "FROM gazette.notices WHERE source_note LIKE 'read from DigitalNZ%%'"),
+]
+
+
+def sites_sql(conn) -> str:
+    """SITES with each other source whose table this database holds."""
+    have = [q for t, q in OTHER_SOURCES if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
+    return SITES.replace("{others}", "".join(f"\n    UNION ALL {q}" for q in have))
 
 
 def judge(old_n, old_newest, prov_n, prov_earliest, prov_newest, week, retired, pages=0, stubs=0,
@@ -232,7 +252,7 @@ def judge(old_n, old_newest, prov_n, prov_earliest, prov_newest, week, retired, 
 
 
 def sites(conn) -> dict:
-    rows = conn.execute(SITES).fetchall()
+    rows = conn.execute(sites_sql(conn)).fetchall()
     out = []
     for host, on, onew, olast, pn, pe, pnew, week, retired, pages, stubs, held in rows:
         state, why = judge(on, onew, pn, pe, pnew, week, retired, pages, stubs, held)

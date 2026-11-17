@@ -98,3 +98,24 @@ def test_the_stuff_mastheads_are_read_from_their_json():
     assert x.title == "A title" and "sell the land" in x.text and x.author == "A Writer"
     assert x.published_at.year == 2026 and x.categories == ["NZ news", "Councils"]
     assert stuffmasthead.extract("<html></html>", "u") is None
+
+
+def test_a_ready_site_the_old_registry_does_not_hold_is_reported_not_retired(tmp_path):
+    from registers.news import retire
+
+    class Conn:
+        def execute(self, sql, args=None):
+            class R:
+                rowcount = 1
+
+                def fetchall(self):
+                    return [("gazette.govt.nz",), ("beehive.govt.nz",)]
+            return R()
+
+    out = retire.retire(Conn(), None, path=str(tmp_path / "r.txt"), reads=False, registry={"beehive.govt.nz"})
+    assert out["listed"] == ["beehive.govt.nz"] and out["outside the registry"] == ["gazette.govt.nz"]
+
+
+def test_the_lanes_with_their_own_source_count_only_their_new_rows():
+    sql = " ".join(q for _, q in load.OTHER_SOURCES)
+    assert "origin = 'mcp'" in sql and "DigitalNZ" in sql
