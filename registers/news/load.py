@@ -199,7 +199,8 @@ s AS (
     LEFT JOIN news_private.articles a ON a.url_key = news_private.url_key(r.url)
     GROUP BY 1)
 SELECT coalesce(o.host, p.host), coalesce(o.n, 0), o.newest, o.last_fetch, coalesce(p.n, 0), p.earliest, p.newest,
-       coalesce(p.week, 0), r.host IS NOT NULL, coalesce(s.pages, 0), coalesce(s.stubs, 0), coalesce(b.held, 0)
+       coalesce(p.week, 0), r.host IS NOT NULL, coalesce(s.pages, 0), coalesce(s.stubs, 0), coalesce(b.held, 0),
+       r.at::date
 FROM o FULL JOIN p ON p.host = o.host LEFT JOIN news.retirements r ON r.host = coalesce(o.host, p.host)
 LEFT JOIN b ON b.host = coalesce(o.host, p.host) LEFT JOIN s ON s.host = coalesce(o.host, p.host)
 """
@@ -254,8 +255,10 @@ def judge(old_n, old_newest, prov_n, prov_earliest, prov_newest, week, retired, 
 def sites(conn) -> dict:
     rows = conn.execute(sites_sql(conn)).fetchall()
     out = []
-    for host, on, onew, olast, pn, pe, pnew, week, retired, pages, stubs, held in rows:
+    for host, on, onew, olast, pn, pe, pnew, week, retired, pages, stubs, held, retired_on in rows:
         state, why = judge(on, onew, pn, pe, pnew, week, retired, pages, stubs, held)
+        if retired and olast and retired_on and olast > retired_on:     # the old estate still fetches it
+            why = f"RETIRED BUT STILL FETCHED: the old estate fetched from it on {olast}, after its retirement on {retired_on}"
         out.append((host, on, onew, olast, pn, pe, pnew, week, state, why))
     with conn.transaction():
         conn.execute("DELETE FROM news.sites")
