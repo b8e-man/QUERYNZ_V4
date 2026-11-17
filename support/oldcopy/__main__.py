@@ -1,5 +1,6 @@
 """python -m support.oldcopy tables|files|status|quarantine (support/oldcopy/__init__.py has the commands and the limits)."""
 import argparse
+import json
 import os
 import sys
 
@@ -54,6 +55,19 @@ def _stop(any_hour):
     return (lambda: False) if any_hour else (lambda: not off_peak())
 
 
+def _grown() -> set:
+    """Caught-up tables the old estate has written to since (qv4-old-consumed's `waiting` with new rows): copied
+    again, so the copy keeps up while the old jobs still write (17 November 2026: incoming_news.articles stopped at
+    11 November, caught up, while the old estate went on collecting news)."""
+    from support.oldcopy import consumed
+    try:
+        with open(consumed.OUT_FILE, encoding="utf-8") as f:
+            rep = json.load(f)
+    except (OSError, ValueError):
+        return set()
+    return {p["piece"] for p in rep.get("pieces") or [] if p.get("class") == "waiting" and "new rows since" in (p.get("why") or "")}
+
+
 def cmd_tables(a) -> int:
     from support.oldcopy import tables as T
     todo, skipped = inventory.tables(_inv(a.inventory), OLD_DATABASES)
@@ -62,9 +76,10 @@ def cmd_tables(a) -> int:
         with _new() as dst:
             ensure_ledger(dst)
             dst.commit()
+            grown = _grown()
             for t in todo:
                 caught = [T.cursor_of(dst, LEDGER, t.piece, i)[1] for i in range(len(t.ranges))]
-                if not all(caught) or a.again:
+                if not all(caught) or a.again or t.piece in grown:
                     print(t.piece)
         return 0
     if not a.piece:
