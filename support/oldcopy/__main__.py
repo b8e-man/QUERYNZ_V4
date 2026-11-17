@@ -106,9 +106,15 @@ def cmd_tables(a) -> int:
         with _new() as dst:
             ensure_ledger(dst)
             dst.commit()
+            # a caught-up table the old estate has written to since is swept: its key may not grow in order (a uuid),
+            # so the copier's cursor never sees the new rows (18 November 2026: incoming_news.articles stayed at
+            # 11 November though listed again every night)
+            caught = all(T.cursor_of(dst, LEDGER, spec.piece, i)[1] for i in range(len(spec.ranges)))
+            dst.rollback()
+            sweep = _sweep(a) or (caught and spec.piece in _grown())
             try:
-                go = T.sweep if _sweep(a) else T.copy_table
-                kw = {} if _sweep(a) else {"rows": a.rows}
+                go = T.sweep if sweep else T.copy_table
+                kw = {} if sweep else {"rows": a.rows}
                 out = go(src, dst, spec, budget_s=a.budget_s, stop=_stop(_any_hour(a)), **kw)
             except T.Refused as exc:
                 print(f"support.oldcopy: {spec.piece} refused: {exc}")
