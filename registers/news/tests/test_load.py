@@ -119,3 +119,44 @@ def test_a_ready_site_the_old_registry_does_not_hold_is_reported_not_retired(tmp
 def test_the_lanes_with_their_own_source_count_only_their_new_rows():
     sql = " ".join(q for _, q in load.OTHER_SOURCES)
     assert "origin = 'mcp'" in sql and "DigitalNZ" in sql
+
+
+KIWIBLOG = """<ul><li class="comment-li"><article id="comment-11" class="jumplink">
+<div class="comment byuser comment-author-ann even depth-1"><div class="comdiv-a">
+<header class="comment-author"><h3><a href="https://example.org/ann">Ann</a></h3></header>
+<div class="comment-content"><div><p>First point.</p></div></div>
+<footer class="comment-meta"><ul><li class="voting"><span id="karma-11-up">4</span><span id="karma-11-down">1</span></li>
+<li class="comdate"><a href="#comment-11">November 8, 2026 3:37am</a></li></ul></footer></div></div></article>
+<ul class="children"><li class="comment-li"><article id="comment-12"><div class="comment odd depth-2"><div>
+<header class="comment-author"><h3>Bob</h3></header><div class="comment-content"><p>A reply.</p></div>
+<footer><ul><li class="comdate">November 8, 2026 6:55am</li></ul></footer></div></div></article></li></ul></li></ul>"""
+
+STANDARD = """<ol><li id="li-comment-21" class="comment byuser comment-author-weka depth-1 parent"><article id="comment-21">
+<footer class="comment-meta"><div class="comment-author vcard"><img src="https://a/1"><cite class="fn">weka</cite></div>
+<time datetime="2026-11-07T19:03:21+13:00">7 Nov</time></footer><div class="comment-content"><p>Hello.</p></div></article>
+<ol class="children"><li id="li-comment-22" class="comment depth-2"><article id="comment-22"><footer class="comment-meta">
+<div class="comment-author vcard"><cite class="fn">phil</cite></div><time datetime="2026-11-07T19:10:49+13:00">x</time>
+</footer><div class="comment-content"><p>Hi.</p></div></article></li></ol></li></ol>"""
+
+
+def test_wordpress_comments_keep_the_reply_chain_the_site_user_and_the_time():
+    from registers.news.extract import wpcomments
+    k = {c.comment_id: c for c in wpcomments.extract(KIWIBLOG)}
+    assert k["11"].parent_id is None and k["12"].parent_id == "11"
+    assert k["11"].author_slug == "ann" and k["11"].author_url == "https://example.org/ann" and k["12"].author_slug is None
+    assert (k["11"].votes_up, k["11"].votes_down) == (4, 1) and k["12"].posted_at.hour == 6
+    s = {c.comment_id: c for c in wpcomments.extract(STANDARD)}
+    assert s["22"].parent_id == "21" and s["21"].author_slug == "weka" and s["22"].author_name == "phil"
+    assert s["21"].posted_at.isoformat() == "2026-11-07T19:03:21+13:00" and s["21"].text == "Hello."
+    assert wpcomments.extract("<p>no comments</p>") == []
+
+
+def test_the_commenter_key_is_the_sites_mark_then_the_profile_link_then_the_name():
+    from registers.news import comments
+    from registers.news.extract.wpcomments import Comment
+    c = Comment("1", None, "Ann B", "ann", "https://x", None, None, "t")
+    assert comments.commenter_key(c) == ("user:ann", "site user")
+    c.author_slug = None
+    assert comments.commenter_key(c) == ("link:https://x", "profile link")
+    c.author_url = None
+    assert comments.commenter_key(c) == ("name:ann b", "display name")

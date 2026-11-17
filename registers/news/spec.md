@@ -15,3 +15,20 @@ old estate"; "go site by site. after the site is migrated and the provider is pr
    whose word. In the old estate a site is collected by `querynz-coverage.timer` (`ops/coverage_backwalk.py`), which
    takes every host whose `status` is `ready` in `ingestion/newsscrapers/registry.py`; its `newsscrapers` timers
    were disabled on 11 November. There is no per-site switch but that status field. A ready site the registry does not hold (the Gazette, collected by the old estate's own `ingestion/gazette` program) is not listed or logged; the load reports it under "outside the registry" for Arthur.
+
+## Comments (Arthur, 18 November 2026)
+
+"we want all comments and we want to efficiently link them to both the articles and also the user"; "start with the
+sites we already have. build the schema and ask the mcp to update their capture process to capture the comments
+going forward. dont worry about backwalking at this stage". Linking a commenter across sites or to a known person is
+"a secondary processing question": not built.
+
+- `news_private.comments`: one row per (site, comment id), read from the provider's pages by extract/wpcomments.py
+  (WordPress markup: kiwiblog, thestandard, newsroom, baybuzz). `url_key` joins `news_private.articles`;
+  `commenter_key` joins `news_private.commenters`; `parent_id` is the comment replied to. A comment a later capture
+  of the article no longer shows gets `absent_since`; an edited text is a new `comment_versions` line.
+- `news_private.commenters`: rebuilt every load. `key_kind` is `site user` (the site's own `comment-author-<slug>`
+  mark), `profile link`, or `display name` (two people may share one).
+- `news_private.comment_read`: every page read for comments. Each `qv4-news-load` reads the new pages.
+- Sites whose comments load after the page opens (nzherald, stuff, rnz, the Spinoff's Coral) hold none in the
+  provider's pages; the provider was asked to capture them going forward (`estate-news-comments@2026-11-18`).

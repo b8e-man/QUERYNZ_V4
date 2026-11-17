@@ -6,6 +6,7 @@ retire the old").
     python -m registers.news.load --old            the old estate's copy only (rows fetched since the last take)
     python -m registers.news.load --provider [--limit N]   the provider's landed pages not yet read
     python -m registers.news.load --sites          each site's move only
+    python -m registers.news.load --comments       the comments on the provider's pages only (comments.py)
 
 - **The old estate's copy** (`old_incoming_news_private.articles`, topped up nightly by support.oldcopy while the old
   collection runs): every row fetched since the last take, one per address (the longest text where the copy holds
@@ -276,10 +277,11 @@ def main(argv=None) -> int:
     ap.add_argument("--old", action="store_true")
     ap.add_argument("--provider", action="store_true")
     ap.add_argument("--sites", action="store_true")
+    ap.add_argument("--comments", action="store_true", help="the comments on the provider's pages only")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--reread-empty", action="store_true", help="read again the pages that gave no text")
     a = ap.parse_args(argv)
-    every = a.job or not (a.old or a.provider or a.sites)
+    every = a.job or not (a.old or a.provider or a.sites or a.comments)
     started, counts = jobrun.now(), {}
     try:
         with db.connect(db.OWNER_KEY, db.LIVE, autocommit=True) as conn:
@@ -291,6 +293,11 @@ def main(argv=None) -> int:
             if every or a.provider:
                 counts["provider"] = read_provider(conn, a.limit, reread_empty=a.reread_empty)
                 print("provider pages:", counts["provider"], flush=True)
+            if every or a.comments:      # the comments on the same pages (registers/news/comments.py)
+                from registers.news import comments
+                counts["comments"] = comments.read_comments(conn, a.limit)
+                counts["commenters"] = comments.commenters(conn)
+                print("comments:", counts["comments"], "commenters:", counts["commenters"], flush=True)
             if every or a.sites:
                 counts["sites"] = sites(conn)
                 print("sites:", counts["sites"], flush=True)

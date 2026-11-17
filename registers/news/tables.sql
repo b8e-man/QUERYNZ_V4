@@ -84,3 +84,70 @@ CREATE TABLE IF NOT EXISTS news.retirements (
     by_word   text NOT NULL,
     at        timestamptz NOT NULL DEFAULT now()
 );
+
+-- ── comments (Arthur, 18 November 2026: "we want all comments and we want to efficiently link them to both the
+-- articles and also the user"; collecting only, the links across sites or to known people are later work) ──
+
+-- one row per comment on a site: its newest form, linked to its article by url_key (joins news_private.articles)
+-- and to its commenter by commenter_key (joins news_private.commenters). Read from the provider's pages in fetch
+-- order, so a comment a later capture of the article no longer shows gets absent_since, never a deletion.
+CREATE TABLE IF NOT EXISTS news_private.comments (
+    host             text NOT NULL,
+    comment_id       text NOT NULL,                 -- the site's own id
+    url_key          text NOT NULL,                 -- the article's address, folded (news_private.url_key)
+    url              text NOT NULL,
+    parent_id        text,                          -- the comment it replies to, on the same site
+    commenter_key    text NOT NULL,                 -- 'user:<site slug>' | 'link:<profile link>' | 'name:<display name>'
+    author_name      text,
+    author_slug      text,
+    author_url       text,
+    avatar_url       text,
+    posted_at        timestamptz,
+    text             text NOT NULL,
+    chars            integer NOT NULL,
+    votes_up         integer,
+    votes_down       integer,
+    versions         integer NOT NULL DEFAULT 1,    -- distinct texts seen (news_private.comment_versions)
+    first_seen_at    timestamptz NOT NULL,
+    last_seen_at     timestamptz NOT NULL,
+    capture_sha256   text NOT NULL,                 -- the newest capture showing it
+    absent_since     timestamptz,                   -- a later capture of the article did not show it
+    PRIMARY KEY (host, comment_id)
+);
+CREATE INDEX IF NOT EXISTS comments_article ON news_private.comments (url_key);
+CREATE INDEX IF NOT EXISTS comments_commenter ON news_private.comments (host, commenter_key);
+
+-- every text a comment has had, with the capture that showed it (an edit is a new line)
+CREATE TABLE IF NOT EXISTS news_private.comment_versions (
+    host             text NOT NULL,
+    comment_id       text NOT NULL,
+    text_md5         text NOT NULL,
+    text             text NOT NULL,
+    capture_sha256   text NOT NULL,
+    seen_at          timestamptz NOT NULL,
+    PRIMARY KEY (host, comment_id, text_md5)
+);
+
+-- one row per commenter per site, rebuilt from the comments at every load. key_kind says how firm the key is: the
+-- site's own user mark, a profile link the commenter gave, or only a display name (two people may share one)
+CREATE TABLE IF NOT EXISTS news_private.commenters (
+    host             text NOT NULL,
+    commenter_key    text NOT NULL,
+    key_kind         text NOT NULL CHECK (key_kind IN ('site user', 'profile link', 'display name')),
+    names            text[] NOT NULL,               -- every display name seen under the key
+    comments         bigint NOT NULL,
+    articles         bigint NOT NULL,
+    first_comment_at timestamptz,
+    last_comment_at  timestamptz,
+    PRIMARY KEY (host, commenter_key)
+);
+
+-- every provider page read for comments (a page read once; a new capture of the article is a new page)
+CREATE TABLE IF NOT EXISTS news_private.comment_read (
+    capture_sha256   text NOT NULL,
+    url              text NOT NULL,
+    comments         integer NOT NULL,
+    why              text,
+    at               timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (capture_sha256, url)
+);
