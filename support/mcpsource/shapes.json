@@ -1941,6 +1941,9 @@
    "capture": [
     "dict"
    ],
+   "capture_url": [
+    "str"
+   ],
    "content_encoding": [
     "str"
    ],
@@ -1970,6 +1973,9 @@
     "str"
    ],
    "path": [
+    "str"
+   ],
+   "reason": [
     "str"
    ],
    "seq": [
@@ -2015,6 +2021,9 @@
      "str"
     ],
     "path": [
+     "str"
+    ],
+    "reason": [
      "str"
     ],
     "sha256": [
@@ -4351,6 +4360,9 @@
     "null",
     "str"
    ],
+   "response_meta": [
+    "dict"
+   ],
    "seq": [
     "int"
    ],
@@ -4384,6 +4396,27 @@
    },
    "names": {
     "*": [
+     "str"
+    ]
+   },
+   "response_meta": {
+    "content_length": [
+     "null",
+     "str"
+    ],
+    "content_type": [
+     "null",
+     "str"
+    ],
+    "etag": [
+     "null",
+     "str"
+    ],
+    "final_url": [
+     "str"
+    ],
+    "last_modified": [
+     "null",
      "str"
     ]
    },
