@@ -509,7 +509,9 @@ def build2(tranche: int, run: str = "run6") -> dict:
             articles[aid]["tags"]["site_type"] = told
             if told:                      # the site already says what it is: checked against the model, not asked
                 skipped["type (the site says)"] = skipped.get("type (the site says)", 0) + 1
-            else:
+            elif tranche >= 5:            # Arthur, 18 November 2026: "let's get rid of the article types question.
+                skipped["type (the model's guess stands)"] = skipped.get("type (the model's guess stands)", 0) + 1
+            else:                         # The model can just guess those"
               ask("type", aid, "type", [{"text": "What kind of article is this?"}],
                   f"{a['title']} — {lead} …", {},
                   [{"key": k, "label": v} for k, v in TYPE_LABEL2.items()], typ)
