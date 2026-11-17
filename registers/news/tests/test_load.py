@@ -39,3 +39,30 @@ def test_the_parsers_fetch_nothing():
         src = f.read_text()
         assert "make_client(" not in src.replace("def make_client", "") or f.name == "base.py", f.name
     assert "httpx" not in (here / "base.py").read_text()
+
+
+def test_only_a_ready_site_is_listed_and_logging_waits_for_the_old_registry(tmp_path):
+    from registers.news import retire
+
+    class Conn:
+        def __init__(self):
+            self.logged = []
+
+        def execute(self, sql, args=None):
+            conn = self
+
+            class R:
+                rowcount = 1
+
+                def fetchall(self):
+                    return [("scoop.co.nz",), ("stuff.co.nz",)]
+            if sql.startswith("INSERT"):
+                conn.logged.append(args[0])
+            return R()
+
+    path = str(tmp_path / "retired.txt")
+    c = Conn()
+    out = retire.retire(c, ["scoop.co.nz", "rnz.co.nz"], path=path, reads=False)
+    assert out["listed"] == ["scoop.co.nz"] and out["not ready"] == ["rnz.co.nz"] and not c.logged
+    out = retire.retire(c, None, path=path, reads=True)
+    assert out["listed"] == ["stuff.co.nz"] and c.logged == ["scoop.co.nz", "stuff.co.nz"]

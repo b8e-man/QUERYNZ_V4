@@ -222,6 +222,13 @@ def main(argv=None) -> int:
             if every or a.sites:
                 counts["sites"] = sites(conn)
                 print("sites:", counts["sites"], flush=True)
+            if every:          # a ready site is retired from the old collection (registers/news/retire.py)
+                from registers.news import retire
+                counts["retire"] = retire.retire(conn)
+                print("retire:", counts["retire"], flush=True)
+                if counts["retire"]["logged"]:
+                    counts["sites"] = sites(conn)
+                    print("sites:", counts["sites"], flush=True)
     except Exception as exc:
         if a.job:
             jobrun.record(JOB, False, f"{type(exc).__name__}: {str(exc)[:300]}", started, counts)
