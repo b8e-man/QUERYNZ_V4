@@ -30,6 +30,9 @@ RECENT = ("post_date > now() - interval '60 days' AND length(text_content) BETWE
 #: more articles and fewer questions each (Arthur, 18 November 2026: "it is important for you to bring me fresh
 #: articles"), so 7 and 2 (94 articles, at most questions.PER_ARTICLE each)
 PER_SITE, PER_SEED = 7, 2
+#: from tranche 6, 140 questions one an article (questions.QUOTA) out of the articles that give a usable tone, so more
+#: are read than asked
+PER_SITE_6, PER_SEED_6 = 25, 3
 
 #: the commonest news sites of the last sixty days (te reo sites wait for their own session)
 SITES = ["scoop.co.nz", "stuff.co.nz", "rnz.co.nz", "odt.co.nz", "1news.co.nz", "nzherald.co.nz", "newsroom.co.nz",
@@ -80,24 +83,42 @@ def choose(tranche: int) -> list:
         f = HERE / f"tranche-{earlier}.json"
         if f.exists():
             seen |= {a["id"] for a in json.loads(f.read_text())["articles"]}
+    import difflib
     with _conn() as c:
+        # from tranche 6, nor one whose title or opening is near one already held (Arthur, 18 November 2026: "some of
+        # these articles are the same again": a newsletter rerun under a new title, a weekly round-up in new numbers)
+        held = []
+        if tranche >= 6 and seen:
+            held = [(t or "", o or "") for t, o in c.execute(
+                f"SELECT lower(title), left(regexp_replace(coalesce(text_content,''),'\\s+',' ','g'), 300) FROM {T} "
+                "WHERE id::text = ANY(%s)", (list(seen),)).fetchall()]
+
+        def near(title, opening):
+            return any(difflib.SequenceMatcher(None, title, t).ratio() > 0.6
+                       or difflib.SequenceMatcher(None, opening, o).ratio() > 0.45 for t, o in held)
+
         def take(where, n, why):
-            rows = c.execute(f"SELECT id::text, {HOST}, title, post_date FROM {T} WHERE {RECENT} AND {where} "
+            rows = c.execute(f"SELECT id::text, {HOST}, title, post_date, "
+                             f"left(regexp_replace(coalesce(text_content,''),'\\s+',' ','g'), 300) FROM {T} WHERE {RECENT} AND {where} "
                              f"ORDER BY {_order(f't{tranche}-{why}')} LIMIT {n * 4}").fetchall()
             got = 0
             for r in rows:
                 if r[0] in seen or got == n:
                     continue
+                if tranche >= 6:
+                    if near((r[2] or "").lower(), r[4] or ""):
+                        continue
+                    held.append(((r[2] or "").lower(), r[4] or ""))
                 seen.add(r[0]); got += 1
                 picked.append({"id": r[0], "site": r[1], "title": r[2], "post_date": r[3].isoformat() if r[3] else None,
                                "why": why})
             if got < n:
                 print(f"short: {why} {got} of {n}", file=sys.stderr)
         for s in SITES:
-            take(f"{HOST} = '{s}'", PER_SITE if tranche >= 5 else 2, f"site:{s}")
+            take(f"{HOST} = '{s}'", (PER_SITE_6 if tranche >= 6 else PER_SITE if tranche >= 5 else 2), f"site:{s}")
         news = " OR ".join(f"{HOST} = '{x}'" for x in SITES + ["thespinoff.co.nz", "sunlive.co.nz", "pmn.co.nz", "times.co.nz", "police.govt.nz"])
         for why, where in SEEDS:
-            take(f"({where}) AND ({news})", PER_SEED if tranche >= 5 else 1, f"case:{why}")
+            take(f"({where}) AND ({news})", (PER_SEED_6 if tranche >= 6 else PER_SEED if tranche >= 5 else 1), f"case:{why}")
     out = {"tranche": tranche, "source": T, "chosen_by": "registers.news.gold.sample", "articles": picked}
     (HERE / f"tranche-{tranche}.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     return picked

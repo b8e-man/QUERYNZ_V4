@@ -1,0 +1,2009 @@
+{
+ "tranche": 6,
+ "source": "old_incoming_news_private.articles",
+ "chosen_by": "registers.news.gold.sample",
+ "articles": [
+  {
+   "id": "ebad8bc5-d7e3-44ea-b0c5-3613b3d9d8f0",
+   "site": "scoop.co.nz",
+   "title": "Fire And Emergency Reminds Public To Be Extra Careful When Strike Action Takes Place",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "67ec649b-c7c2-4d79-af97-ae4509ed3075",
+   "site": "scoop.co.nz",
+   "title": "National And Labour Stuck In The Middle",
+   "post_date": "2026-11-06T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "ee7d8891-c83d-4432-a9bf-99bd4ccd6dbd",
+   "site": "scoop.co.nz",
+   "title": "Hato Hone St John Encourages Kiwis To Learn CPR For Their Loved Ones",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "1967f6af-dc0b-43e9-a2ac-0e934a2125d1",
+   "site": "scoop.co.nz",
+   "title": "The Spring Switcheroo: Summer Into Winter?",
+   "post_date": "2026-10-15T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "0186feae-37c1-4ada-9254-019148ed597e",
+   "site": "scoop.co.nz",
+   "title": "Greens Announce Paid Placements For Nurses, Teachers, And Social Workers",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "885bd5e5-28d3-4367-b4c4-fb60d86a2442",
+   "site": "scoop.co.nz",
+   "title": "Canterbury’s Orana Wildlife Park Turns 50!",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "845edfe9-c344-4593-8139-e4c0cb55fd94",
+   "site": "scoop.co.nz",
+   "title": "Kāpiti College Parents Question All-Boy Head Students",
+   "post_date": "2026-11-04T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "08acdaeb-ff5b-491c-be3b-0d2b09eb3f4a",
+   "site": "scoop.co.nz",
+   "title": "Solomon Islands Rejoins EITI: Turning Natural Resource Wealth Into Sustainable Development",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "23dad6eb-a12a-482b-b6c6-21d56e31ba73",
+   "site": "scoop.co.nz",
+   "title": "Hot Water Beach Road Closed, Whenuakite, Thames-Coromandel District",
+   "post_date": "2026-10-29T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "c5ce1049-f2cb-4d6f-87a2-a2b3b9e0524a",
+   "site": "scoop.co.nz",
+   "title": "Rotorua Emergency Housing Drops To One Motel As Crisis-Era Numbers Collapse",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "25b4ab00-775f-4a38-8a23-e3bca94025be",
+   "site": "scoop.co.nz",
+   "title": "Ombudsman’s Office Releases New Guidance On Official Information And The Use Of AI",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "124e1046-bd66-47df-8bc5-087da4d2679b",
+   "site": "scoop.co.nz",
+   "title": "Answering A Century-Old Call: Police Seek Family To Claim World War 1 Medals",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "47a58fd6-692c-470a-94b5-5052337a516c",
+   "site": "scoop.co.nz",
+   "title": "Serious Crash: State Highway 29, Karapiro Closed",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "d8e701f9-633e-4547-a696-c3a7bf0c09b2",
+   "site": "scoop.co.nz",
+   "title": "Park Free, Shop Local On Fridays In Blenheim’s CBD This November",
+   "post_date": "2026-10-28T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "06168544-f1b4-4370-8187-34247375ebf7",
+   "site": "scoop.co.nz",
+   "title": "Uncover The Stories Behind Hamilton’s Headstones",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "1e25b81c-fcec-41c6-9dbf-0702804102ef",
+   "site": "scoop.co.nz",
+   "title": "Authority Changes Rules To Boost Battery Flexibility",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "04b18ffc-78c1-41b7-b325-7d88f898f97a",
+   "site": "scoop.co.nz",
+   "title": "Early Childhood Education Advocates Give Screen Time Policy Mixed Report Card",
+   "post_date": "2026-09-21T00:00:00+12:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "64a5d5c6-d676-4639-92d6-9b6d4e234806",
+   "site": "scoop.co.nz",
+   "title": "Fatal Crash, Westmere, Whanganui",
+   "post_date": "2026-11-05T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "6b44332d-071e-4fb3-8d93-89443dc22f51",
+   "site": "scoop.co.nz",
+   "title": "Welbourn School Tops The Class Collecting Almost 60,000 Milk Lids To Win Recycling Challenge",
+   "post_date": "2026-11-05T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "64d2eae1-0e56-4669-aefe-a6d50c374f49",
+   "site": "scoop.co.nz",
+   "title": "Tasman's Annual Report 2025/26 Adopted",
+   "post_date": "2026-10-30T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "293167fb-7f99-4ecd-be68-9e0268d2e921",
+   "site": "scoop.co.nz",
+   "title": "Scientists Uncover 1000 Year History Of Lake Wānaka",
+   "post_date": "2026-11-11T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "7591b47d-c6e3-433d-b199-3367d648cb2d",
+   "site": "scoop.co.nz",
+   "title": "Labour Sanctioned Russia In A Day; Now It Must Show Its Israel Plan",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "5699984d-451f-4323-a99b-719a22c92c96",
+   "site": "scoop.co.nz",
+   "title": "Waiariki Electorate Candidates Face Off On Key Issues That Matter To Whānau, Hapū And Iwi",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "41050a3f-aa12-4b1c-ad6c-8b798c92bbd5",
+   "site": "scoop.co.nz",
+   "title": "‘I Did This For Myself And For Other Women’: Wellington Councillor Reveals Ovarian Cancer In Remission",
+   "post_date": "2026-10-19T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "4df1799b-cc9d-4053-8133-0391c73bb091",
+   "site": "scoop.co.nz",
+   "title": "Balance Of Payments And International Investment Position: Year Ended 31 March 2026",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:scoop.co.nz"
+  },
+  {
+   "id": "d91f9c00-5170-46bb-b1be-c73d75984c7c",
+   "site": "stuff.co.nz",
+   "title": "Dame Lydia Ko dragged into South Korean political controversy",
+   "post_date": "2026-10-26T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "62faec6b-28da-4f54-b86f-d778642b0f65",
+   "site": "stuff.co.nz",
+   "title": "Tottenham’s Rodrigo Bentancur sent off for butting Luke Shaw",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "55050b04-1e30-47cd-8996-2766a8fffaa2",
+   "site": "stuff.co.nz",
+   "title": "Labour claims life costs $6000 more a year under National",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "3b618216-61aa-4f3b-93a8-1d04b9fb8ea4",
+   "site": "stuff.co.nz",
+   "title": "The genius of Keely Hodgkinson’s catsuit that could be worth 0.5sec",
+   "post_date": "2026-09-23T00:00:00+12:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "4d855239-6583-4ba1-99b9-7c54127f8ce7",
+   "site": "stuff.co.nz",
+   "title": "NATO chief calls for calm as intel agency warns Russia may ramp up hybrid attacks",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "1b9efbb1-82e0-4989-84e9-cbd5a89d14ac",
+   "site": "stuff.co.nz",
+   "title": "NASCAR drivers trade punches in pit lane brawl after late crash",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "2c8ca339-4775-4046-996a-147b4cd75af3",
+   "site": "stuff.co.nz",
+   "title": "Tucked into native bush: Landmark late 1950s Lockwood home hits the market on Lake Rotoiti",
+   "post_date": "2026-10-15T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "73f7dee4-6a5b-446c-b8cd-74a697cfff1c",
+   "site": "stuff.co.nz",
+   "title": "Former ACT Party minister announces arrival of new baby",
+   "post_date": "2026-11-07T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "c333e489-ad91-47a7-942e-5886500ff72e",
+   "site": "stuff.co.nz",
+   "title": "Huge US military planes spotted leaving Auckland air base",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "8d61ed3b-dba0-4262-be08-d944cecb255c",
+   "site": "stuff.co.nz",
+   "title": "‘Lowest form of life’: Principal devastated after school ransacked",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "f1166eb5-0e8d-4ba6-bd10-73f9fcad9b53",
+   "site": "stuff.co.nz",
+   "title": "Formula 1 star Sergio Pérez considers early retirement amid Cadillac project",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "514e9479-8677-4e42-bf4e-0e05b4aeb763",
+   "site": "stuff.co.nz",
+   "title": "Police issue fresh appeal for missing Christchurch man last seen three weeks ago",
+   "post_date": "2026-09-26T00:00:00+12:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "be97c6f8-da40-44f4-957a-2d160d7b0e42",
+   "site": "stuff.co.nz",
+   "title": "We're going to need a bigger boat: Fisherman reels in world-record catch",
+   "post_date": "2026-11-07T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "2dc52cba-67d6-4c86-ad94-fb69617ccdf5",
+   "site": "stuff.co.nz",
+   "title": "Teenager Blades Brown wins in Mexico to become youngest PGA Tour winner in 95 years",
+   "post_date": "2026-11-09T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "8f63af87-486a-4030-b5de-414639da9ea2",
+   "site": "stuff.co.nz",
+   "title": "Teen charged after machete allegedly pulled during Māngere Bridge liquor store theft",
+   "post_date": "2026-10-27T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "3ec6fd1e-b266-4778-8c46-9047ed0632d0",
+   "site": "stuff.co.nz",
+   "title": "Surging autism and ADHD rates leave health system ‘overwhelmed’",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "7eaa5638-ffbc-48b9-9e22-587b96de285c",
+   "site": "stuff.co.nz",
+   "title": "Meghan Markle’s estranged father investigated over alleged child abuse images",
+   "post_date": "2026-10-23T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "a5f11185-298c-424f-a988-eddb260770e1",
+   "site": "stuff.co.nz",
+   "title": "‘Speechless’: Counties Manukau  captain Jimmy Tupou hails team-mates after Ranfurly Shield defence",
+   "post_date": "2026-10-03T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "1e2232fc-a368-4b1e-a48e-0902eccfad78",
+   "site": "stuff.co.nz",
+   "title": "Nurse suspended for a year after using fake references to get a job",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "69efd4e3-519f-4a69-940a-d432fe49e8a3",
+   "site": "stuff.co.nz",
+   "title": "Pandora opens US$150 million Vietnam jewellery factory powered by renewable energy",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "b50233a2-de18-40a1-96a2-cb45788bc137",
+   "site": "stuff.co.nz",
+   "title": "Auckland man jailed for three years over dark web tax and Covid relief fraud",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "094f7d2e-3c2f-466b-8f11-62c4c2aac6a4",
+   "site": "stuff.co.nz",
+   "title": "Air NZ and Qantas are ending their codeshare. Frequent flyers lose most",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "058bf306-85c2-43dc-82cd-5a7ef310f4e8",
+   "site": "stuff.co.nz",
+   "title": "The paper DOC hut ticket is on its way out",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "f3f19848-3093-4377-b444-a5d04d76f5d1",
+   "site": "stuff.co.nz",
+   "title": "Non-stop Sydney-London: First direct flights take off in October 2027",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "55e766d8-0d1b-48a7-988f-80abf644d3fd",
+   "site": "stuff.co.nz",
+   "title": "Susie Wiles ‘ordered sanctioned hit’ on axed White House press secretary",
+   "post_date": "2026-10-17T00:00:00+13:00",
+   "why": "site:stuff.co.nz"
+  },
+  {
+   "id": "23cf0d04-4122-4ac0-99c7-a20e19783844",
+   "site": "rnz.co.nz",
+   "title": "Han Jiang ordered to pay $100,000 after meth lab contaminated Auckland rental",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "b01396f7-7e8a-4391-affa-981959708631",
+   "site": "rnz.co.nz",
+   "title": "Friend of missing Queenstown woman Erika Coelho remaining optimistic",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "7d9d6aa1-e376-43c4-a2a4-2f8f5fae472e",
+   "site": "rnz.co.nz",
+   "title": "Cost of fixing storm-damaged Whangārei roads balloons to more than $23m",
+   "post_date": "2026-10-03T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "084dc327-3616-4c9f-b2b4-a07c1a05923f",
+   "site": "rnz.co.nz",
+   "title": "Versatile Leicester Fainga'anuku named as loose forward in All Blacks' northern squad",
+   "post_date": "2026-10-27T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "e58b3c78-622b-4ed9-8406-28897e296734",
+   "site": "rnz.co.nz",
+   "title": "Auckland bin collectors dumped, offered chance to buy their own rubbish trucks",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "b0ec3691-8f29-43ea-b56e-5d2abf9e0f63",
+   "site": "rnz.co.nz",
+   "title": "About 40 TVNZ staff picket over stalled pay negotiations",
+   "post_date": "2026-10-29T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "56484c85-d45a-4e1f-8d50-e3d5e74fafde",
+   "site": "rnz.co.nz",
+   "title": "Man charged with drink driving causing death after double-fatality crash in Rotorua",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "017b2c33-4640-445f-8836-6d73d8efe8a2",
+   "site": "rnz.co.nz",
+   "title": "RSA audit finds 'significant governance mistakes, failures', but no evidence of fraud",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "b384afa5-ef91-4fce-b78e-b43eaa2baf11",
+   "site": "rnz.co.nz",
+   "title": "Police wrongly believed they had found Phillips children in 2022, new details reveal",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "2d0b4a8e-119e-4d62-b517-64efbaa8c936",
+   "site": "rnz.co.nz",
+   "title": "Wellington Region's second Pacific-led medical centre opens in Hutt Valley",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "8329d94f-663b-431f-8225-18128e2a4fe4",
+   "site": "rnz.co.nz",
+   "title": "Decision to send 12-year-old home with 'safety plan' shortly before her death questioned",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "38602ace-c8f0-4711-807c-fcb1aff5b6a2",
+   "site": "rnz.co.nz",
+   "title": "Higher prices for fuel suggests inflation pressures have strengthened",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "85679dc5-235a-40a2-85d7-3541f61e7fcc",
+   "site": "rnz.co.nz",
+   "title": "PNG Chiefs welcome High Court ruling, dispute in holding pattern",
+   "post_date": "2026-10-20T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "f67ec74e-4404-406b-aa6c-53a450d1908d",
+   "site": "rnz.co.nz",
+   "title": "Teenagers arrested following shooting in Manurewa",
+   "post_date": "2026-10-27T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "3aac207f-d3a9-43fe-8c04-ff54ac6ca453",
+   "site": "rnz.co.nz",
+   "title": "New Zealand scientists hope to develop more effective vaccines for older people",
+   "post_date": "2026-10-11T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "bc3a663f-218c-430f-a077-80b2be7e8a9f",
+   "site": "rnz.co.nz",
+   "title": "Silver Fern's gesture to boisterous Australian crowd - 'I just had enough'",
+   "post_date": "2026-10-27T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "562ada48-4eb9-4ed1-8d03-7049a3171d1b",
+   "site": "rnz.co.nz",
+   "title": "Hundreds gather to demand end to bottom trawling in Hauraki Gulf",
+   "post_date": "2026-10-25T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "a8e76631-bf11-4a31-86a7-328e82802e56",
+   "site": "rnz.co.nz",
+   "title": "Injury rules Black Caps Mark Chapman and Zak Foulkes out of India T20s",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "9c9f5186-28a9-49b0-a4b4-e68d84da2bb0",
+   "site": "rnz.co.nz",
+   "title": "Soft September for retailers Stats NZ data shows",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "e6f4ffa8-e1e7-437e-9199-7d67b3efd7dc",
+   "site": "rnz.co.nz",
+   "title": "Freightways posts double-digit earnings growth in first quarter",
+   "post_date": "2026-10-29T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "416a0ae2-7eb4-4ce0-bf1f-1f9bb5fd0ae8",
+   "site": "rnz.co.nz",
+   "title": "Three arrested after Waikato store robbed, shopkeeper assaulted",
+   "post_date": "2026-10-31T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "fe2eb2c8-a6fa-4602-bac6-a065cf638514",
+   "site": "rnz.co.nz",
+   "title": "Stocktake of IT projects at MBIE finds some deficiencies in controls",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "59570968-79c0-4f21-81bc-41c908ccec27",
+   "site": "rnz.co.nz",
+   "title": "NZ housing bubble mostly deflated, says ANZ",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "05be7a9f-54e7-4138-bf5e-4a7bdea18afa",
+   "site": "rnz.co.nz",
+   "title": "Affordability of hospitals' upgrade a 'major concern' documents show",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "e32c0d44-dadd-4e99-93e8-956d8e005c89",
+   "site": "rnz.co.nz",
+   "title": "Number of meth pipes, bongs seized by Customs soars",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:rnz.co.nz"
+  },
+  {
+   "id": "747dcfe7-341e-464b-bb4c-a60e4b29dc7b",
+   "site": "odt.co.nz",
+   "title": "Swarbrick’s sights set on deputy PM role for Greens",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "1d30169f-f618-42da-a38e-c379b2ad56e2",
+   "site": "odt.co.nz",
+   "title": "India prevail in tight contest to go 2-0 in T20 series",
+   "post_date": "2026-10-24T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "7f5aaf58-b3ce-47bf-8018-af486c71688b",
+   "site": "odt.co.nz",
+   "title": "Aidan Theatre celebrates a decade of performances in Timaru",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "c23c2231-7bb4-47fa-91c1-81d3cb912968",
+   "site": "odt.co.nz",
+   "title": "Serious injuries after person trapped between cars in Dunedin carpark",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "80d30f53-ec1b-46e3-b49b-f5654345e396",
+   "site": "odt.co.nz",
+   "title": "SPORTS WHAT’S ON",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "a2ba117b-57e5-449a-aed3-18d5253eb241",
+   "site": "odt.co.nz",
+   "title": "Mayor says ‘market will sort out’ surge in Airbnb properties",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "cbe0ef37-5026-4411-9810-0599b6d82d61",
+   "site": "odt.co.nz",
+   "title": "Where are home loan rates heading now?",
+   "post_date": "2026-10-27T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "6a5912d9-d5b7-4e0c-a7b7-c5c7a1075ec6",
+   "site": "odt.co.nz",
+   "title": "Following the family path to the top",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "eba34403-42dd-4046-973b-31b4c8049f64",
+   "site": "odt.co.nz",
+   "title": "Jack Tyro set to carve it up on the world stage",
+   "post_date": "2026-10-05T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "28b00326-b347-4dd7-a309-bb7c095fe3fc",
+   "site": "odt.co.nz",
+   "title": "Takeaway tantrum turns violent",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "f145d83e-e896-4211-a9c3-fe346cb36b7c",
+   "site": "odt.co.nz",
+   "title": "Blue cod blunder claims muddying waters over population numbers",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "9bb05ddc-fcc8-4c53-9a4d-436479ac2e3f",
+   "site": "odt.co.nz",
+   "title": "Roosters sneak past Knights in NRL Grand Final",
+   "post_date": "2026-10-04T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "e1d64d38-ebd0-4654-acd2-53afc0a51050",
+   "site": "odt.co.nz",
+   "title": "National would make finishing Year 11 compulsory if re-elected",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "414f795e-50b6-405e-80fd-6cce7e527585",
+   "site": "odt.co.nz",
+   "title": "Vision loss no sports barrier for Dunedin boy",
+   "post_date": "2026-09-25T23:00:00+12:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "2fc14417-f51c-4593-a4bc-ebd4cf40e022",
+   "site": "odt.co.nz",
+   "title": "Rough start to life for dog of the district",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "ab2bfb75-b557-46ca-b196-713a932882bd",
+   "site": "odt.co.nz",
+   "title": "‘I was minutes away from not making it’: Dunedin meningitis survivor recounts ordeal",
+   "post_date": "2026-10-02T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "5d0fb3a9-38dd-4609-a6ba-53c99d834743",
+   "site": "odt.co.nz",
+   "title": "Trump says Republicans harmed by Iran war but ‘we had to do’ it",
+   "post_date": "2026-11-04T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "ec35d72f-f956-44aa-9368-a683612914db",
+   "site": "odt.co.nz",
+   "title": "Fundraising fun for sports uniforms",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "bd392af1-f685-45cd-a7c4-34b5ac888b67",
+   "site": "odt.co.nz",
+   "title": "Axing of Port Chalmers late bus a hot topic at board meeting",
+   "post_date": "2026-10-30T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "6147f267-28e6-42a3-8373-fda02b349afb",
+   "site": "odt.co.nz",
+   "title": "Labour Day: What's open, what's not and when you have to pay a surcharge",
+   "post_date": "2026-10-20T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "cab8c142-77ca-409c-a177-247bd5670773",
+   "site": "odt.co.nz",
+   "title": "Queenstown pipers tune up for title defence",
+   "post_date": "2026-10-17T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "dd8b5093-1401-44c6-bc9f-12bac788f3e1",
+   "site": "odt.co.nz",
+   "title": "French student exchange ‘magnifique’",
+   "post_date": "2026-10-17T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "369efc6c-0ba0-480b-9b9a-e30b40833dea",
+   "site": "odt.co.nz",
+   "title": "WTA apology after Pegula’s comments on Andreeva livestreamed",
+   "post_date": "2026-11-06T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "b4a3c064-0f8f-43a6-9b42-2353a757807c",
+   "site": "odt.co.nz",
+   "title": "Beach bundle aims to ease sensory overload",
+   "post_date": "2026-11-09T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "40875f88-074f-4929-8f42-205d83ad3d99",
+   "site": "odt.co.nz",
+   "title": "Experience blends into formidable team",
+   "post_date": "2026-11-07T00:00:00+13:00",
+   "why": "site:odt.co.nz"
+  },
+  {
+   "id": "e8d4e96d-12ed-4634-8f27-bcab73e107ec",
+   "site": "1news.co.nz",
+   "title": "Renoir paintings stolen from French museum have been found, six arrested",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "d2ac6594-22e2-43ee-a9ee-63c97777708f",
+   "site": "1news.co.nz",
+   "title": "Lawson and Verstappen penalised after clash in Mexico practice",
+   "post_date": "2026-10-31T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "6b65bd68-5bbb-44dd-998c-864cf4337e08",
+   "site": "1news.co.nz",
+   "title": "Man pleads guilty to murder following double killing in Christchurch",
+   "post_date": "2026-10-28T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "049e4688-dd32-463f-895e-188d1f94f06a",
+   "site": "1news.co.nz",
+   "title": "OpenAI apologises for Aus govt website hack, creates task force",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "29697aec-6271-4a8c-8987-b7f3802a1289",
+   "site": "1news.co.nz",
+   "title": "Provider selected for New Zealand citizenship by grant test",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "64e6e697-a342-46b8-b7d8-e87a7c4e52c7",
+   "site": "1news.co.nz",
+   "title": "New candidates hop sitting MPs as NZ First releases list",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "7fe49fe0-2a8f-49eb-9911-5d7ffaaedb57",
+   "site": "1news.co.nz",
+   "title": "Prince Harry says its 'great' to be back in UK, kids happy",
+   "post_date": "2026-09-26T23:00:00+12:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "313abe50-29e1-40a5-9b16-b98b671e565e",
+   "site": "1news.co.nz",
+   "title": "Panama declares state of emergency as aftershocks rattle communities",
+   "post_date": "2026-10-11T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "744b627d-5dc7-471c-ab10-4de0925b20e1",
+   "site": "1news.co.nz",
+   "title": "China’s CCP backs Xi on tighter party discipline and anti-corruption",
+   "post_date": "2026-11-01T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "30cb3985-93c3-408e-8522-0a61d917ebdf",
+   "site": "1news.co.nz",
+   "title": "Immigration catches up with overstayer who lived under alias for 38 years",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "dd7a675f-0819-497d-acf0-da900f20e1e8",
+   "site": "1news.co.nz",
+   "title": "Attacks on Muslim graves in Sydney fuelled by One Nation: leader",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "39244450-19cf-4246-9339-c427d1fef5b4",
+   "site": "1news.co.nz",
+   "title": "NZ First vows to permanently raise Working for Families payments",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "06774911-8823-4fe0-a8d7-f367e83d620b",
+   "site": "1news.co.nz",
+   "title": "Kiwi Mulitalo learns his fate for shoulder charge against Fiji",
+   "post_date": "2026-11-01T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "f141c656-cd60-4e4b-9a24-90a0dbc79d1d",
+   "site": "1news.co.nz",
+   "title": "All Blacks v Wallabies: What to know ahead of Bledisloe opener",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "8ab3f8ee-29bb-477d-b46e-94eaf4475045",
+   "site": "1news.co.nz",
+   "title": "Auckland Council ditches postal voting for future local elections",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "640ba195-bd75-461c-b635-ecb59ab261b8",
+   "site": "1news.co.nz",
+   "title": "Ikaroa-Rāwhiti: Weather-fatigued voters want lasting solutions",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "907f84c3-c525-4fb2-90d0-fec675f47d6c",
+   "site": "1news.co.nz",
+   "title": "Retailer taken to court over repeated sale of non-compliant products",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "d5b69b94-b0df-481d-a68a-36e57cd7e32e",
+   "site": "1news.co.nz",
+   "title": "First election where many Kiwis use AI to help decide vote – pollster",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "7aeeefb9-13ee-41b5-98bd-e11bbba056d9",
+   "site": "1news.co.nz",
+   "title": "Each party has a supermarket fix - what if we combined the best ideas?",
+   "post_date": "2026-09-21T00:00:00+12:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "c0fc2b25-b5df-4c3d-a200-4ec58176d46a",
+   "site": "1news.co.nz",
+   "title": "Canada's Carney makes final appeal against Alberta separation",
+   "post_date": "2026-10-18T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "ae8993bf-3c2d-40a3-a8f3-be29ea861299",
+   "site": "1news.co.nz",
+   "title": "Progress stalls for US-brokered deal ending war in Gaza",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "05343823-b301-46a9-bf25-1c6f8049c0c7",
+   "site": "1news.co.nz",
+   "title": "Analysis: The real roadblock to Opportunity isn’t Luxon, it’s Peters",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "0b5498ea-e963-44c3-af27-e9731670670d",
+   "site": "1news.co.nz",
+   "title": "Carney, Trump say a 'concept' of a trade deal is in progress",
+   "post_date": "2026-11-01T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "1ea6ac41-7efd-45cd-9b01-0197ff2dfb00",
+   "site": "1news.co.nz",
+   "title": "Will Jordan's All Blacks season in doubt after injury setback",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "e93baf7e-7335-4f16-aa52-0bb660a8fa80",
+   "site": "1news.co.nz",
+   "title": "Teaching Council admits 'we dropped the ball' in sex offender case",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:1news.co.nz"
+  },
+  {
+   "id": "70604bff-a225-492b-a6a2-16cc1fbf350c",
+   "site": "nzherald.co.nz",
+   "title": "Hormone-disrupting chemicals found in tap water, NZ-linked study finds",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "472b44ed-4dfc-4a28-ba9a-7c13e2cbfddb",
+   "site": "nzherald.co.nz",
+   "title": "Russia strikes Ukraine power plants after Trump’s energy ceasefire claim",
+   "post_date": "2026-10-11T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "7c6c8b27-bd35-43e5-af0f-b0bd468d0fed",
+   "site": "nzherald.co.nz",
+   "title": "Trump labels Nobel Peace Prize pick 'disgraceful'",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "53563cf6-c0e8-4f9e-8237-d7d1d6b099db",
+   "site": "nzherald.co.nz",
+   "title": "Watch: Off-road rallying puts father and daughter up to first in their category",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "2e07fcfe-5894-4572-aec3-65d517b363e2",
+   "site": "nzherald.co.nz",
+   "title": "What happens next in the long-running Lachie Jones death inquiry?",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "8d29a6bc-1040-4b51-b88c-24ab27fc4c7e",
+   "site": "nzherald.co.nz",
+   "title": "Crossland out of NRL grand final as officiating team confirmed for showpiece game",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "d7b9db91-43ea-4d19-a93f-37169ea01fbd",
+   "site": "nzherald.co.nz",
+   "title": "Billy Joel reveals he can no longer drive or perform amid health battle",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "befc1ffb-6456-4acd-8653-643af767a561",
+   "site": "nzherald.co.nz",
+   "title": "Weeks after birth, Northland parents learn baby has incurable genetic disease",
+   "post_date": "2026-09-21T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "e5bb0b5f-3639-4b2a-a6b2-c4feddd3e4d1",
+   "site": "nzherald.co.nz",
+   "title": "Halasima plays through pain in defeat as Leka legend grows",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "832d8f4f-fb8a-4818-91a8-0dd0001880a7",
+   "site": "nzherald.co.nz",
+   "title": "The unexpected reality of raising three children in your 70s",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "1b255fc1-c282-4386-b2a5-c9e571378acb",
+   "site": "nzherald.co.nz",
+   "title": "NZ First candidate wants policies to survive change of government",
+   "post_date": "2026-10-15T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "575f433c-3bad-49c6-8b22-4e8bd2b5c55f",
+   "site": "nzherald.co.nz",
+   "title": "Pyrotechnics scrapped from Olivia Dean concert beside Auckland Zoo",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "eabc856a-cca2-4631-9f5f-cb1b0277f193",
+   "site": "nzherald.co.nz",
+   "title": "Grand old lady of New Zealand racing still a star 25 years after Cups double",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "0b2e3123-3cf9-4a6c-a20d-2438b66dcf8e",
+   "site": "nzherald.co.nz",
+   "title": "UK biotech firm buys NZ's Daisy Lab",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "44541111-834c-455d-aa0d-2750446cf019",
+   "site": "nzherald.co.nz",
+   "title": "Kenny Loggins reveals the four words he wants on his tombstone",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "c38f90a4-2133-4a75-a416-60f765b658f8",
+   "site": "nzherald.co.nz",
+   "title": "Video of violent prison attack posted online, Corrections investigating",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "8723209f-c600-483b-b2f4-ddbd15897e5a",
+   "site": "nzherald.co.nz",
+   "title": "'This is very serious': Judge condemns deliberate waste dump near community water supply",
+   "post_date": "2026-10-09T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "363e1157-4ae0-4177-b94f-d5c5b0c4b264",
+   "site": "nzherald.co.nz",
+   "title": "Warriors' Webster named NRL coach of the year again; several players honoured",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "3db418ce-1d13-4f57-9128-8cb465a8c6ed",
+   "site": "nzherald.co.nz",
+   "title": "NZ Vietnam veterans remember their fallen brothers in Taupō",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "7f84222e-d1f8-496a-a944-10979b4e00e1",
+   "site": "nzherald.co.nz",
+   "title": "Election 2026: Tākuta Ferris open to coalition with National, Act and NZ First",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "f105b2a3-3926-4c73-b076-63e6ebfea3a9",
+   "site": "nzherald.co.nz",
+   "title": "Maggots found in resident’s wounds five times at care home, HDC finds",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "26ef0045-b3a0-4a49-9588-a31760f159b3",
+   "site": "nzherald.co.nz",
+   "title": "Dotcoms' former 'homeworker' alleges breaches of employment standards",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "d7e158eb-60ed-4571-aed9-cfefb905ddbe",
+   "site": "nzherald.co.nz",
+   "title": "Shane Jones reflects on his rural upbringing and longevity in politics",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "a2371663-91de-4472-8cb7-794b2bbb45b4",
+   "site": "nzherald.co.nz",
+   "title": "Labour to ban 'hidden fees' with new consumer protections",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "90892eba-fa4c-44b9-b286-38e33ead5b21",
+   "site": "nzherald.co.nz",
+   "title": "ASB Classic roof design revealed with completion date less than 12 months away",
+   "post_date": "2026-09-25T00:00:00+12:00",
+   "why": "site:nzherald.co.nz"
+  },
+  {
+   "id": "85f5a9f8-58c2-45e4-9b09-bef7059a72e4",
+   "site": "newsroom.co.nz",
+   "title": "Gower wins election night",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "1513cd07-12dc-4b2c-a948-24f1ae4176a5",
+   "site": "newsroom.co.nz",
+   "title": "Greens’ gains in jeopardy after Mongrel Mob stand",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "e399fada-fd97-41c5-aa08-d6ab580eaf87",
+   "site": "newsroom.co.nz",
+   "title": "Beyond the World Cup euphoria: why equity in NZ sport remains stuck",
+   "post_date": "2026-10-19T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "c65f1feb-8dd4-43c2-9a17-13b4bc35d2dc",
+   "site": "newsroom.co.nz",
+   "title": "Short story: Losing Out, by Erica Stretton",
+   "post_date": "2026-09-26T00:00:00+12:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "11e33d2e-9c61-43a2-a256-e71bb1d45ea6",
+   "site": "newsroom.co.nz",
+   "title": "Good day/bad day: Right shirt, wrong shirt, no shirt Sherlock",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "65cb79f4-beac-4160-99b9-86d67a86ca4c",
+   "site": "newsroom.co.nz",
+   "title": "A decision taken in a carpark that a vital medical service be denied",
+   "post_date": "2026-10-11T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "b5d0ccac-312b-4757-af41-2d43436e3cbd",
+   "site": "newsroom.co.nz",
+   "title": "This week’s bestselling books – October 16",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "420fd8bc-1ff9-467a-bf63-4a810f61153e",
+   "site": "newsroom.co.nz",
+   "title": "NZ First’s health policy more vibes and vitamins than actual evidence",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "7b450dd3-8b38-4904-ab09-f4221f92e86b",
+   "site": "newsroom.co.nz",
+   "title": "Election 2026: The most febrile final week since the days of the Exclusive Brethren",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "e7a91d5b-4747-4ffe-8a42-a2ba2fc0b38f",
+   "site": "newsroom.co.nz",
+   "title": "A short story is about to pay $15,000",
+   "post_date": "2026-10-03T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "c762e28c-f2e0-4b04-a1a2-55ce0449eb44",
+   "site": "newsroom.co.nz",
+   "title": "International jostling for the job of UN Secretary-General",
+   "post_date": "2026-11-06T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "c1476a32-13e2-4f1d-891f-ab60e4b8fc1b",
+   "site": "newsroom.co.nz",
+   "title": "Sunday poem: I love you more than Kylie Minogue, by Chris Tse",
+   "post_date": "2026-10-04T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "e089c821-3673-47ff-978f-5b8cf29b3c7c",
+   "site": "newsroom.co.nz",
+   "title": "Labour candidate steps down as photo with family and some gang members emerges",
+   "post_date": "2026-10-23T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "22d4a6fd-ac36-4081-945b-05f7652d09c6",
+   "site": "newsroom.co.nz",
+   "title": "Dissent at Winton AGM: ‘What it has lacked is trust’",
+   "post_date": "2026-10-23T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "0806d9f2-ef97-4072-af80-d6951e8bf7c2",
+   "site": "newsroom.co.nz",
+   "title": "Zombie towns fight back",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "9bf02a1c-2d05-427b-805d-fa6c6dfee31e",
+   "site": "newsroom.co.nz",
+   "title": "After years of sheep taunts, Kiwi volleyball MVP happy to be home",
+   "post_date": "2026-11-05T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "eff9d782-44bc-42f0-8c37-2477a6fde034",
+   "site": "newsroom.co.nz",
+   "title": "Live updates: the Nicky Hager bombshell (if it is a bombshell)",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "0ec1858b-5a5b-4a3c-b04c-e8305bdb760c",
+   "site": "newsroom.co.nz",
+   "title": "The price of mince and the death of major parties",
+   "post_date": "2026-10-15T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "3bda7054-315e-491d-82c3-8a2cd874fad2",
+   "site": "newsroom.co.nz",
+   "title": "DPMC head promises not to talk shop with National fiancée",
+   "post_date": "2026-11-06T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "cb52b32d-f0e3-4a46-8496-27a9599239ab",
+   "site": "newsroom.co.nz",
+   "title": "Election night ends with neither Luxon nor Hipkins the victor",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "ec0f4c6a-f212-41dd-87de-9efee8896a96",
+   "site": "newsroom.co.nz",
+   "title": "Hipkins camp’s near miss with (too many) swing voters",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "5df9dfd4-27b8-4ffd-ac54-72b89a0555a6",
+   "site": "newsroom.co.nz",
+   "title": "‘Undemocratic’: Party leaders weigh in on Opportunity’s constitution",
+   "post_date": "2026-11-06T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "832e1059-f2f0-4ad0-af25-d90bc0a89973",
+   "site": "newsroom.co.nz",
+   "title": "Raw Politics: Overhang together or they all hang separately",
+   "post_date": "2026-10-29T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "16513a08-a33f-42dd-89cb-566b72ec8550",
+   "site": "newsroom.co.nz",
+   "title": "Auf wiedersehen to far-right Germany",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "9fad3f42-024b-4ee8-bad3-46d1a507aac7",
+   "site": "newsroom.co.nz",
+   "title": "Climate change policy missing in action",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:newsroom.co.nz"
+  },
+  {
+   "id": "3f2aeaaa-c032-4cdb-afb9-0d4e82ff7496",
+   "site": "businessdesk.co.nz",
+   "title": "US cattle industry: Trump can’t import his way to cheaper beef",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "9356af65-92bc-426a-8ea0-cb51d78e85c6",
+   "site": "businessdesk.co.nz",
+   "title": "SkyCity sells Grand Hotel to Eden Global Capital Private and Auckland City Collective for $221m",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "16ed9489-3846-421b-b183-b4732e531eed",
+   "site": "businessdesk.co.nz",
+   "title": "Southland council sells $32m South Port stake amid record growth",
+   "post_date": "2026-10-02T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "ee2db764-34e1-4e5d-8097-78b417f7bb24",
+   "site": "businessdesk.co.nz",
+   "title": "The life of … Phil Gibson, CEO IAG NZ",
+   "post_date": "2026-09-26T00:00:00+12:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "3adeb8ed-a30a-43f9-a2ef-fbf392a337c5",
+   "site": "businessdesk.co.nz",
+   "title": "Stronger retail, hospitality spending doesn't guarantee business survival: Experian",
+   "post_date": "2026-10-02T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "2a8dcfc0-72d7-4c23-a88b-2793308053b7",
+   "site": "businessdesk.co.nz",
+   "title": "Private credit funds face removal risk under golden visa overhaul",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "c8950080-e49d-4e99-92c0-29a7ed7a5ae3",
+   "site": "businessdesk.co.nz",
+   "title": "Think again about digital assets",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "4eefe068-b3df-46a7-bf95-dc6bc371ddd5",
+   "site": "businessdesk.co.nz",
+   "title": "Meridian’s $510m rebuild of Waitaki Power Station – one of NZ’s oldest hydro stations",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "623484fd-e76c-4ae6-847b-4d4af4002d44",
+   "site": "businessdesk.co.nz",
+   "title": "Tower Insurance increases 2026 guidance after ‘normal’ weather year",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "ea0eadbf-2165-4c94-a6d6-0a74f2b847b5",
+   "site": "businessdesk.co.nz",
+   "title": "QuiznessDesk, Wednesday, Oct 14",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "c9f99376-5a12-4db6-be38-51837cd02e96",
+   "site": "businessdesk.co.nz",
+   "title": "Santana sits on $233m cash as it awaits Otago gold mine fast-track decision",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "ee5d4b4f-c471-4209-ac49-203c321a4c2f",
+   "site": "businessdesk.co.nz",
+   "title": "NZ sharemarket flat as Lodestone launches IPO",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "0fd31f01-2e54-40e3-b2aa-d497303293fa",
+   "site": "businessdesk.co.nz",
+   "title": "Uplift in business confidence fails to move NZ sharemarket",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "eee80c1c-98c0-4b5e-9b4d-537d9a375967",
+   "site": "businessdesk.co.nz",
+   "title": "Tracksuit, Lodestone winners in regional Deloitte Fast 50",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "84ca3ff5-218a-4344-a308-c5732d00d330",
+   "site": "businessdesk.co.nz",
+   "title": "Deloitte look at Fletcher Building books confirmed Golden Bay strife",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "01740936-00fb-4837-b3c2-b2b04098df47",
+   "site": "businessdesk.co.nz",
+   "title": "Egmont Honey buys Tweeddale’s Honey in receivership sale",
+   "post_date": "2026-09-21T00:00:00+12:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "3df67446-592b-4c39-83f4-e09b7f7d647a",
+   "site": "businessdesk.co.nz",
+   "title": "NZ sharemarket down almost 1% amid Iran War escalation",
+   "post_date": "2026-10-02T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "509af8c3-4d11-40d7-a8c7-88653735850f",
+   "site": "businessdesk.co.nz",
+   "title": "Is this NZ’s most expensive house?",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "fc73a828-716f-44c0-8389-509d6fb3cd9c",
+   "site": "businessdesk.co.nz",
+   "title": "NZ sharemarket falls over 1% despite Hallenstein's solid result",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "48d6a514-f4e0-41cf-90f4-183fd94316c4",
+   "site": "businessdesk.co.nz",
+   "title": "Longevity has officially joined the beauty chat",
+   "post_date": "2026-09-26T00:00:00+12:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "c00bc486-ea6c-446c-b7f4-8b2ec33cbaf7",
+   "site": "businessdesk.co.nz",
+   "title": "Christchurch council weighs Enable sale as fibre company repays loans",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "94fa4265-dd4d-4808-b289-6a2079cc97a1",
+   "site": "businessdesk.co.nz",
+   "title": "Auckland lawyers face complaints over $5m mortgage signed off for dead man",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "3e15c080-343e-487d-b895-ed7781ffa37b",
+   "site": "businessdesk.co.nz",
+   "title": "Govt’s 10% upfront retirement village payout ‘not clear’",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "e2eb125f-137f-45c9-8f13-8e97f689a75e",
+   "site": "businessdesk.co.nz",
+   "title": "Canadian pension fund reportedly exits StraitNZ sale process",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "4f61d192-b065-4edb-918f-bb3e53e1aa2f",
+   "site": "businessdesk.co.nz",
+   "title": "Political ‘culture of fear’ drives NZ CEOs, NZ Initiative says",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:businessdesk.co.nz"
+  },
+  {
+   "id": "1b302a5f-c398-43d0-b009-202934c62d07",
+   "site": "interest.co.nz",
+   "title": "A review of things you need to know before you sign off on Monday; some fixed rate changes, service sector sags, trade deficit jumps, some Kiwibank workers strike, truckers get their wish list, big China data dump, swaps & NZD stable, & more",
+   "post_date": "2026-10-19T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "8403524f-1c50-43ef-9f87-55479954f1ef",
+   "site": "interest.co.nz",
+   "title": "'Licensing is not the finish line': FMA says post-CCCFA transfer, the regulator is focusing on engagement with consumer credit lenders and outlining ongoing conduct expectations for the sector",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "caead32e-3827-435d-a193-8f963bd589c0",
+   "site": "interest.co.nz",
+   "title": "Labour pledges to crack down on ‘unfair’ fuel prices, make car repairs cheaper and bring more competition to the pump",
+   "post_date": "2026-10-05T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "cd9f5e50-a685-4834-99c4-de7e025620a6",
+   "site": "interest.co.nz",
+   "title": "Angela Huyue Zhang & Yue Zhao explain why formal, objective assessments are needed to ensure AI safety and expose marketing hype",
+   "post_date": "2026-10-17T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "608431f5-dc2c-42e1-bf04-c21075f8d712",
+   "site": "interest.co.nz",
+   "title": "Ho-fung Hung explains why renminbi-based trade with Russia and Iran could end up bolstering the US greenback's standing",
+   "post_date": "2026-11-09T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "b77f2a09-7ae6-449c-94da-727089bc992e",
+   "site": "interest.co.nz",
+   "title": "Oil prices lower but US Treasury yields rise to fresh record highs regardless. US equities near record highs despite higher bond yields. EUR under pressure",
+   "post_date": "2026-10-06T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "b23feb8b-d8c8-439c-ba4f-9bd164e40042",
+   "site": "interest.co.nz",
+   "title": "Rates markets were highly volatile. 10-year US Treasury yields hit a 24-year high before retracing sharply. Concerns over France’s fiscal outlook drove a broader sovereign bond sell-off. The US dollar strengthened",
+   "post_date": "2026-10-02T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "717ca1be-a189-442b-962c-ae5ddb5d3ab0",
+   "site": "interest.co.nz",
+   "title": "Policies worthy of Soviet Russia circa 1926, seem ludicrously heroic in the New Zealand of 2026",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "099eeefd-bd06-4e7e-8bd2-adede3aaf0dc",
+   "site": "interest.co.nz",
+   "title": "Joseph Darby says rising costs have widened the gap between what a tenant pays and what their house costs to provide with the owner paying the difference. Why does the shortfall exist, and what's the return landlords need to justify it?",
+   "post_date": "2026-09-23T00:00:00+12:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "a34f529c-0bdc-4857-a119-ccea4ca1a4e1",
+   "site": "interest.co.nz",
+   "title": "NZ businesses are passing on higher prices as energy pressures mount, ASB survey finds",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "70398cd5-618c-4a2c-9292-e09ea1804c6a",
+   "site": "interest.co.nz",
+   "title": "Anthropic’s record US$2 trillion stock market listing highlights the growing risks for all of us",
+   "post_date": "2026-10-28T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "77702b18-6e19-4a34-ac9e-92ad1e63fcb4",
+   "site": "interest.co.nz",
+   "title": "Allan Barber reviews the ups and downs of a globally unique collaboration that brings together the three industry sectors to promote red meat to local consumers, now recognised for its successes",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "399e0b9d-ec59-44d2-862b-dcfaea6c28e3",
+   "site": "interest.co.nz",
+   "title": "Total estimated real estate sales commission fell 9% year-on-year in the September quarter, and is well down from the peaks of a few years ago",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "3c63c4f9-8126-4f84-ab86-19868fc9112f",
+   "site": "interest.co.nz",
+   "title": "New Zealand 'needs more low cost, affordable pensioner housing' - National leader Christopher Luxon promises expansion of granny flat rules, more affordable housing for seniors",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "38389577-e4e6-4178-af0b-663a04b3bde9",
+   "site": "interest.co.nz",
+   "title": "US data reinforces diverging economic drivers; Chinese sentiment low; Beijing rushes out large-scale monetary support; airlines taxed much harder by card processors; UST 10yr at 4.99%; gold firm but oil eases; NZ$1 = 56.9 USc; TWI-5 = 60.7",
+   "post_date": "2026-10-28T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "15f31112-451a-4c1b-94c2-32e19887e32e",
+   "site": "interest.co.nz",
+   "title": "As Treasury prepares to publish the Pre-election Economic and Fiscal Update, bank economists aren’t expecting any big surprises in the Government’s finances and forecasts",
+   "post_date": "2026-09-26T23:00:00+12:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "339f3ecf-6b78-4fa1-b90c-31f429db18c9",
+   "site": "interest.co.nz",
+   "title": "Higher fuel prices are prompting changes in spending and travel behaviour, notes Gary Blick, Auckland Council's chief economist",
+   "post_date": "2026-09-20T00:00:00+12:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "a409a547-8825-484b-81ad-74c60f979e2a",
+   "site": "interest.co.nz",
+   "title": "Reserve Bank appoints RBNZ economics manager Rebecca Williams to Monetary Policy Committee on one-year term, after 18-month search",
+   "post_date": "2026-09-25T00:00:00+12:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "6f54d862-0bf3-4204-acb7-71d8c02d6a57",
+   "site": "interest.co.nz",
+   "title": "Morrison's Paul Newfield sees big opportunity for New Zealand from 'massive overflow opportunity of the AI industry needing to move out of the US'",
+   "post_date": "2026-10-13T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "1a06fe61-8c8c-4e7b-aeec-8a6b3338e455",
+   "site": "interest.co.nz",
+   "title": "Navneeraj Sharma & Arvind Subramanian identify political, economic, and fiscal weaknesses in China that could turn into a perfect storm",
+   "post_date": "2026-10-25T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "967c1f65-37b1-455c-aa57-b1e5f2edad01",
+   "site": "interest.co.nz",
+   "title": "Oil prices volatile on mix of headlines regarding US-Iran conflict; net price movement modestly lower. Global rates modestly higher; strong US JOLTS labour market report. RBA hikes as expected, but Australian rates and AUD fall, with dovish commentary",
+   "post_date": "2026-11-04T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "e2877d43-bae8-4909-82a6-0a5aae62a848",
+   "site": "interest.co.nz",
+   "title": "Vero Insurance says weather-related claims have surged to $186.4 million over the past year, and warns climate change is projected to push up claims costs between 12% to 15% by 2040",
+   "post_date": "2026-10-29T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "eb2ad8c5-5b1e-42f8-9201-4adbd82fec32",
+   "site": "interest.co.nz",
+   "title": "Winston Peters endorses Chris Bishop, calls for deeper SME tax cuts and rules out Opportunity, while Finance Minister speculation swirls a week before the election",
+   "post_date": "2026-10-30T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "c4faff5e-4fff-476a-b4ef-8fb1b72f7aae",
+   "site": "interest.co.nz",
+   "title": "Equities partly recovered from the post-midterms tech selloff, with the Nasdaq up 1%. US payrolls easily beat expectations and unemployment fell to 4.1%. Front-end Treasury yields rose, with a December Fed hike still close to 80% priced",
+   "post_date": "2026-11-09T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "d82a75cd-ebea-469c-b02a-480285f7ada6",
+   "site": "interest.co.nz",
+   "title": "Stephen Roach sees a lack of progress on major issues as a refection of the US President's belief that optics are power",
+   "post_date": "2026-10-02T00:00:00+13:00",
+   "why": "site:interest.co.nz"
+  },
+  {
+   "id": "e40b0220-4de8-464f-abd1-99ac2d172a42",
+   "site": "farmersweekly.co.nz",
+   "title": "Quinoa offers fresh hope for struggling arable growers",
+   "post_date": "2026-10-24T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "d25481d5-232b-4b94-8093-adb6550bd119",
+   "site": "farmersweekly.co.nz",
+   "title": "Lambs roam where grapes once grew",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "f8333485-6a72-40e0-9237-ff54be92d085",
+   "site": "farmersweekly.co.nz",
+   "title": "NZ rural GP shortage hits 20% as election concerns grow",
+   "post_date": "2026-11-04T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "c34e936d-ba53-49da-9b97-ce17146948e7",
+   "site": "farmersweekly.co.nz",
+   "title": "Direct-to-consumer wool carpet portal launched",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "bb024c32-7417-4ef8-9cde-5cb56a2092cb",
+   "site": "farmersweekly.co.nz",
+   "title": "MPI defines the terms of its DIRA review",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "f99bd5f5-88dd-41ff-9d4d-c996616fb30e",
+   "site": "farmersweekly.co.nz",
+   "title": "Southland storm recovery continues one year on",
+   "post_date": "2026-10-20T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "e673b713-be63-4ef3-b02b-86181ac10b80",
+   "site": "farmersweekly.co.nz",
+   "title": "Entries open for NZ Dairy Industry Awards",
+   "post_date": "2026-10-10T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "9d8a5602-1944-479c-86eb-e6da09ca2575",
+   "site": "farmersweekly.co.nz",
+   "title": "El Niño brings hope and headaches for Gisborne farmers",
+   "post_date": "2026-10-19T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "7414fae0-42ac-4194-bf85-4863fea988ca",
+   "site": "farmersweekly.co.nz",
+   "title": "National promises farmers fewer consents under new rules",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "42d3029b-8706-4850-8157-402cd02ea74e",
+   "site": "farmersweekly.co.nz",
+   "title": "Waikato PC1 final version sees the light of day",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "4775eeb0-6512-4a6f-8fc6-1396746b7171",
+   "site": "farmersweekly.co.nz",
+   "title": "Synlait sees signs of turnaround after difficult year",
+   "post_date": "2026-09-26T23:00:00+12:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "4035fcb5-bcf0-44ee-9153-8e3c525059e7",
+   "site": "farmersweekly.co.nz",
+   "title": "Water security is key to the future of Hawke’s Bay",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "21034a84-fe22-4ee4-951b-b092da27dce6",
+   "site": "farmersweekly.co.nz",
+   "title": "Enough climate talk – time to build resilience",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "df89cf90-764c-47bc-9210-26f9a853e3ab",
+   "site": "farmersweekly.co.nz",
+   "title": "Australian buyers make their mark at NZ wool sale",
+   "post_date": "2026-10-13T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "75ba32ae-daf5-4091-96fb-d469ebd7fd83",
+   "site": "farmersweekly.co.nz",
+   "title": "Unlocking New Zealand dairy’s next frontier",
+   "post_date": "2026-11-07T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "09cf55a0-a335-488d-89aa-1f41de9a7e4b",
+   "site": "farmersweekly.co.nz",
+   "title": "National clashes with coalition partners over vote-splitting campaign",
+   "post_date": "2026-11-01T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "626b409f-3845-4498-b538-4b2b6ffa6faf",
+   "site": "farmersweekly.co.nz",
+   "title": "Synlait’s longest-serving employee reflects on 18 years",
+   "post_date": "2026-10-14T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "4a8e8340-0d32-4dfd-a190-3db8343c11b0",
+   "site": "farmersweekly.co.nz",
+   "title": "Farm Focus marks 45 years in rural software",
+   "post_date": "2026-10-19T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "d20f95de-66f4-4023-b082-cd9dc5d09c54",
+   "site": "farmersweekly.co.nz",
+   "title": "Feds survey reveals rural mobile coverage decline",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "06baf5b5-2a56-4a5a-88d2-cd7176108327",
+   "site": "farmersweekly.co.nz",
+   "title": "Snow Farm puts horse-powered skiing to the test",
+   "post_date": "2026-09-24T00:00:00+12:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "4107ae16-e54c-44ed-954f-7f7222d2c2c7",
+   "site": "farmersweekly.co.nz",
+   "title": "Farmers urged to step up footwear safety",
+   "post_date": "2026-10-13T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "713a6bd8-1c40-44e5-9ddf-9612671115c7",
+   "site": "farmersweekly.co.nz",
+   "title": "Council knew of farmland risks before approving sludge deal: Feds",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "ebf4520a-df13-40d8-b2ff-471a14175f9b",
+   "site": "farmersweekly.co.nz",
+   "title": "Upper North Island on alert for severe thunderstorms",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "b00b9dc5-db1f-4a07-a493-331b614c2ccc",
+   "site": "farmersweekly.co.nz",
+   "title": "NZ dairy production reaches record highs",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "bdf555f5-c479-42ea-9ac3-39389d00cd38",
+   "site": "farmersweekly.co.nz",
+   "title": "NZ-India trade deal work visas labelled ‘cosmetic’",
+   "post_date": "2026-10-26T00:00:00+13:00",
+   "why": "site:farmersweekly.co.nz"
+  },
+  {
+   "id": "aab1b639-2d3b-4b4f-b658-e6607fb4b127",
+   "site": "rnz.co.nz",
+   "title": "The Warehouse Group posts $11.2m net profit in turnaround",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "case:the-warehouse-company"
+  },
+  {
+   "id": "c7c8e623-096b-4940-bedd-e9a53ab1a05e",
+   "site": "thespinoff.co.nz",
+   "title": "The cost of being: A part-time worker caring for an elderly parent",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "case:the-warehouse-company"
+  },
+  {
+   "id": "4c0f484e-835e-4101-9dcf-5dc9b21d697f",
+   "site": "businessdesk.co.nz",
+   "title": "Weekly Wrap: Vulcan Steel up almost 10%",
+   "post_date": "2026-09-25T00:00:00+12:00",
+   "why": "case:the-warehouse-company"
+  },
+  {
+   "id": "53ee8d67-a599-45ae-a959-6f51db960d1b",
+   "site": "scoop.co.nz",
+   "title": "Alliance Launches 2026 Party List With A Call To Break From “Political Inertia And Managed Decline”",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "case:warehouse-the-word"
+  },
+  {
+   "id": "4dafced0-1a0b-4fb4-ace8-d869226fb309",
+   "site": "scoop.co.nz",
+   "title": "One NZ Opens Its First Store-In-Store At Costco Westgate",
+   "post_date": "2026-11-02T00:00:00+13:00",
+   "why": "case:warehouse-the-word"
+  },
+  {
+   "id": "b81ab812-2bb7-429f-8198-a996182be65a",
+   "site": "rnz.co.nz",
+   "title": "'Exercise should be free' - fitness pods open for public use in Hawke's Bay",
+   "post_date": "2026-10-12T00:00:00+13:00",
+   "why": "case:warehouse-the-word"
+  },
+  {
+   "id": "bbe5dd5c-ad4b-48b0-b080-2782272fde32",
+   "site": "rnz.co.nz",
+   "title": "What is the Christchurch NRL club state of play?",
+   "post_date": "2026-09-25T23:00:00+12:00",
+   "why": "case:several-chief-executives"
+  },
+  {
+   "id": "27a485d6-52b9-44a5-aaa4-786fd6899caa",
+   "site": "stuff.co.nz",
+   "title": "939 days since last concert - new stadium boss says announcement imminent",
+   "post_date": "2026-09-30T00:00:00+13:00",
+   "why": "case:several-chief-executives"
+  },
+  {
+   "id": "e27abd49-2357-410c-bf38-29b6628efefe",
+   "site": "stuff.co.nz",
+   "title": "Fenz boss resigns, more than a month after minister called for him to go",
+   "post_date": "2026-10-23T00:00:00+13:00",
+   "why": "case:several-chief-executives"
+  },
+  {
+   "id": "30440ee6-d8f8-4f37-8b11-b2cf3d0a2631",
+   "site": "scoop.co.nz",
+   "title": "Thriving Kids Rollout Must Be The Start, Not The Finish",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "case:former-and-acting"
+  },
+  {
+   "id": "7899a9ce-372d-429f-bd74-fb21765a796a",
+   "site": "odt.co.nz",
+   "title": "‘It was okay to be Māori’: Mana whenua representative’s journey of identity, belonging and leadership",
+   "post_date": "2026-10-26T00:00:00+13:00",
+   "why": "case:former-and-acting"
+  },
+  {
+   "id": "cc237c47-64c7-466b-8722-fe43d8f7a6aa",
+   "site": "businessdesk.co.nz",
+   "title": "Business of Tech: Inside Auckland University, the innovation engine",
+   "post_date": "2026-10-01T00:00:00+13:00",
+   "why": "case:former-and-acting"
+  },
+  {
+   "id": "e2bb2fb9-5e96-47b4-a8bf-70b95a20ff47",
+   "site": "stuff.co.nz",
+   "title": "Live: Black Caps chasing another consolation win in fifth T20I against India",
+   "post_date": "2026-11-01T00:00:00+13:00",
+   "why": "case:sport"
+  },
+  {
+   "id": "a23c4f9e-e82c-45e0-a1b4-97483109d2de",
+   "site": "stuff.co.nz",
+   "title": "Equestrian competitor Celia Pickens dies in showjumping accident",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "case:sport"
+  },
+  {
+   "id": "59190fbc-757f-45d0-ab64-1eeba3ad0fb3",
+   "site": "stuff.co.nz",
+   "title": "Chiefs sign Daniel Lienert-Brown from Highlanders to unite with All Black brother Anton",
+   "post_date": "2026-10-21T00:00:00+13:00",
+   "why": "case:sport"
+  },
+  {
+   "id": "3683fa49-bdb7-4ab2-a7bc-ca4db4e871cb",
+   "site": "scoop.co.nz",
+   "title": "Surf Lifesavers Set To Make A Splash At The Aon New Zealand Pool Rescue Championships",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "case:entertainment"
+  },
+  {
+   "id": "282fc1c5-44a7-4e61-80a3-fe5de0c7d17f",
+   "site": "scoop.co.nz",
+   "title": "The Mary Wallopers Announce Their Biggest Tour Yet – Paddywhackery Live, May 2027",
+   "post_date": "2026-10-08T00:00:00+13:00",
+   "why": "case:entertainment"
+  },
+  {
+   "id": "51b33007-0f8f-4aaa-b4ab-b872e821f96a",
+   "site": "scoop.co.nz",
+   "title": "Call For Judges Of The 2027 New Zealand Book Awards For Children And Young Adults",
+   "post_date": "2026-10-13T00:00:00+13:00",
+   "why": "case:entertainment"
+  },
+  {
+   "id": "613f7ad4-1c13-45c4-9230-9479b26bcb19",
+   "site": "nzherald.co.nz",
+   "title": "Dementia patient lost 10kg after hip fracture, HDC faults care home, orders apology",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "case:cannot-be-named"
+  },
+  {
+   "id": "93f50b96-6780-4b91-8c9a-cad221d60145",
+   "site": "scoop.co.nz",
+   "title": "FMA Files Charges For Alleged Insider Trading",
+   "post_date": "2026-11-05T00:00:00+13:00",
+   "why": "case:cannot-be-named"
+  },
+  {
+   "id": "e636675d-30d3-458d-b898-103780db4aa3",
+   "site": "odt.co.nz",
+   "title": "Braydon Hepworth manslaughter case moved to High Court",
+   "post_date": "2026-10-28T00:00:00+13:00",
+   "why": "case:cannot-be-named"
+  },
+  {
+   "id": "1961a371-1459-45a4-8ee4-ae1fec1d534c",
+   "site": "stuff.co.nz",
+   "title": "US midterm results mapped: When we can expect first calls",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "case:hamilton-a-person"
+  },
+  {
+   "id": "c653c7fc-efff-48db-9a41-1b13e0270006",
+   "site": "stuff.co.nz",
+   "title": "The electorate seats poised to change hands - and those still in play",
+   "post_date": "2026-11-08T00:00:00+13:00",
+   "why": "case:hamilton-a-person"
+  },
+  {
+   "id": "8373af43-1e82-45c5-9713-a1dd241ede9c",
+   "site": "scoop.co.nz",
+   "title": "Eye Catching Boswell Confirmed For Main Game Campaign",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "case:hamilton-a-person"
+  },
+  {
+   "id": "1b9c6f8d-935c-4e08-8a3d-22bc3ef1d7a9",
+   "site": "police.govt.nz",
+   "title": "Homicide investigation launched: Dargaville",
+   "post_date": "2026-10-07T00:00:00+13:00",
+   "why": "case:police-release"
+  },
+  {
+   "id": "84c0cc4c-44df-4935-bc66-9200b0fd188f",
+   "site": "police.govt.nz",
+   "title": "Rugby League World Cup: support your side, celebrate safely",
+   "post_date": "2026-10-16T00:00:00+13:00",
+   "why": "case:police-release"
+  },
+  {
+   "id": "2266d866-775d-411e-9f88-9f004d6895ec",
+   "site": "police.govt.nz",
+   "title": "Manslaughter charge laid following investigation in Napier",
+   "post_date": "2026-09-29T00:00:00+13:00",
+   "why": "case:police-release"
+  },
+  {
+   "id": "71f96a67-52d9-4945-a3aa-ef1ffdc28c84",
+   "site": "odt.co.nz",
+   "title": "Election 2026 live: Winston Peters calls campaign a ‘circus’",
+   "post_date": "2026-11-03T00:00:00+13:00",
+   "why": "case:live-blog"
+  },
+  {
+   "id": "f88867cf-7e0a-456c-83dd-db8b959c5f2b",
+   "site": "farmersweekly.co.nz",
+   "title": "Farmers fight $9m GDX live export repayment order",
+   "post_date": "2026-09-22T00:00:00+12:00",
+   "why": "case:live-blog"
+  },
+  {
+   "id": "05c79782-4be2-4c36-af8b-e0868bfdea43",
+   "site": "stuff.co.nz",
+   "title": "400,000 Kiwis are quietly choosing a new way to live – and our finances aren’t ready for it",
+   "post_date": "2026-10-17T00:00:00+13:00",
+   "why": "case:live-blog"
+  },
+  {
+   "id": "17da2ada-72ed-47b5-9491-d0b4e51e8645",
+   "site": "stuff.co.nz",
+   "title": "Oregon community mourns four killed in school shooting, survivors remain hospitalised",
+   "post_date": "2026-10-18T00:00:00+13:00",
+   "why": "case:wire-story"
+  },
+  {
+   "id": "5349edd2-6b00-4b8e-bcf3-bb7fe5c13a1f",
+   "site": "stuff.co.nz",
+   "title": "Mediators working to broker US-Iran deal even after Trump rejected latest Tehran proposal",
+   "post_date": "2026-09-28T00:00:00+13:00",
+   "why": "case:wire-story"
+  },
+  {
+   "id": "b754b538-82f2-4033-bbfc-54849056dd74",
+   "site": "odt.co.nz",
+   "title": "Hackers steal $11.2 billion in record heist blamed on North Korea",
+   "post_date": "2026-10-30T00:00:00+13:00",
+   "why": "case:wire-story"
+  },
+  {
+   "id": "1df55fcd-dc5d-4594-bb78-a96490aacb49",
+   "site": "odt.co.nz",
+   "title": "AI and music: threats and possibilities",
+   "post_date": "2026-10-22T00:00:00+13:00",
+   "why": "case:opinion"
+  },
+  {
+   "id": "6133538a-96d2-4428-bf0d-6aeec0df59d0",
+   "site": "odt.co.nz",
+   "title": "An immense legacy in theology and the academic study of religion",
+   "post_date": "2026-11-10T00:00:00+13:00",
+   "why": "case:opinion"
+  },
+  {
+   "id": "21f619ad-5abc-4dba-9733-ce98cfa581bb",
+   "site": "odt.co.nz",
+   "title": "Looking backwards to venture forwards: acknowledging 150 years of teacher education",
+   "post_date": "2026-10-11T00:00:00+13:00",
+   "why": "case:opinion"
+  }
+ ]
+}

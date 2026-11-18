@@ -356,6 +356,61 @@ def _sections(url) -> list:
     return [x for x in steps if x and x.count("-") < 3 and not re.fullmatch(r"[\d.]+|v\d.*|api|stuff|stories|story|article|release|[A-Z]{1,2}\d+", x)]
 
 
+#: the volume of a tranche, from tranche 6 (Arthur, 18 November 2026: "30 each of who claims what, job title, and who
+#: is speaking and 50 tone. let's make this the volume setting going forward"), one question an article, so no article
+#: is seen twice
+QUOTA = {"sentiment": 50, "claim": 30, "role": 30, "quote": 30}
+
+#: kinds of thing that can be treated with a tone (Arthur, tranche 5: "it's a violin not a person")
+TONE_KINDS = {"person", "organisation", "team", "government"}
+
+
+def _tone_misfire(s: dict, xe: dict, ctx: str, voice: str, site: str) -> str | None:
+    """Why a tone question would carry no tone information (Arthur, tranche 5: his "bad question" answers are
+    misfires), or None. Each reason is one of his verdicts."""
+    if (s.get("value") or "neutral") == "neutral":
+        return "the model found no tone"
+    e = xe.get(s.get("toward")) or {}
+    if e.get("kind") not in TONE_KINDS:
+        return "the target is a thing, not a person or organisation"
+    if not ctx or "advertisement" in ctx.lower():
+        return "the text shown is an advert or missing"
+    ev = " ".join((s.get("evidence") or "").split())
+    if ev[:40] and ev[:40] not in " ".join(ctx.split()):
+        return "the text shown does not hold the evidence"
+    stem = (site or "").split(".")[0].lower()
+    if stem and stem in (e.get("name") or "").lower().replace(" ", ""):
+        return "the target is the outlet itself"
+    if voice == "the writer":
+        for f in _forms(xe, s.get("toward"))[:3]:
+            if re.search(rf"{re.escape(f)}\W+(\w+\W+){{0,3}}(said|says|told|added)\b|\b(said|says)\W+(\w+\W+){{0,4}}{re.escape(f)}", ctx):
+                return "the target is only quoted: the words are theirs, not the writer's tone"
+    return None
+
+
+def _quota(qs: list, quota: dict, skipped: dict) -> list:
+    """One question an article, each kind filled to its quota; the scarcest kind chooses its articles first."""
+    by_kind = {k: {} for k in quota}
+    for q in qs:
+        if q["kind"] in by_kind:
+            by_kind[q["kind"]].setdefault(q["article"], q)
+    used, out = set(), []
+    for k in sorted(quota, key=lambda k: len(by_kind[k]) / quota[k]):
+        took = 0
+        for aid, q in by_kind[k].items():
+            if took == quota[k]:
+                break
+            if aid in used:
+                continue
+            used.add(aid)
+            out.append(q)
+            took += 1
+        if took < quota[k]:
+            skipped[f"SHORT: {k} {took} of {quota[k]}"] = quota[k] - took
+    skipped["not asked (one question an article)"] = len(qs) - len(out)
+    return out
+
+
 def _spread(qs: list, most: int, skipped: dict) -> list:
     """At most `most` questions an article: each round takes the next kind (ORDER2) the article still has, so its
     questions differ in kind before a kind repeats. What is left over is counted, never asked."""
@@ -523,13 +578,17 @@ def build2(tranche: int, run: str = "run6") -> dict:
                   [{"key": k, "label": v} for k, v in TYPE_LABEL2.items()], typ)
 
             tones = [s for s in x.get("sentiment") or [] if isinstance(s, dict)]
-            tones = sorted(tones, key=lambda s: s.get("value") == "neutral")[:TONE_PER_ARTICLE]
+            tones = sorted(tones, key=lambda s: s.get("value") == "neutral")[:TONE_PER_ARTICLE if tranche < 6 else 99]
             for s in tones:
                 voice = "the writer" if s.get("from") in ("article", "own") else _name(xe, s.get("from"))
                 ev_ = s.get("evidence") or ""
                 ctx = _window(body, [ev_[:80]], most=1)
                 if voice != "the writer":
                     ctx = _named_before(body, ctx, _forms(xe, s.get("from")))
+                why = _tone_misfire(s, xe, ctx, voice, a["site"]) if tranche >= 6 else None
+                if why:
+                    skipped[f"sentiment ({why})"] = skipped.get(f"sentiment ({why})", 0) + 1
+                    continue
                 ask("sentiment", aid, ("tone", s.get("toward"), s.get("from")),
                     [{"text": "In this text, how does " + voice + " treat "}, {"text": _name(xe, s.get("toward")), "mark": "who"},
                      {"text": "?"}],
@@ -537,7 +596,9 @@ def build2(tranche: int, run: str = "run6") -> dict:
                           "role": [ev_]},
                     [{"key": k, "label": k} for k in ("negative", "mixed", "neutral", "positive")], s.get("value"))
 
-    if tranche >= 5:
+    if tranche >= 6:
+        qs = _quota(qs, QUOTA, skipped)
+    elif tranche >= 5:
         qs = _spread(qs, PER_ARTICLE, skipped)
     qs.sort(key=lambda q: (ORDER2.index(q["kind"]), q["article"]))
     return {"set": f"news-gold-{tranche}", "title": f"News golden sample, tranche {tranche}",
