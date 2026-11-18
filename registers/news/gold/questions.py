@@ -433,8 +433,9 @@ def build2(tranche: int, run: str = "run6") -> dict:
                 ctx = _window(body, need, need_all=True, most=1)
                 ask("role", aid, (r["who"], r["role"], r["of"]),
                     [{"text": "Does this text say "}, {"text": _name(xe, r["who"]), "mark": "who"}, {"text": " holds the title “"},
-                     {"text": r["role"], "mark": "role"}, {"text": "” at "}, {"text": _name(xe, r["of"]), "mark": "org"},
-                     {"text": "?"}],
+                     {"text": r["role"], "mark": "role"}, {"text": "”"}]
+                    + ([{"text": " in the "}, {"text": r["unit"]}] if r.get("unit") else [])
+                    + [{"text": " at "}, {"text": _name(xe, r["of"]), "mark": "org"}, {"text": "?"}],
                     ctx, {"who": pf, "role": [r["role"]], "org": of_f},
                     [{"key": "yes", "label": "Yes"},
                      {"key": "not_title", "label": "No: not a title (a verb, a description, a nickname)"},
@@ -491,7 +492,12 @@ def build2(tranche: int, run: str = "run6") -> dict:
                 spk = q.get("speaker")
                 sname = _name(xe, spk) if spk else None
                 ctx = _window(body, [t[:60]], most=1) or _window(body, [t[-60:]], most=1)
-                model = "yes" if spk and q.get("channel") != "document" else ("document" if q.get("channel") == "document" else "nobody")
+                # tranche 4: a person's statement the model called a document was the person speaking ("speaker
+                # included in statement"): the speaker is asked, not the channel; a document only when nobody is named
+                if spk == "writer":
+                    model, spk, sname = "writer", None, None
+                else:
+                    model = "yes" if spk else ("document" if q.get("channel") == "document" else "nobody")
                 ask("quote", aid, ("quote", t[:80]),
                     [{"text": "Who is speaking the marked words?"}],
                     ctx, {"quote": [t[:300]], "who": _forms(xe, spk)[:3] if spk else []},
