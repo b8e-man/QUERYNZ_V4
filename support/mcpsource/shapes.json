@@ -916,6 +916,12 @@
    ],
    "year": [
     "str"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "pdf_fetched_at": [
+    "str"
    ]
   },
   "items": {
@@ -927,6 +933,9 @@
      "str"
     ],
     "source_url": [
+     "str"
+    ],
+    "sha256": [
      "str"
     ]
    }
@@ -987,6 +996,9 @@
    ],
    "word_count": [
     "int"
+   ],
+   "version": [
+    "str"
    ]
   },
   "items": {
@@ -4383,6 +4395,13 @@
    ],
    "urls": [
     "list"
+   ],
+   "reached_from": [
+    "null",
+    "str"
+   ],
+   "http_status": [
+    "int"
    ]
   },
   "items": {
@@ -4392,6 +4411,9 @@
     ],
     "sha256": [
      "str"
+    ],
+    "http_status": [
+     "int"
     ]
    },
    "names": {
@@ -4422,6 +4444,9 @@
    },
    "urls": {
     "url": [
+     "str"
+    ],
+    "fetched": [
      "str"
     ]
    }
