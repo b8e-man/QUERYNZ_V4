@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS news.sites (
     provider_earliest  date,
     provider_newest    date,
     provider_week      bigint NOT NULL DEFAULT 0,      -- the provider's articles published in the last 7 days
-    state              text NOT NULL,                  -- old only | provider only | providing, gap | ready | retired
+    state              text NOT NULL,                  -- old only | provider only | providing, gap | providing, stubs | held elsewhere, gap | ready | retired
     why                text NOT NULL,
     at                 timestamptz NOT NULL DEFAULT now()
 );

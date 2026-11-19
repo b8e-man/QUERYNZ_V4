@@ -16,6 +16,15 @@ old estate"; "go site by site. after the site is migrated and the provider is pr
    takes every host whose `status` is `ready` in `ingestion/newsscrapers/registry.py`; its `newsscrapers` timers
    were disabled on 11 November. There is no per-site switch but that status field. A ready site the registry does not hold (the Gazette, collected by the old estate's own `ingestion/gazette` program) is not listed or logged; the load reports it under "outside the registry" for Arthur.
 
+### A site held in another collection (Arthur, 20 November 2026)
+
+"count as new copy but check it is the same as the copy it is replaceing". The provider named 38 old-only sites it
+holds outside estate-news (courts, council minutes, Hansard, disclosure statements, the Electoral Commission,
+estate-media; `load.ELSEWHERE`). Its word moves nothing: such a site is `ready` only when the new estate holds,
+outside estate-news (`load.ELSEWHERE_SOURCES`: every provider record of another corpus and the lanes' own tables),
+every address the old copy holds for it. Until then it is `held elsewhere, gap`, with the count missing. On 20
+November 9 were ready and 29 not.
+
 ## Comments (Arthur, 18 November 2026)
 
 "we want all comments and we want to efficiently link them to both the articles and also the user"; "start with the

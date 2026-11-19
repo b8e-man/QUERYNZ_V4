@@ -218,17 +218,64 @@ OTHER_SOURCES = [
 ]
 
 
+#: the sites the provider says it holds in a collection other than estate-news (its reply out-9ce171a4b300662e to
+#: estate-news-old-only-sites@2026-11-18), and where. Arthur, 20 November 2026: "count as new copy but check it is
+#: the same as the copy it is replaceing": such a site is ready only when the new estate holds, outside estate-news,
+#: every address the old copy holds for it; the provider's word alone moves nothing
+ELSEWHERE = {
+    "disclosure.legislation.govt.nz": "disclosure statements", "elections.nz": "electoral commission",
+    "courtsofnz.govt.nz": "courts", "determinations.era.govt.nz": "courts", "coronerscourt.govt.nz": "courts",
+    "environmentcourt.govt.nz": "courts", "hansard.parliament.nz": "hansard",
+    "companies-register.companiesoffice.govt.nz": "companies", "mbie.govt.nz": "tenders",
+    "knowledgeauckland.org.nz": "estate-media", "infrastructure.org.nz": "estate-media", "acc.co.nz": "estate-media",
+    "orangatamariki.govt.nz": "estate-media", "rbnz.govt.nz": "estate-media", "familyfirst.org.nz": "estate-media",
+    "greystar.co.nz": "estate-media",
+    **{h: "council minutes" for h in (
+        "christchurch.infocouncil.biz", "southland.infocouncil.biz", "carterton.infocouncil.biz",
+        "infocouncil.dunedin.govt.nz", "infocouncil.fndc.govt.nz", "centralotago.infocouncil.biz",
+        "infocouncil.boprc.govt.nz", "infocouncil.tauranga.govt.nz", "tararua.infocouncil.biz",
+        "northland.infocouncil.biz", "hastings.infocouncil.biz", "huttcity.infocouncil.biz",
+        "westernbayofplenty.infocouncil.biz", "napier.infocouncil.biz", "taupo.infocouncil.biz",
+        "tasman.infocouncil.biz", "palmerstonnorth.infocouncil.biz", "kapiticoast.infocouncil.biz",
+        "wairoa.infocouncil.biz", "waimate.infocouncil.biz", "mackenzie.infocouncil.biz", "waitaki.infocouncil.biz")},
+}
+#: where those addresses are looked for: every provider record outside estate-news, and the lanes' own tables
+ELSEWHERE_SOURCES = [
+    ("mcpsource.files", "SELECT url FROM mcpsource.files WHERE corpus <> 'estate-news'"),
+    ("mcpsource.arrivals", "SELECT url FROM mcpsource.arrivals WHERE corpus <> 'estate-news'"),
+    ("courts.documents", "SELECT url FROM courts.documents"),
+    ("courts.judgments", "SELECT source_url FROM courts.judgments"),
+    ("courts.cases", "SELECT url FROM courts.cases"),
+    ("courts.captures", "SELECT url FROM courts.captures"),
+    ("council_minutes.documents", "SELECT url FROM council_minutes.documents"),
+    ("council_minutes.capture_documents", "SELECT url FROM council_minutes.capture_documents"),
+    ("hansard.sittings", "SELECT url FROM hansard.sittings"),
+    ("hansard.sections", "SELECT url FROM hansard.sections"),
+]
+
+
 def sites_sql(conn) -> str:
-    """SITES with each other source whose table this database holds."""
+    """SITES with each other source whose table this database holds, and the held-elsewhere sites' addresses (undated:
+    they are judged by the old copy's addresses alone)."""
     have = [q for t, q in OTHER_SOURCES if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
+    away = [q for t, q in ELSEWHERE_SOURCES if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
+    hosts = ", ".join("'" + h.replace("'", "''") + "'" for h in sorted(ELSEWHERE))
+    if away:
+        have.append("SELECT DISTINCT news_private.host_of(u), news_private.url_key(u), NULL::date FROM ("
+                    + " UNION ".join(away) + f") e(u) WHERE news_private.host_of(u) IN ({hosts})")
     return SITES.replace("{others}", "".join(f"\n    UNION ALL {q}" for q in have))
 
 
 def judge(old_n, old_newest, prov_n, prov_earliest, prov_newest, week, retired, pages=0, stubs=0,
-          old_held=0) -> tuple:
+          old_held=0, elsewhere=None) -> tuple:
     """(state, why) for one site. `pages`: provider pages read; `stubs`: of them, stubs (STUB_SHARE); `old_held`:
-    the old copy's addresses the provider also holds."""
+    the old copy's addresses the provider also holds; `elsewhere`: the collection a held-elsewhere site is in."""
     share = stubs / pages if pages else 0.0
+    if elsewhere and not retired:     # ready only when the other collection holds every old address
+        if old_n and old_held >= old_n:
+            return "ready", f"held in {elsewhere}: all {old_n} of the old copy's addresses are there"
+        return "held elsewhere, gap", (f"held in {elsewhere} by the provider's word: {old_held} of the old copy's "
+                                       f"{old_n} addresses are there, {old_n - old_held} missing")
     if retired:
         if share > STUB_SHARE:
             return "retired", (f"the old collection is stopped for this site, but {stubs} of the provider's {pages} "
@@ -257,7 +304,7 @@ def sites(conn) -> dict:
     rows = conn.execute(sites_sql(conn)).fetchall()
     out = []
     for host, on, onew, olast, pn, pe, pnew, week, retired, pages, stubs, held, retired_on in rows:
-        state, why = judge(on, onew, pn, pe, pnew, week, retired, pages, stubs, held)
+        state, why = judge(on, onew, pn, pe, pnew, week, retired, pages, stubs, held, ELSEWHERE.get(host))
         if retired and olast and retired_on and olast > retired_on:     # the old estate still fetches it
             why = f"RETIRED BUT STILL FETCHED: the old estate fetched from it on {olast}, after its retirement on {retired_on}"
         out.append((host, on, onew, olast, pn, pe, pnew, week, state, why))

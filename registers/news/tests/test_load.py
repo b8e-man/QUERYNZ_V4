@@ -44,6 +44,15 @@ def test_an_undated_site_is_ready_only_when_the_provider_holds_every_old_address
     assert load.judge(87, None, 88, None, None, 0, False, 88, 9, 87)[0] == "providing, stubs"
 
 
+def test_a_site_held_elsewhere_is_ready_only_when_every_old_address_is_there():
+    # Arthur, 20 November 2026: "count as new copy but check it is the same as the copy it is replaceing"
+    assert load.judge(137, None, 1999, None, None, 0, False, 0, 0, 137, "hansard")[0] == "ready"
+    state, why = load.judge(53, None, 20106, None, None, 0, False, 0, 0, 3, "courts")
+    assert state == "held elsewhere, gap" and "50 missing" in why
+    assert load.judge(869, None, 0, None, None, 0, False, 0, 0, 0, "disclosure statements")[0] == "held elsewhere, gap"
+    assert load.judge(16, None, 16, None, None, 0, True, 0, 0, 16, "courts")[0] == "retired"
+
+
 def test_the_parser_is_the_sites_own_then_a_parent_domains_then_the_generic():
     assert load.parser_for("www.rnz.co.nz")[0] == "rnzscraper"
     assert load.parser_for("1news.co.nz")[0] == "onenews"
