@@ -381,7 +381,16 @@ def _tone_misfire(s: dict, xe: dict, ctx: str, voice: str, site: str) -> str | N
     stem = (site or "").split(".")[0].lower()
     if stem and stem in (e.get("name") or "").lower().replace(" ", ""):
         return "the target is the outlet itself"
+    if s.get("from") and s.get("from") == s.get("toward"):
+        return "the target speaks about itself"
     if voice == "the writer":
+        flat = " ".join(ctx.split())
+        # tranche 6 (Arthur): the Electricity Authority's own quote, Tasman Council's own release: the words are the
+        # target's, not the writer's
+        if ev[:30] and any(ev[:30] in m for m in re.findall(r"[\"“]([^\"”]{10,})[\"”]", flat)):
+            return "the evidence is inside a quote, not the writer's words"
+        if e.get("kind") in ("organisation", "government") and re.search(r"\b(we|our|ours)\b", re.sub(r"[\"“][^\"”]*[\"”]", " ", flat), re.I):
+            return "the text is in the organisation's own voice"
         for f in _forms(xe, s.get("toward"))[:3]:
             if re.search(rf"{re.escape(f)}\W+(\w+\W+){{0,3}}(said|says|told|added)\b|\b(said|says)\W+(\w+\W+){{0,4}}{re.escape(f)}", ctx):
                 return "the target is only quoted: the words are theirs, not the writer's tone"
@@ -437,7 +446,7 @@ def build2(tranche: int, run: str = "run6") -> dict:
     meta = {a["id"]: a for a in json.loads((HERE / f"tranche-{tranche}.json").read_text())["articles"]}
     articles, qs, skipped = {}, [], {}
 
-    def ask(kind, aid, key, ask_parts, context, groups, choices, model):
+    def ask(kind, aid, key, ask_parts, context, groups, choices, model, also=()):
         if not context:
             skipped[kind] = skipped.get(kind, 0) + 1
             return
@@ -455,7 +464,7 @@ def build2(tranche: int, run: str = "run6") -> dict:
         qs.append({"id": _qid(kind, aid, key), "kind": kind, "label": LABEL2[kind], "article": aid, "ask": ask_parts,
                    "context": marked, "choices": choices + ([{"key": "unsure", "label": "Can't tell from this text"}] if len(choices) < 9 else [])
                    + [BAD],
-                   "sides": {"model": model}})
+                   "sides": {"model": model, **({"also": list(also)} if also else {})}})
 
     with _conn() as c:
         for aid in T2._ids(tranche):
@@ -503,6 +512,9 @@ def build2(tranche: int, run: str = "run6") -> dict:
                     if asked >= CLAIMS_PER_ARTICLE:
                         break
                     span, stmt, says = (cl.get("span") or "").strip(), (cl.get("statement") or "").strip().rstrip("."), cl.get("says")
+                    stem = (a["site"] or "").split(".")[0].lower()
+                    if says != "writer" and stem and stem in (_name(xe, says) or "").lower().replace(" ", ""):
+                        says = "writer"          # tranche 6 (Arthur): a police release's own claims are the writer's
                     if not span or not stmt:
                         continue
                     if says == "writer":
@@ -549,10 +561,14 @@ def build2(tranche: int, run: str = "run6") -> dict:
                 ctx = _window(body, [t[:60]], most=1) or _window(body, [t[-60:]], most=1)
                 # tranche 4: a person's statement the model called a document was the person speaking ("speaker
                 # included in statement"): the speaker is asked, not the channel; a document only when nobody is named
+                also = ()
                 if spk == "writer":
                     model, spk, sname = "writer", None, None
                 else:
                     model = "yes" if spk else ("document" if q.get("channel") == "document" else "nobody")
+                    # Arthur, tranche 6: an organisation's written statement or a report "is a reference to a document
+                    # and the organisation speaking": both answers are right
+                    also = ("document",) if spk and q.get("channel") in ("statement", "document", "release") else ()
                 ask("quote", aid, ("quote", t[:80]),
                     [{"text": "Who is speaking the marked words?"}],
                     ctx, {"quote": [t[:300]], "who": _forms(xe, spk)[:3] if spk else []},
@@ -562,7 +578,7 @@ def build2(tranche: int, run: str = "run6") -> dict:
                        {"key": "document", "label": "A book, report or document" + (f" ({sname})" if sname else "")},
                        {"key": "nobody", "label": "A quote, but nobody is named"},
                        {"key": "span", "label": "A quote, but the marking takes in the speaker or misses words"}],
-                    model)
+                    model, also)
 
             typ = (x.get("article") or {}).get("type")
             lead = " ".join(body.split())[:700]

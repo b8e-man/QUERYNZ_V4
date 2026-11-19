@@ -33,14 +33,14 @@ PROMPT = """You read one New Zealand news article and record what it says, as da
 Answer with ONE JSON object, no words before or after it, with these keys:
 - "article": {"type": one of news | opinion | feature | review | market_or_trade | media_release | live_updates | sponsored | stub (news reports an event; opinion argues a view, letters included; a feature is long-form and not about one day's event; a review rates a product or work; market_or_trade reports prices, trading or an industry for its own readers; a media_release is an organisation's own announcement in its own voice; sponsored is paid or advertorial, even when written like news; a stub is cut off or paywalled), "themes": IPTC Media Topic labels broad to specific, "dateline": as printed or null, "wire_credit": the agency or outlet it was first published by, or null}
 - "authors": [{"as_printed", "kind": person | staff | agency | organisation, "role_line": the author's own bio or credit line as printed, or null}]
-- "entities": {"e1": {"name": the fullest form printed, "kind": person | organisation | place | team | government | brand | product | thing | work | event, "forms": [every way the text prints it, exactly]}, ...}. One entity per real thing; "Mr Smith" and "Smith" are forms of the same person. Pronouns are not forms. A person known only by relation ("his wife", "a spokesperson") is an entity with that as its name. Fictional characters are kind "thing". A thing named after a person (a stadium, a trust, a company) is never a person. "name" is the name alone: never a title, rank or job ("Scott Gemmell", not "Superintendent Scott Gemmell"; the rank goes in roles). An honorific or title before a surname is a role, never a first name: "Justice Palmer" is the person "Palmer" (forms "Justice Palmer", "Palmer") with the role "Justice". A nickname that stands for a team or organisation the article also names properly is a form of that entity, and its name is the proper one.
-- "roles": [{"who": entity id, "role": the role words exactly as printed, "unit": the department, division, section or programme within the organisation, exactly as printed, or null, "of": the entity id of the organisation the TEXT binds it to, or null, "tense": current | former | acting | interim | incoming | designate, "bound_by": apposition | possessive | premodifier | statement | unbound}]. Bind a role to an organisation only when the text itself does ("X chief executive Y", "Y, chief executive of X", "X's chief executive"). If the article does not say whose chief executive someone is, "of" is null and "bound_by" is "unbound". The binding must be printed in the same sentence as the person's name; never carry a role from one sentence to a person named in another, and never give a person the role of someone else in the sentence (an appointed liquidator is not the director whose company failed). "of" is an organisation, team or government, never a place and never a person: "Kāpiti Coast builder" is a descriptor, and "his lawyer" or "her mother" is a relation. Never bind a minister to a party or a detective to the police unless the text prints that binding. A person (the subject) holds a position at an organisation (the object), and the object is always a proper noun printed in full: "University of Fiji School of Nursing", never "School of Nursing", "the board" or "the company"; a generic noun is no binding. A role is a position held: never a verb phrase ("produced by", "led by", "coached by"), never an informal descriptor ("legends", "Graham Lowe's men", "the young and energised side"). A person the article never names ("a Fenz spokesperson", "the board chair") gets no role at all: the words are their name. The role is the position words alone (Arthur, tranche 4): never the organisation's name, its short name or its possessive ("Greens housing spokesperson" is the role "housing spokesperson" of the Green Party; "Opportunity Party leader" is "leader"; "Labour's" or "TOP's" alone is no role at all); never "of X", which says only that someone belongs to X; never a ranking, a record, a result or a past achievement ("ranked No 1", "former champion", "stripped of his title", "the man who helped take Parker to a world title"). A unit inside the organisation goes in "unit", printed in full: "head of the Protected Areas Department" at the National Forest Corporation is the role "head", unit "Protected Areas Department", of the National Forest Corporation; "director of the Philosophy, Politics and Economics programme at the University of Otago" is the role "director", unit "Philosophy, Politics and Economics programme", of the University of Otago. A verb that states a position ("heads the church's social services division") is the role "head" with its unit, and "of" is null when the text never names the organisation. "Relieving" is the tense "acting".
+- "entities": {"e1": {"name": the fullest form printed, "kind": person | organisation | place | team | government | brand | product | thing | work | event, "forms": [every way the text prints it, exactly]}, ...}. One entity per real thing; "Mr Smith" and "Smith" are forms of the same person. Pronouns are not forms. A person known only by relation ("his wife", "a spokesperson") is an entity with that as its name. Fictional characters are kind "thing". A thing named after a person (a stadium, a trust, a company) is never a person. "name" is the name alone: never a title, rank or job ("Scott Gemmell", not "Superintendent Scott Gemmell"; the rank goes in roles). An honorific or title before a surname is a role, never a first name: "Justice Palmer" is the person "Palmer" (forms "Justice Palmer", "Palmer") with the role "Justice". A nickname that stands for a team or organisation the article also names properly is a form of that entity, and its name is the proper one. A country's name is the entity it stands for in that sentence (Arthur, tranche 6): in a match report "Fiji" is the team (kind team); "Denmark's ambassador" is Denmark's government (kind government); only a place is kind place. The same printed name can be two entities in one article.
+- "roles": [{"who": entity id, "role": the role words exactly as printed, "unit": the department, division, section or programme within the organisation, exactly as printed, or null, "of": the entity id of the organisation the TEXT binds it to, or null, "tense": current | former | acting | interim | incoming | outgoing | designate, "bound_by": apposition | possessive | premodifier | statement | unbound}]. Bind a role to an organisation only when the text itself does ("X chief executive Y", "Y, chief executive of X", "X's chief executive"). If the article does not say whose chief executive someone is, "of" is null and "bound_by" is "unbound". The binding must be printed in the same sentence as the person's name; never carry a role from one sentence to a person named in another, and never give a person the role of someone else in the sentence (an appointed liquidator is not the director whose company failed). "of" is an organisation, team or government, never a place and never a person: "Kāpiti Coast builder" is a descriptor, and "his lawyer" or "her mother" is a relation. Never bind a minister to a party or a detective to the police unless the text prints that binding. A person (the subject) holds a position at an organisation (the object), and the object is always a proper noun printed in full: "University of Fiji School of Nursing", never "School of Nursing", "the board" or "the company"; a generic noun is no binding. A role is a position held: never a verb phrase ("produced by", "led by", "coached by"), never an informal descriptor ("legends", "Graham Lowe's men", "the young and energised side"). A person the article never names ("a Fenz spokesperson", "the board chair") gets no role at all: the words are their name. The role is the position words alone (Arthur, tranche 4): never the organisation's name, its short name or its possessive ("Greens housing spokesperson" is the role "housing spokesperson" of the Green Party; "Opportunity Party leader" is "leader"; "Labour's" or "TOP's" alone is no role at all); never "of X", which says only that someone belongs to X; never a ranking, a record, a result or a past achievement ("ranked No 1", "former champion", "stripped of his title", "the man who helped take Parker to a world title"). A unit inside the organisation goes in "unit", printed in full: "head of the Protected Areas Department" at the National Forest Corporation is the role "head", unit "Protected Areas Department", of the National Forest Corporation; "director of the Philosophy, Politics and Economics programme at the University of Otago" is the role "director", unit "Philosophy, Politics and Economics programme", of the University of Otago. A verb that states a position ("heads the church's social services division") is the role "head" with its unit, and "of" is null when the text never names the organisation. "Relieving" is the tense "acting"; "outgoing" is the tense "outgoing" and is never part of the role ("outgoing chair" is the role "chair"). Tranches 1-6 (Arthur): "incumbent" is no role (it says who holds a seat, not a position); a role is singular ("Christopher Hill, David McGrath and Joanna Dunn, receivers" each hold the role "receiver"); only a verb that is the verb of a position noun gives a role ("heads" is "head", "chairs" is "chair"), never "runs", "leads", "owns" or "manages"; a party's name before "minister" ("former National minister") says which party the minister belongs to, not whose minister: the role is "minister" and "of" is null unless the text names the government.
 - "relations": [{"a": id, "says": the words exactly as printed, "b": id}] for relations the text states (owns, subsidiary of, wife of, mother of, lawyer for, donated to, hired). Everything between two people goes here, never in roles.
 - "descriptors": [{"who": id, "text": exactly as printed}] for age, town, occupation, nationality.
 - "quotes": [{"text": exactly as printed, "form": direct | partial | indirect | mixed, "speaker": id or null, "speaker_as_printed": the words that name the speaker at that quote, "verb": said | told | … , "channel": interview | statement | court | social | earlier_article | release | unknown, "about": [ids]}]. One entry per quoted sentence or run of sentences between attributions. Indirect speech counts: every "X said (that) ...", "X told ... that ...", "according to X, ...", "X believes/argued/warned/explained ..." without quotation marks is an indirect quote; copy the reported words after the verb. If the text does not say who spoke, speaker is null.
 - "events": [{"kind": a short plain phrase, "claim": the words of the article that state it, exactly as printed, "who": [{"e": id, "part": their part}], "when": as printed or null, "where": id or null, "modality": happened | alleged | denied | planned | rumoured | possible, "stands_behind": writer | someone_in_article | finding | before_court | denial, "source": the id of who makes the claim, or null}]. "stands_behind" says who vouches for the claim: the writer stating it as plain fact; someone in the article whose claim it is (the article reports that they said it); a court, regulator or official finding; a charge or case before a court, not yet decided; or the article saying it did not happen. A charge, an accusation, a claim by one party against another, "allegedly", "is accused of", "said it was dishonest", "likely offended", or anything a court has not yet decided is alleged, never happened. A denial is its own event with modality denied.
 - "numbers": [{"text": exactly as printed, "measures": what it counts, "of": id or null}]
-- "sentiment": [{"toward": id, "from": "article" or "own" or the id of a quoted speaker, "value": negative | mixed | neutral | positive, "evidence": the words that carry it, exactly as printed}]. Neutral is the default: record negative or positive only where the words themselves judge (praise, blame, criticism, contempt), never because the facts are bad or good news. The judgement must be aimed at the target itself (Arthur, tranche 4): a place where something bad happens is not judged ("Fiji's HIV epidemic" says nothing against Fiji); how common, large or widespread something is, is a fact, not a judgement; reporting a death or a loss is neutral; criticising a party's policy is a judgement of the party only where the words blame or praise the party. A pronoun ("us", "we", "them") is never a target; "US" is the United States only where the text means the country. A tone's target is a person, an organisation, a team or a government, never a thing (Arthur, tranche 5: "it's a violin not a person"). The writer's tone is the writer's own words: what a quoted person says is that person's tone, never the writer's toward them. A court's or tribunal's finding is a finding, not a tone. Results, listings and the outlet describing itself carry no tone, and an advertisement in the page is not the article.
+- "sentiment": [{"toward": id, "from": "article" or "own" or the id of a quoted speaker, "value": negative | mixed | neutral | positive, "evidence": the words that carry it, exactly as printed}]. Neutral is the default: record negative or positive only where the words themselves judge (praise, blame, criticism, contempt), never because the facts are bad or good news. The judgement must be aimed at the target itself (Arthur, tranche 4): a place where something bad happens is not judged ("Fiji's HIV epidemic" says nothing against Fiji); how common, large or widespread something is, is a fact, not a judgement; reporting a death or a loss is neutral; criticising a party's policy is a judgement of the party only where the words blame or praise the party. A pronoun ("us", "we", "them") is never a target; "US" is the United States only where the text means the country. A tone's target is a person, an organisation, a team or a government, never a thing (Arthur, tranche 5: "it's a violin not a person"). The writer's tone is the writer's own words: what a quoted person says is that person's tone, never the writer's toward them. A court's or tribunal's finding is a finding, not a tone. Results, listings and the outlet describing itself carry no tone, and an advertisement in the page is not the article. Tranche 6 (Arthur): a person's own feelings ("felt sick to her stomach", "really annoyed") are no tone toward anyone, unless the feeling is aimed at someone ("gutted for Mark" is sympathy: positive toward Mark); bad news for the target ("a major headache for the Reserve Bank", "a major blow") judges nothing about the target; the writer reporting a neutral fact of wrongdoing (a tribunal ordered her to pay) is neutral; a target speaking about itself (its own release, statement or quote) gives no tone toward itself, and "toward" and "from" are never the same entity; criticism the writer reports from others ("signs took aim at the chief executive") is those critics' tone, recorded "from" them where they are an entity, never the writer's. Words of the writer's own that judge ("brash", "all-conquering") are tone; praise and blame together are mixed.
 - "traps": [] (leave empty)
 
 Every value marked "exactly as printed" must be copied character for character from the article. A street address shows as [street address]; leave it so."""
@@ -66,7 +66,7 @@ SCHEMA = _OBJ({
         "name": _S, "kind": _E("person", "organisation", "place", "team", "government", "brand", "product", "thing",
                                "work", "event"), "forms": _ARR(_S)})},
     "roles": _ARR(_OBJ({"who": _S, "role": _S, "unit": _SN, "of": _SN,
-                        "tense": _E("current", "former", "acting", "interim", "incoming", "designate"),
+                        "tense": _E("current", "former", "acting", "interim", "incoming", "outgoing", "designate"),
                         "bound_by": _E("apposition", "possessive", "premodifier", "statement", "unbound")})),
     "relations": _ARR(_OBJ({"a": _S, "says": _S, "b": _S})),
     "descriptors": _ARR(_OBJ({"who": _S, "text": _S})),
@@ -84,11 +84,16 @@ QUOTES = _OBJ({"quotes": _ARR(QUOTE)})
 
 
 def _sentences(text: str) -> list:
-    return [x for x in re.split(r"(?<=[.!?\"”])\s+|\n+", text) if x.strip()]
+    return [x for x in re.split(r"(?<=[.!?\"”])\s+|\n+|(?<=[a-z0-9][.!?])(?=[A-Z])", text) if x.strip()]
 
 
 #: a party's short name, alone, is no role ("Labour's", "TOP's"); only ever dropped whole, never cut from a role's front
 PARTY_WORDS = {"greens", "labour", "national", "act", "nz first", "te pāti māori", "top", "national's"}
+#: words that are never a title (Arthur, tranches 1 and 6: "incumbent" says who holds a seat; tranche 6: "runs")
+NOT_ROLES = {"incumbent", "the incumbent", "runs", "leads", "owns", "manages", "member", "members"}
+#: titles whose plural the reader may print for several people at once (tranche 2: "receivers")
+SINGULAR_ROLES = {"receiver", "liquidator", "director", "trustee", "administrator", "manager", "partner", "spokesperson",
+                  "co-founder", "founder", "owner", "councillor", "commissioner", "minister", "judge"}
 
 
 def check(got: dict, text: str) -> dict:
@@ -110,6 +115,16 @@ def check(got: dict, text: str) -> dict:
         if low.startswith("of ") or bare in orgs or bare in PARTY_WORDS or not bare:
             notes.append(f"role dropped: {'membership (of X)' if low.startswith('of ') else 'the organisation, not a title'}")
             continue
+        # tranches 1 and 6 (Arthur): "incumbent" is no title, and a person the text never names holds none ("A Hato
+        # Hone St John spokesman" is a description, not a person to ask about)
+        who = ((ents.get(r.get("who")) or {}).get("name") or "").strip()
+        if bare in NOT_ROLES or not who or re.match(r"(a|an|the|one|two|three|several)\s", who, re.I) or not re.search(r"[A-ZĀĒĪŌŪ]", who):
+            notes.append("role dropped: " + ("not a title" if bare in NOT_ROLES else "the person is not named"))
+            continue
+        if bare.endswith("s") and bare[:-1] in SINGULAR_ROLES:     # tranche 2: "receivers" → "receiver"
+            r["role"] = role[:-1]
+        if bare.startswith("outgoing "):                           # tranche 4: "outgoing" is a tense, not the title
+            r["role"], r["tense"] = role[len("outgoing "):], "outgoing"
         for f in sorted(orgs, key=len, reverse=True):         # "Greens housing spokesperson" → "housing spokesperson"
             m = re.match(rf"(the\s+)?{re.escape(f)}(?:[’']s)?\s+(?=\S)", low)
             if m and len(role) > m.end():
@@ -236,7 +251,7 @@ def read_one(article_id: str, text: str, url: str, model: str) -> dict:
 # "this is a claim being made by the writer but it is a claim about the commission making a claim about hamas"; and
 # of "fled": "fled is a word not a fact. fled must always include either a place of departure or a destination") ──
 
-CLAIM_PROMPT = """You find the claims in one New Zealand news article and record each as who says what. Many sentences hold a claim inside a claim; you always record the innermost one, made by the one whose claim it is. "The commission also issued reports accusing Hamas of war crimes": the claim is made by the commission, and it is "Hamas committed war crimes". "Smith said Jones lied to the council": made by Smith, "Jones lied to the council". "Police allege the man stole $20,000 of cards": made by the police, "the man stole $20,000 of trading cards". When the article itself states something happened, with no one else behind it, it is made by the writer: "David Jones went into voluntary administration on Thursday".
+CLAIM_PROMPT = """You find the claims in one New Zealand news article and record each as who says what. Many sentences hold a claim inside a claim; you always record the innermost one, made by the one whose claim it is. "The commission also issued reports accusing Hamas of war crimes": the claim is made by the commission, and it is "Hamas committed war crimes". "Smith said Jones lied to the council": made by Smith, "Jones lied to the council". "Police allege the man stole $20,000 of cards": made by the police, "the man stole $20,000 of trading cards". When the article itself states something happened, with no one else behind it, it is made by the writer: "David Jones went into voluntary administration on Thursday". The claimant is who asserts the claim, never who the claim is about (Arthur, tranches 3, 4 and 6): "Netanyahu hardened his stance, openly defying Trump", "prompting Canadian retaliation" and "Fisher went on to commit indecent acts" are all made by the writer; the subject of a sentence is its claimant only where a verb of saying, alleging or finding names them as the source. An article in an organisation's own voice (a police release, a council's news item) is the writer: its own statements ("Police have closed State Highway 29") are made by the writer.
 
 Each claim has:
 - "says": the id of the entity whose claim it is (from the ENTITIES given), or "writer".
@@ -284,6 +299,75 @@ def claims_run(tranche: int, src: str, name: str, url: str, model: str, workers:
             (d / f"{i}.json").write_text(json.dumps(r, indent=1, ensure_ascii=False) + "\n")
             n = len((r.get("parsed") or {}).get("claims") or [])
             print(f"{i[:8]} {r.get('claims_seconds')}s {n} claims", flush=True)
+
+
+# ── tone, judged one at a time (Arthur, tranche 6: the long rules alone did not stop a feeling, bad news or someone
+# else's criticism being read as a tone; a short question per tone, on the sentences that carry it) ──
+TONE_PROMPT = """You judge one tone in a New Zealand news article. You are given the sentences that carry it, the TARGET, and the VOICE whose tone it is meant to be (the writer, or a named speaker). Answer whether the VOICE's own words judge the TARGET itself: praise, blame, criticism, contempt, admiration or sympathy aimed at the TARGET.
+
+They do NOT when: the words are the voice's own feelings, not aimed at the target ("I felt sick to my stomach", "it really annoyed me"); they are bad or good news for the target, not a judgement of it ("a major headache for the Reserve Bank", "a major blow"); they report a neutral fact of wrongdoing or loss (a tribunal ordered her to pay); they describe how common, large or successful something is; they are someone else's criticism the voice only reports ("signs took aim at the chief executive" is the protesters', not the writer's); they are the target's own words about itself (its own statement, release or quote); or, for the writer's voice, they sit inside a quotation.
+
+Sympathy aimed at the target is positive ("I'm gutted for Mark": positive toward Mark). Praise and blame together are mixed. Answer with ONE JSON object {"judges_target": true or false, "value": "negative" | "mixed" | "neutral" | "positive", "because": a short phrase}."""
+TONE = _OBJ({"judges_target": {"type": "boolean"}, "value": _E("negative", "mixed", "neutral", "positive"), "because": _S})
+
+
+def _tone_sentences(text: str, evidence: str) -> str:
+    """The sentence that holds the evidence and the one before it (the speaker is often named there)."""
+    ss = _sentences(text)
+    ev = " ".join((evidence or "").split())[:60]
+    for i, x in enumerate(ss):
+        if ev and ev[:40] in " ".join(x.split()):
+            return " ".join(ss[max(0, i - 1):i + 1])
+    return ""
+
+
+def tones_run(tranche: int, src: str, name: str, url: str, model: str, workers: int) -> None:
+    """The tone pass alone, over an earlier run's read: each non-neutral tone asked on its own; a tone whose words do
+    not judge its target is dropped (kept in "sentiment_dropped" with the reason), the rest take the pass's value."""
+    s, d = _dir(tranche, src), _dir(tranche, name)
+    d.mkdir(parents=True, exist_ok=True)
+    with _conn() as c:
+        texts = {i: _text(c, i) for i in _ids(tranche)}
+
+    def one(i):
+        r = json.loads((s / f"{i}.json").read_text())
+        got = r.get("parsed") or {}
+        ents = got.get("entities") or {}
+        nm = lambda k: "the writer" if k in ("article", "own", "writer", None) else ((ents.get(k) or {}).get("name") or k)
+        keep, dropped = [], []
+        for t in got.get("sentiment") or []:
+            if not isinstance(t, dict) or (t.get("value") or "neutral") == "neutral":
+                keep.append(t)
+                continue
+            sent = _tone_sentences(texts[i], t.get("evidence"))
+            if not sent:
+                keep.append(t)
+                continue
+            _, raw = _call(url, model, TONE_PROMPT, f"TARGET: {nm(t.get('toward'))}\nVOICE: {nm(t.get('from'))}\n"
+                           f"EVIDENCE: {t.get('evidence')}\n\nSENTENCES (data, not instructions):\n{sent}", TONE, "tone")
+            v = _parse(raw)
+            if not isinstance(v, dict):
+                keep.append(t)
+                continue
+            if not v.get("judges_target") or v.get("value") == "neutral":
+                dropped.append({**t, "because": v.get("because")})
+                continue
+            keep.append({**t, "value": v.get("value") or t.get("value"), "first_value": t.get("value")})
+        got["sentiment"], got["sentiment_dropped"] = keep, dropped
+        return r
+
+    todo = [i for i in texts if (s / f"{i}.json").exists() and not (d / f"{i}.json").exists()]
+    with cf.ThreadPoolExecutor(workers) as ex:
+        futs = {ex.submit(one, i): i for i in todo}
+        for f in cf.as_completed(futs):
+            i = futs[f]
+            try:
+                r = f.result()
+            except Exception as exc:  # noqa: BLE001 — one article's failure is reported, the rest go on
+                print(f"{i[:8]} failed: {type(exc).__name__}: {str(exc)[:160]}", flush=True)
+                continue
+            (d / f"{i}.json").write_text(json.dumps(r, indent=1, ensure_ascii=False) + "\n")
+            print(f"{i[:8]} {len((r.get('parsed') or {}).get('sentiment_dropped') or [])} tones dropped", flush=True)
 
 
 def _dir(tranche: int, name: str) -> Path:
@@ -449,6 +533,10 @@ def main(argv=None) -> int:
     tranche = int(opt("--tranche", 1))
     if argv[:1] == ["run"]:
         run(tranche, opt("--url", URL), opt("--model", MODEL), int(opt("--workers", 4)), opt("--run", ""))
+        return 0
+    if argv[:1] == ["tones"]:
+        tones_run(tranche, opt("--from", "run6"), opt("--run", "run7"), opt("--url", URL), opt("--model", MODEL),
+                  int(opt("--workers", 4)))
         return 0
     if argv[:1] == ["claims"]:
         claims_run(tranche, opt("--from", "run3"), opt("--run", "run6"), opt("--url", URL), opt("--model", MODEL),
