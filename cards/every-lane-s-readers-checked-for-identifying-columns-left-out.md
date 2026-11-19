@@ -1,5 +1,5 @@
 # Every lane's readers checked for identifying columns left out
-kind: task
+kind: finding
 state: open
 use-case: all
 session: integrator-40ea495e

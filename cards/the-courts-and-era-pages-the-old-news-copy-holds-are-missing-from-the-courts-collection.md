@@ -1,6 +1,6 @@
 # The courts and ERA pages the old news copy holds are missing from the courts collection
-kind: task
-state: parked
+kind: finding
+state: open
 use-case: all
 session: integrator-40ea495e
 opened: 2026-11-20
