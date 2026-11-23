@@ -4615,5 +4615,435 @@
     ]
    }
   }
+ },
+ "estate-comments": {
+  "fields": {
+   "article": [
+    "str"
+   ],
+   "bytes": [
+    "int"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "captured_at": [
+    "str"
+   ],
+   "comments": [
+    "list"
+   ],
+   "comment_system": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "http_status": [
+    "int"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "milestone": [
+    "str"
+   ],
+   "page_count": [
+    "int"
+   ],
+   "pages": [
+    "list"
+   ],
+   "published_at": [
+    "str"
+   ],
+   "record_id": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "source": [
+    "str"
+   ],
+   "text": [
+    "str"
+   ],
+   "total_at_capture": [
+    "int"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ]
+  },
+  "items": {
+   "capture": {
+    "bytes": [
+     "int"
+    ],
+    "fetched_at": [
+     "str"
+    ],
+    "http_status": [
+     "int"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   },
+   "comments": {
+    "article": [
+     "str"
+    ],
+    "avatar": [
+     "str"
+    ],
+    "comment_id": [
+     "str"
+    ],
+    "display_name": [
+     "str"
+    ],
+    "joined_at": [
+     "str"
+    ],
+    "parent_id": [
+     "str"
+    ],
+    "posted_at": [
+     "str"
+    ],
+    "profile_link": [
+     "str"
+    ],
+    "status": [
+     "str"
+    ],
+    "text": [
+     "str"
+    ],
+    "user_id": [
+     "str"
+    ],
+    "votes": [
+     "dict"
+    ]
+   },
+   "pages": {
+    "bytes": [
+     "int"
+    ],
+    "fetched_at": [
+     "str"
+    ],
+    "file": [
+     "str"
+    ],
+    "http_status": [
+     "int"
+    ],
+    "page": [
+     "int"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   }
+  }
+ },
+ "estate-substack": {
+  "fields": {
+   "audience": [
+    "str"
+   ],
+   "automod_hidden_comments": [
+    "list"
+   ],
+   "bytes": [
+    "int"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "captured_at": [
+    "str"
+   ],
+   "comments": [
+    "list"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "file_uri": [
+    "str"
+   ],
+   "free_posts": [
+    "list"
+   ],
+   "http_status": [
+    "int"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "landed_at": [
+    "str"
+   ],
+   "milestone": [
+    "str"
+   ],
+   "paid_posts": [
+    "list"
+   ],
+   "post": [
+    "str"
+   ],
+   "post_id": [
+    "int"
+   ],
+   "published_at": [
+    "str"
+   ],
+   "record_id": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "slug": [
+    "str"
+   ],
+   "source": [
+    "str"
+   ],
+   "text": [
+    "str"
+   ],
+   "title": [
+    "str"
+   ],
+   "total_at_capture": [
+    "int"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ]
+  },
+  "items": {
+   "capture": {
+    "bytes": [
+     "int"
+    ],
+    "fetched_at": [
+     "str"
+    ],
+    "http_status": [
+     "int"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   },
+   "comments": {
+    "ancestor_path": [
+     "str"
+    ],
+    "bans": [
+     "list"
+    ],
+    "body": [
+     "null",
+     "str"
+    ],
+    "body_json": [
+     "dict",
+     "null"
+    ],
+    "can_dm": [
+     "bool"
+    ],
+    "children": [
+     "list"
+    ],
+    "children_count": [
+     "int"
+    ],
+    "date": [
+     "str"
+    ],
+    "deleted": [
+     "bool"
+    ],
+    "edited_at": [
+     "null",
+     "str"
+    ],
+    "handle": [
+     "null",
+     "str"
+    ],
+    "id": [
+     "int"
+    ],
+    "metadata": [
+     "dict"
+    ],
+    "name": [
+     "null",
+     "str"
+    ],
+    "photo_url": [
+     "null",
+     "str"
+    ],
+    "pinned_by_user_id": [
+     "null"
+    ],
+    "post_id": [
+     "int"
+    ],
+    "publication_id": [
+     "int"
+    ],
+    "reaction": [
+     "null"
+    ],
+    "reaction_count": [
+     "int"
+    ],
+    "reactions": [
+     "dict"
+    ],
+    "reactor_names": [
+     "list"
+    ],
+    "reported_by_user": [
+     "bool"
+    ],
+    "restacked": [
+     "bool"
+    ],
+    "restacks": [
+     "int"
+    ],
+    "score": [
+     "int"
+    ],
+    "status": [
+     "str"
+    ],
+    "suppressed": [
+     "bool"
+    ],
+    "type": [
+     "str"
+    ],
+    "user_banned": [
+     "bool"
+    ],
+    "user_banned_for_comment": [
+     "bool"
+    ],
+    "user_bestseller_tier": [
+     "null"
+    ],
+    "user_id": [
+     "int",
+     "null"
+    ],
+    "user_slug": [
+     "str"
+    ],
+    "userStatus": [
+     "dict",
+     "null"
+    ]
+   },
+   "free_posts": {
+    "audience": [
+     "str"
+    ],
+    "canonical_url": [
+     "str"
+    ],
+    "date": [
+     "str"
+    ],
+    "id": [
+     "int"
+    ],
+    "slug": [
+     "str"
+    ],
+    "title": [
+     "str"
+    ]
+   },
+   "paid_posts": {
+    "audience": [
+     "str"
+    ],
+    "canonical_url": [
+     "str"
+    ],
+    "date": [
+     "str"
+    ],
+    "id": [
+     "int"
+    ],
+    "slug": [
+     "str"
+    ],
+    "title": [
+     "str"
+    ]
+   }
+  }
  }
 }
