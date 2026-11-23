@@ -169,3 +169,12 @@ def test_the_commenter_key_is_the_sites_mark_then_the_profile_link_then_the_name
     assert comments.commenter_key(c) == ("link:https://x", "profile link")
     c.author_url = None
     assert comments.commenter_key(c) == ("name:ann b", "display name")
+
+
+
+def test_an_address_too_long_for_the_index_keys_as_its_head_and_a_hash():
+    """22 Nov 2026: a 4,279-character act.org.nz address broke every load (the btree limit is 2,704 bytes)."""
+    import os
+    sql = open(os.path.join(os.path.dirname(load.__file__), "tables.sql"), encoding="utf-8").read()
+    fn = sql.split("FUNCTION news_private.url_key", 1)[1].split("$$;", 1)[0]
+    assert "length(k) > 1000" in fn and "left(k, 1000)" in fn and "md5(k)" in fn

@@ -11,9 +11,12 @@ CREATE SCHEMA IF NOT EXISTS news_private;
 CREATE SCHEMA IF NOT EXISTS news;
 
 -- an address folded for matching: no scheme, no www., no fragment, no tracking parameters, no trailing slash
+-- an address over 1,000 characters (an old act.org.nz slug ran 4,279, past the index's limit, 22 Nov 2026) keys as
+-- its first 1,000 characters and the md5 of the whole folded address
 CREATE OR REPLACE FUNCTION news_private.url_key(u text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
-    SELECT rtrim(regexp_replace(regexp_replace(lower(split_part(u, '#', 1)), '^https?://(www\.)?', ''),
-                                '[?&](utm_[a-z]+|fbclid|gclid|mc_[a-z]+)=[^&]*', '', 'g'), '/?')
+    SELECT CASE WHEN length(k) > 1000 THEN left(k, 1000) || '#md5:' || md5(k) ELSE k END
+    FROM (SELECT rtrim(regexp_replace(regexp_replace(lower(split_part(u, '#', 1)), '^https?://(www\.)?', ''),
+                                      '[?&](utm_[a-z]+|fbclid|gclid|mc_[a-z]+)=[^&]*', '', 'g'), '/?') AS k) f
 $$;
 
 CREATE OR REPLACE FUNCTION news_private.host_of(u text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
