@@ -60,8 +60,14 @@ CARVE_OUT = ["ec-disclosures", "querynz-gpu-gateway", "querynz-agent-llm", "quer
 SYSTEM_UNITS = ["postgresql.service"]
 #: What the daily release needs on the primary: red the moment one is not running.
 MUST_RUN = {"querynz-pi-publisher.service", "querynz-pi-web.service", "querynz-gpu-gateway.service",
-            "querynz-agent-llm.service", "querynz-vision-ocr.service", "postgresql.service",
+            "querynz-vision-ocr.service", "postgresql.service",
             "ec-disclosures.timer", "ftm-release.timer", "ftm-feedback-drain.timer"}
+#: carve-out units stopped on Arthur's word: reported as stopped, never red
+STOPPED_ON_WORD = {
+    "querynz-agent-llm.service": "ruling 121 (29 October 2026): out of the carve-out, the release never calls it",
+    "offsite-push.timer": "Arthur, 11 November 2026: \"stop the old estate's backups\"",
+    "wal-archive-prune.timer": "Arthur, 11 November 2026: \"stop the old estate's backups\" (archiving is off)",
+}
 SHOW_PROPS = "Id,LoadState,ActiveState,SubState,UnitFileState,NextElapseUSecRealtime"
 
 
@@ -135,7 +141,7 @@ def carve_out_item(states: dict, state_dir: str) -> dict:
             seen = set(json.load(f))
     except (OSError, ValueError):
         seen = set()
-    running, down_must, down_seen, absent, never = [], [], [], [], []
+    running, down_must, down_seen, absent, never, stopped = [], [], [], [], [], []
     for uid, props in sorted(states.items()):
         if uid.startswith("?") or props.get("LoadState") == "error":
             down_must.append(f"{uid[1:]}: systemctl could not be asked ({props.get('ActiveState')})")
@@ -149,6 +155,8 @@ def carve_out_item(states: dict, state_dir: str) -> dict:
         if is_running(props):
             running.append(uid)
             seen.add(uid)
+        elif uid in STOPPED_ON_WORD:
+            stopped.append(uid)
         elif uid in MUST_RUN:
             down_must.append(f"{uid} {props.get('ActiveState')}/{props.get('SubState')}")
         elif uid in seen:
@@ -171,6 +179,8 @@ def carve_out_item(states: dict, state_dir: str) -> dict:
         parts.append("stopped since last seen running: " + "; ".join(down_seen))
     if never:
         parts.append("not running on this box (never seen running here): " + ", ".join(never))
+    if stopped:
+        parts.append("stopped on Arthur's word: " + ", ".join(stopped))
     # a job is absent only when neither its service nor its timer exists here
     jobs_absent = sorted({u.rsplit(".", 1)[0] for u in absent}
                          - {u.rsplit(".", 1)[0] for u, p in states.items() if p.get("LoadState") == "loaded"})

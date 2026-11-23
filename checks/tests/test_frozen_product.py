@@ -230,3 +230,14 @@ def test_parse_show_reads_systemctl_s_blocks():
     assert u["b.service"]["LoadState"] == "not-found" and not fp.is_running(u["b.service"])
     user, system = fp.carve_out_names()
     assert "querynz-pi-web.service" in user and "ftm-release.timer" in user and system == ["postgresql.service"]
+
+
+def test_a_unit_stopped_on_arthur_s_word_is_reported_not_red(tmp_path):
+    """24 Nov 2026: the agent model (ruling 121) and the old backups (11 Nov) were stopped on purpose."""
+    states = dict(OK)
+    for u in fp.STOPPED_ON_WORD:
+        states[u] = {"LoadState": "loaded", "ActiveState": "inactive", "SubState": "dead", "UnitFileState": "disabled"}
+    (tmp_path / "carve-out-seen.json").write_text(json.dumps(sorted(fp.STOPPED_ON_WORD)))
+    item = fp.carve_out_item(states, str(tmp_path))
+    assert item["ok"], item["detail"]
+    assert "stopped on Arthur's word" in item["detail"]
