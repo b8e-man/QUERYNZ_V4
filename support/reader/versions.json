@@ -282,16 +282,16 @@
    "registers/ministers_diaries/attendees.py",
    "registers/ministers_diaries/read.py"
   ],
-  "reader": "registers.ministers_diaries.attendees",
-  "sha256": "0b59d163b45089cd10d9d63f7dd0c0c91cf33eb7cd67ab9eec0f0ed54297f47b"
+  "reader": "registers.ministers_diaries.attendees 2",
+  "sha256": "29d40ccd4bff69bc9bd1530764473f198d872e741839531f114399eccf044a60"
  },
  "registers/ministers_diaries/read.py": {
   "files": [
    "registers/ministers_diaries/attendees.py",
    "registers/ministers_diaries/read.py"
   ],
-  "reader": "registers.ministers_diaries.read",
-  "sha256": "0b59d163b45089cd10d9d63f7dd0c0c91cf33eb7cd67ab9eec0f0ed54297f47b"
+  "reader": "registers.ministers_diaries.read 2",
+  "sha256": "29d40ccd4bff69bc9bd1530764473f198d872e741839531f114399eccf044a60"
  },
  "registers/mp_interests/read.py": {
   "files": [
@@ -335,8 +335,8 @@
    "registers/parliament/read.py",
    "registers/parliament/shapes.py"
   ],
-  "reader": "registers.parliament.read 2",
-  "sha256": "e0dbf196007aecbc000331d1e65b5106b839621198ea3dfe7684d1b07379ad6f"
+  "reader": "registers.parliament.read 3",
+  "sha256": "4795a3c21b67a014358278871b6c3e86ce279163c22997a56676e55d678cb803"
  },
  "registers/parties/labels.py": {
   "files": [

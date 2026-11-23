@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 
 from registers.parliament import shapes
 
-READER = "registers.parliament.read 2"
+READER = "registers.parliament.read 3"
 PROFILE = {"wq": "mcp-parliament-written-question", "api": "mcp-parliament-api-item",
            "wayback": "mcp-parliament-wayback-page"}
 OLDER_TEXT = "older text"       # files: an archived page's older version whose text differs from the version read
@@ -114,6 +114,8 @@ WAYBACK_FIELDS = {
     "content_encoding": ("content_encoding", T), "sha256": ("captured_sha256", T), "fetched_at": ("captured_at", T),
     "status": ("capture_status", T), "path": ("provider_path", T), "snapshots": ("snapshots", I),
     "file": ("provider_download", T),
+    # the provider's own address for the archived copy and why it took it (shapes 18 November 2026)
+    "capture_url": ("capture_url", T), "reason": ("capture_reason", T),
 }
 # fields every shape shares: the provider's bookkeeping and blocks, kept whole
 COMMON = {"_corpus": ("provider_corpus", T), "_fetched_at": ("provider_fetched_at", T),

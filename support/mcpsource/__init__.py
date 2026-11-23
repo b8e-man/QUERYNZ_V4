@@ -112,6 +112,9 @@ def record_url(record: dict):
 #: a news article's capture names no content type; its pointer waits with this one, and the download's answer
 #: (`meta.content_type`) replaces it when the file lands
 UNTYPED = "application/octet-stream"
+# the record kinds that name no content type but point at a file the estate keeps: estate-news articles; the
+# raw comment threads (estate-comments) and Substack post, comment and archive JSON (estate-substack), whole
+UNTYPED_KINDS = ("article", "comment_capture", "substack_post", "substack_comments", "substack_archive")
 
 
 def file_pointer(record: dict):
@@ -123,8 +126,8 @@ def file_pointer(record: dict):
         return None
     sha = cap.get("sha256")
     ctype = record.get("content_type") or cap.get("content_type")
-    if not ctype and record.get("kind") == "article":
-        ctype = UNTYPED          # estate-news names no type: the download's own answer names it (17 November 2026)
+    if not ctype and record.get("kind") in UNTYPED_KINDS:
+        ctype = UNTYPED          # these name no type: the download's own answer names it (17 and 24 November 2026)
     url = record_url(record)
     if not (isinstance(sha, str) and _SHA.match(sha) and isinstance(ctype, str) and ctype.strip()
             and isinstance(url, str) and url.startswith(("http://", "https://"))):

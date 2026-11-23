@@ -41,16 +41,17 @@ import re
 import urllib.parse
 from dataclasses import dataclass, field
 
-READER = "registers.ministers_diaries.read"
+READER = "registers.ministers_diaries.read 2"
 PROFILE = "mcp-diary-entry"
-PROFILE_VERSION = 2       # v2, 4 November 2026: the provider's `file`, `path` and `capture.path`
+PROFILE_VERSION = 3       # v3, 24 November 2026: the provider's `sha256` and `pdf_fetched_at` (v2, 4 November: `file`, `path`, `capture.path`)
 SOURCE_NOTE = ("one meeting of a minister's monthly diary release (a Beehive proactive release), read from the "
                "release PDF by Arthur's provider off-estate and served by the query-nz ingest MCP (ruling 78); the "
                "estate never fetched the PDF")
 PDF_HOST = "https://www.beehive.govt.nz/"
 KNOWN = ("id", "rowid", "minister", "portfolio", "date", "year", "time", "meeting", "location", "attendees",
-         "source_url", "_collected", "updated_at", "capture", "text", "file", "path", "file_uri")
-CAPTURE = ("_collected", "source_url", "path")
+         "source_url", "_collected", "updated_at", "capture", "text", "file", "path", "file_uri",
+         "sha256", "pdf_fetched_at")      # the release PDF's hash and fetch time (provenance, asked 14 Nov, served 20 Nov)
+CAPTURE = ("_collected", "source_url", "path", "sha256")
 FIELDS = ("portfolio", "time", "meeting", "location", "attendees")      # where a withholding is looked for
 FLAGS = ("location_names_home", "location_street_only", "meeting_names_address", "attendees_names_address")
 MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september", "october",

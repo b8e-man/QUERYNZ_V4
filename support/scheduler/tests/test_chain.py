@@ -733,7 +733,8 @@ def test_the_shipped_catalogue_wires_the_chain():
     # 15 November 2026 (Arthur: the readers running around the clock): every reader lane's load follows each pull, and
     # its chain (names, name pass, reader) follows the load; the courts reader stays first, for a red load (3 November)
     readers = ("courts", "council-minutes", "councillor-interests", "beehive", "hansard", "parliament")
-    assert jts["qv4-mcp-pull"].then == ("qv4-courts-read",) + tuple(f"qv4-{x}-load" for x in readers)
+    # and the news register's load last (17 November 2026: it reads the pull's estate-news pages)
+    assert jts["qv4-mcp-pull"].then == ("qv4-courts-read",) + tuple(f"qv4-{x}-load" for x in readers) + ("qv4-news-load",)
     for x in readers:
         assert not jts[f"qv4-{x}-load"].at_utc, x          # the pull is its clock; then may not name a clocked job
     for x in ("beehive", "hansard", "parliament"):

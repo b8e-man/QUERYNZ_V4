@@ -178,3 +178,35 @@ def test_an_address_too_long_for_the_index_keys_as_its_head_and_a_hash():
     sql = open(os.path.join(os.path.dirname(load.__file__), "tables.sql"), encoding="utf-8").read()
     fn = sql.split("FUNCTION news_private.url_key", 1)[1].split("$$;", 1)[0]
     assert "length(k) > 1000" in fn and "left(k, 1000)" in fn and "md5(k)" in fn
+
+
+def test_the_provider_s_comment_records_keep_the_reply_chain_the_user_and_the_time():
+    """24 Nov 2026: estate-comments (Coral, WordPress) and estate-substack (a comment tree) read from the records."""
+    from registers.news import comments as C
+    coral = {"kind": "comment_capture", "comment_system": "coral", "article": "https://www.thepost.co.nz/a/1",
+             "comments": [{"article": "https://www.thepost.co.nz/a/1", "comment_id": "c2", "parent_id": "c1",
+                           "user_id": "486593", "display_name": "N", "posted_at": "2026-08-13T00:38:51.614Z",
+                           "text": "t", "votes": {"reaction": {"total": 7}}, "status": "NONE"}]}
+    (c,) = C.record_comments(coral)
+    assert (c["id"], c["parent"], c["up"], C.record_key(c)) == ("c2", "c1", 7, "user:#486593")
+    assert c["posted"].utcoffset().total_seconds() == 0
+    wp = {"kind": "comment_capture", "comment_system": "wordpress", "comments": [
+        {"article": "https://www.kiwiblog.co.nz/x.html", "comment_id": "9", "posted_at": "2026-11-19T07:50:59",
+         "text": "t", "display_name": "Guest", "user_id": "0"}]}
+    (w,) = C.record_comments(wp)
+    assert w["posted"].tzinfo is not None and w["posted"].utcoffset().total_seconds() == 13 * 3600   # NZ summer
+    assert C.record_key(w) == "name:guest"                                                          # user 0 is a guest
+    sub = {"kind": "substack_comments", "post": "https://x.substack.com/p/a", "comments": [
+        {"id": 1, "user_id": 5, "name": "A", "handle": "a", "date": "2026-11-18T17:54:44.967Z", "body": "top",
+         "reaction_count": 30, "children": [{"id": 2, "user_id": 6, "name": "B", "body": None, "children": []}]}],
+        "automod_hidden_comments": [{"id": 3, "user_id": 7, "body": "hidden"}]}
+    got = {x["id"]: x for x in C.record_comments(sub)}
+    assert set(got) == {"1", "2", "3"} and got["2"]["parent"] == "1" and got["2"]["text"] == ""
+    assert got["1"]["up"] == 30 and got["1"]["slug"] == "a" and got["1"]["article"] == "https://x.substack.com/p/a"
+    assert C.record_comments({"kind": "substack_archive"}) == []
+
+
+def test_a_substack_post_s_text_is_its_paragraphs():
+    from registers.news import comments as C
+    assert C.post_text({"body_html": "<h2>Head</h2><p>One <b>bold</b>.</p><ul><li>a</li></ul><p></p>"}) == \
+        "Head\n\nOne bold.\n\na"

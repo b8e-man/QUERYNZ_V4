@@ -69,7 +69,7 @@ import re
 from keys import names as N
 from registers.ministers_diaries.read import WITHHELD
 
-READER = "registers.ministers_diaries.attendees"
+READER = "registers.ministers_diaries.attendees 2"
 KINDS = ("person", "organisation", "crown", "group", "role", "withheld")
 
 SEP = re.compile(r"\s*[;,]\s*(?:(?:and|&|\+)\s+)?|\s+(?:and|&|\+)\s+", re.I)

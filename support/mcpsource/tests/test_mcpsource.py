@@ -568,3 +568,11 @@ def test_the_live_server_still_delivers_a_file_as_recorded():
     res = next(p["resource"] for p in parts if p.get("type") == "resource")
     assert res["uri"] == meta["resource_uri"] and res["uri"].startswith(("qnz-pdf://courts/", "qnz-html://courts/"))
     assert res.get("mimeType") == ctype.split(";")[0]
+
+
+def test_comment_and_substack_records_point_at_their_raw_file():
+    """24 Nov 2026: estate-comments and estate-substack name no content type; their raw JSON is kept whole."""
+    sha = "a" * 64
+    for kind in ("comment_capture", "substack_post", "substack_comments", "substack_archive"):
+        rec = {"kind": kind, "url": "https://x.substack.com/api/v1/posts/p", "capture": {"sha256": sha, "bytes": 3}}
+        assert M.file_pointer(rec) == ("https://x.substack.com/api/v1/posts/p", M.UNTYPED, sha, 3)

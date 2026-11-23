@@ -125,13 +125,13 @@ def read_provider(conn, limit: int = None, read=None, reread_empty: bool = False
     fixed); their line is replaced by the new outcome."""
     if read is None:
         from support.docstore.landing import read_bytes as read
-    again = " OR r.state IN ('no text', 'no parser', 'failed')" if reread_empty else ""
-    rows = conn.execute(
-        "SELECT DISTINCT ON (f.capture_sha256, f.url) f.capture_sha256, f.url, f.done_at FROM mcpsource.files f "
-        "WHERE f.corpus = %s AND f.state IN ('landed', 'held') AND NOT EXISTS (SELECT 1 FROM news_private.provider_read r "
-        f"WHERE r.capture_sha256 = f.capture_sha256 AND r.url = f.url AND NOT (false{again})) "
-        "ORDER BY f.capture_sha256, f.url, f.done_at DESC"
-        + (f" LIMIT {int(limit)}" if limit else ""), (CORPUS,)).fetchall()
+    from support.mcpsource import reads
+    again = ("no text", "no parser", "failed") if reread_empty else ()
+    done = {(sha, url) for sha, url, state in conn.execute(
+        "SELECT capture_sha256, url, state FROM news_private.provider_read") if state not in again}
+    rows = sorted((r for r in reads.landed_files(conn, CORPUS) if (r[0], r[1]) not in done),
+                  key=lambda r: (r[0], r[1]))
+    rows = rows[:int(limit)] if limit else rows
     n = {"read": 0, "stub": 0, "no text": 0, "no parser": 0, "failed": 0}
     for sha, url, fetched in rows:
         host = conn.execute("SELECT news_private.host_of(%s)", (url,)).fetchone()[0]
@@ -211,10 +211,10 @@ LEFT JOIN b ON b.host = coalesce(o.host, p.host) LEFT JOIN s ON s.host = coalesc
 #: Gazette and the Beehive move and retire on the same rules): each lane's rows from its new source only, never the
 #: rows it took from the old estate's export
 OTHER_SOURCES = [
-    ("beehive.releases", "SELECT news_private.host_of(url), news_private.url_key(url), published_on "
-                         "FROM beehive.releases WHERE origin = 'mcp'"),
-    ("gazette.notices", "SELECT news_private.host_of(url), news_private.url_key(url), published_on "
-                        "FROM gazette.notices WHERE source_note LIKE 'read from DigitalNZ%%'"),
+    ("pub.beehive_releases", "SELECT news_private.host_of(citation_url), news_private.url_key(citation_url), published_on "
+                             "FROM pub.beehive_releases WHERE origin = 'mcp'"),
+    ("pub.gazette_notices", "SELECT news_private.host_of(url), news_private.url_key(url), published_on "
+                            "FROM pub.gazette_notices WHERE source_note LIKE 'read from DigitalNZ%%'"),
 ]
 
 
@@ -239,18 +239,17 @@ ELSEWHERE = {
         "tasman.infocouncil.biz", "palmerstonnorth.infocouncil.biz", "kapiticoast.infocouncil.biz",
         "wairoa.infocouncil.biz", "waimate.infocouncil.biz", "mackenzie.infocouncil.biz", "waitaki.infocouncil.biz")},
 }
-#: where those addresses are looked for: every provider record outside estate-news, and the lanes' own tables
+#: where those addresses are looked for: every provider record outside estate-news, and the lanes' published views (a
+#: lane's own tables are its own to query, tests/test_imports_one_way.py; 24 November 2026 the courts lane's unpublished
+#: captures held 2 courtsofnz addresses no view shows)
 ELSEWHERE_SOURCES = [
-    ("mcpsource.files", "SELECT url FROM mcpsource.files WHERE corpus <> 'estate-news'"),
-    ("mcpsource.arrivals", "SELECT url FROM mcpsource.arrivals WHERE corpus <> 'estate-news'"),
-    ("courts.documents", "SELECT url FROM courts.documents"),
-    ("courts.judgments", "SELECT source_url FROM courts.judgments"),
-    ("courts.cases", "SELECT url FROM courts.cases"),
-    ("courts.captures", "SELECT url FROM courts.captures"),
-    ("council_minutes.documents", "SELECT url FROM council_minutes.documents"),
-    ("council_minutes.capture_documents", "SELECT url FROM council_minutes.capture_documents"),
-    ("hansard.sittings", "SELECT url FROM hansard.sittings"),
-    ("hansard.sections", "SELECT url FROM hansard.sections"),
+    ("mcpsource.files", None),        # support.mcpsource.reads.urls_outside_sql: the pull's own SQL
+    ("pub.court_documents", "SELECT url FROM pub.court_documents"),
+    ("pub.court_judgments", "SELECT source_url FROM pub.court_judgments"),
+    ("pub.court_cases", "SELECT url FROM pub.court_cases"),
+    ("pub.council_meetings", "SELECT minutes_url FROM pub.council_meetings UNION SELECT listing_url FROM pub.council_meetings"),
+    ("pub.hansard_sittings", "SELECT url FROM pub.hansard_sittings"),
+    ("pub.hansard_sections", "SELECT url FROM pub.hansard_sections"),
 ]
 
 
@@ -258,7 +257,9 @@ def sites_sql(conn) -> str:
     """SITES with each other source whose table this database holds, and the held-elsewhere sites' addresses (undated:
     they are judged by the old copy's addresses alone)."""
     have = [q for t, q in OTHER_SOURCES if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
-    away = [q for t, q in ELSEWHERE_SOURCES if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
+    from support.mcpsource import reads
+    away = [q or reads.urls_outside_sql(CORPUS) for t, q in ELSEWHERE_SOURCES
+            if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
     hosts = ", ".join("'" + h.replace("'", "''") + "'" for h in sorted(ELSEWHERE))
     if away:
         have.append("SELECT DISTINCT news_private.host_of(u), news_private.url_key(u), NULL::date FROM ("
@@ -343,8 +344,11 @@ def main(argv=None) -> int:
             if every or a.comments:      # the comments on the same pages (registers/news/comments.py)
                 from registers.news import comments
                 counts["comments"] = comments.read_comments(conn, a.limit)
+                counts["substack posts"] = comments.posts(conn)
+                counts["comment records"] = comments.read_records(conn)
                 counts["commenters"] = comments.commenters(conn)
-                print("comments:", counts["comments"], "commenters:", counts["commenters"], flush=True)
+                print("comments:", counts["comments"], "records:", counts["comment records"],
+                      "substack posts:", counts["substack posts"], "commenters:", counts["commenters"], flush=True)
             if every or a.sites:
                 counts["sites"] = sites(conn)
                 print("sites:", counts["sites"], flush=True)
