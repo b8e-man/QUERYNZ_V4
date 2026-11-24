@@ -53,3 +53,11 @@ def test_an_estate_record_s_address_is_its_first_url_and_it_points_at_its_file()
     assert M.file_pointer(rec) == ("https://www.fma.govt.nz/a/", "text/html", A, None)
     assert M.record_url({"url": "https://own/", "urls": [{"url": "https://other/"}]}) == "https://own/"
     assert M.record_url({"urls": [{"url": "qnz-raw://x"}]}) is None
+
+
+def test_an_address_is_found_by_its_closing_slash_either_way():
+    from support.mcpsource import replay as R
+    assert R.spellings("https://h.nz/a/b/") == ["https://h.nz/a/b/", "https://h.nz/a/b"]
+    assert R.spellings("https://h.nz/a/b") == ["https://h.nz/a/b", "https://h.nz/a/b/"]
+    assert R.spellings("https://h.nz/a?x=1") == ["https://h.nz/a?x=1"]
+    assert R.spellings("https://h.nz/") == ["https://h.nz/"]

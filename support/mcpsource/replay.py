@@ -14,8 +14,20 @@ from __future__ import annotations
 
 from support import fetchgate as fg
 
-NEWEST = ("SELECT capture_sha256 FROM {schema}.files WHERE url = %s AND corpus = ANY(%s) "
-          "AND state IN ('landed', 'held') ORDER BY seq DESC LIMIT 1")
+# the address as asked first, then the same address with its path's closing slash added or taken off (25 November
+# 2026: grants asked for `…-record-of-grants/` and the provider's copy holds `…-record-of-grants`, so 110 pages it
+# landed on 15 November were "not held" for ten days)
+NEWEST = ("SELECT capture_sha256 FROM {schema}.files WHERE url = ANY(%s) AND corpus = ANY(%s) "
+          "AND state IN ('landed', 'held') ORDER BY url = %s DESC, seq DESC LIMIT 1")
+
+
+def spellings(url: str) -> list:
+    """`url`, then its twin by the path's closing slash (none for an address with a query or a fragment)."""
+    if "?" in url or "#" in url or url.count("/") < 3:
+        return [url]
+    if url.endswith("/"):
+        return [url, url.rstrip("/")] if url.rstrip("/").count("/") >= 3 else [url]
+    return [url, url + "/"]
 
 
 class NotHeld(OSError):
@@ -31,7 +43,7 @@ def holds(conn, corpus: str, schema: str = "mcpsource") -> bool:
 
 def newest(conn, url: str, corpora, schema: str = "mcpsource"):
     """The hash of the newest copy of `url` in `corpora`, or None."""
-    row = conn.execute(NEWEST.format(schema=schema), (url, list(corpora))).fetchone()
+    row = conn.execute(NEWEST.format(schema=schema), (spellings(url), list(corpora), url)).fetchone()
     return row[0] if row else None
 
 
