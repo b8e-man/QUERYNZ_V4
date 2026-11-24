@@ -61,8 +61,10 @@ PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 LISTING_PROFILE = "oio-decisions-listing"
 DECISION_PROFILE = "oio-decision-summary"
 NOTIFICATION_PROFILE = "oio-standing-consent-notification"
-PROFILE_VERSION = 2
-READER = "registers.overseas_investment.read 3"
+#: each profile's own version (25 November 2026: the older bold-cell layout; the notification had been cited as 2 while
+#: profiles.jsonl held only its version 1)
+PROFILE_VERSION = {DECISION_PROFILE: 3, NOTIFICATION_PROFILE: 2}
+READER = "registers.overseas_investment.read 4"   # 4: each profile cited at its own version (25 Nov 2026)
 KEY_PREFIX = "overseas_investment/decision"
 BASE = "https://www.linz.govt.nz"
 PATH = "/our-work/overseas-investment-regulation/decisions"
@@ -391,7 +393,7 @@ def read_summary(body: bytes, sha: str, slug: str, url: str = None) -> dict:
     first = rows[0][0].lower()
     profile = DECISION_PROFILE if first == "decision" else NOTIFICATION_PROFILE
     cite = {"document": sha, "page": 1, "read_from": "text", "reader": READER, "profile": profile,
-            "profile_version": PROFILE_VERSION}
+            "profile_version": PROFILE_VERSION[profile]}
     key = f"{KEY_PREFIX}/{slug}"
     by = {}
     for h, v in rows:

@@ -312,8 +312,8 @@
   "files": [
    "registers/overseas_investment/read.py"
   ],
-  "reader": "registers.overseas_investment.read 3",
-  "sha256": "5413e32b264601a2a34f048f36c23001577e057ea5845f6075541d4107967b72"
+  "reader": "registers.overseas_investment.read 4",
+  "sha256": "837e6e0821856316b4d7b2e188dfe647d7f37e67efedb71312687daa01932ff7"
  },
  "registers/papers_past/read.py": {
   "files": [
