@@ -196,6 +196,17 @@ priority = 128   # unique (4 November 2026)
 command = ["python", "-m", "checks.source_lights"]
 every_s = 1800
 
+[jobs.qv4-standby-check]
+description = "Every 15 minutes, on whichever box claims it: is there a live standby? Asks the primary (a connected standby, an active slot, under 20 GB behind) and this box's takeover agent (a standby that says it is not caught up is red), and sends one alarm while red, at most every 6 hours (checks/standby.py). 24 November 2026: node2 had replayed nothing since 7 November and nothing said so."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 30
+class = "due"
+priority = 131   # unique (24 November 2026)
+command = ["python", "-m", "checks.standby", "--alarm"]
+every_s = 900
+
 [jobs.qv4-reread]
 description = "Re-read a set of documents after a reader, a profile or a rule changes (step 2.14): one piece per document, each compared with the reading it would replace before it lands. Queued by a session or a lane, never fired by hand (ruling 45)."
 needs = "model-profile"

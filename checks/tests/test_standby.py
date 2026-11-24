@@ -14,3 +14,10 @@ def test_a_streaming_standby_within_the_lag_is_green_and_past_it_red():
     far = standby.judge({"connected": 1, "slots": [{"name": "node2_standby", "active": True, "behind_gb": 60.0,
                                                      "wal_status": "extended"}]})
     assert far[0]["ok"] and not far[1]["ok"]
+
+
+def test_a_standby_agent_not_caught_up_is_red_and_a_primary_is_not():
+    assert not standby.judge_agent({"box": "node2", "role": "standby", "caught_up": False})["ok"]
+    assert standby.judge_agent({"box": "node2", "role": "standby", "caught_up": True})["ok"]
+    assert standby.judge_agent({"box": "node1", "role": "primary"})["ok"]
+    assert not standby.judge_agent(None)["ok"]
