@@ -170,11 +170,17 @@ def canonical(url: str) -> str:
     return urllib.parse.urlunsplit((p.scheme or "https", (p.hostname or "").lower(), path, p.query, ""))
 
 
+def href(h: bytes) -> str:
+    """An href's address as written: entities decoded, and a quote the decoding brought in taken off its ends (25 November
+    2026: Trust Aoraki prints href="...pdf&quot;", so four of its files were asked with a quote on the end and missed)."""
+    return html.unescape(h.decode("utf-8", "replace")).strip().strip("\"'").strip()
+
+
 def links(base: str, body: bytes, host: str) -> list:
     """Every address on the page on `host` that the walk may ask, in page order, once each."""
     out = []
     for h in re.findall(rb'href="([^"#]+)', body):
-        u = urllib.parse.urljoin(base, html.unescape(h.decode("utf-8", "replace")).strip())
+        u = urllib.parse.urljoin(base, href(h))
         if urllib.parse.urlsplit(u).scheme not in ("http", "https") or fg.host_of(u) != host or SKIP.search(u):
             continue
         u = canonical(u)
@@ -216,7 +222,7 @@ def society_links(base: str, body: bytes):
     pages, files, about = [], [], []
     site = site_of(fg.host_of(base))
     for h, words in re.findall(rb'<a\b[^>]*?href="([^"#]+)"[^>]*>(.*?)</a>', body, re.S | re.I):
-        u = urllib.parse.urljoin(base, html.unescape(h.decode("utf-8", "replace")).strip())
+        u = urllib.parse.urljoin(base, href(h))
         if urllib.parse.urlsplit(u).scheme not in ("http", "https") or site_of(fg.host_of(u)) != site:
             continue
         said = html.unescape(re.sub(r"<[^>]+>|\s+", " ", words.decode("utf-8", "replace")))

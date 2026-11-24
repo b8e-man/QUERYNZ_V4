@@ -314,3 +314,12 @@ def test_the_lottery_records_index_is_asked_though_no_page_links_it():
     out, t, asked, _ = _run(capture, {f"{CM}/": (200, b"<html>no links</html>", ""), seed: (200, _record("Seeded"), "")},
                             ("lottery-page",), seeds=capture.CM_SEEDS)
     assert seed in asked and out["records_of_grants"] == 1
+
+
+def test_an_href_with_an_encoded_quote_on_its_end_is_asked_without_it():
+    """25 November 2026: Trust Aoraki prints href="...pdf&quot;"; the decoded quote was kept and four files were missed."""
+    from registers.grants import capture
+    body = b'<a href="https://trustaoraki.co.nz/wp-content/uploads/2026/05/Funding-ALL.pdf&quot;">Grants funding</a>'
+    assert capture.href(b"https://x.nz/a.pdf&quot;") == "https://x.nz/a.pdf"
+    _, files, _ = capture.society_links("https://trustaoraki.co.nz/funding", body)
+    assert [f.endswith("Funding-ALL.pdf") for f in files] == [True]
