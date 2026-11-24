@@ -122,3 +122,51 @@ def test_the_groups_never_join_two_companies_through_a_relation():
             assert "companies:companies/3" not in g and "companies:companies/4" not in g
         finally:
             raw.rollback()
+
+
+def test_a_refill_writes_only_the_rows_that_changed():
+    """24 November 2026: a refill wiped and rewrote its register's rows each time (541 million inserts into 17 million
+    rows in 17 days). On the real engine (a schema of the sample database, rolled back): a row read the same stays
+    where it is, a changed one is replaced, a vanished one goes, a new one comes, another register is untouched, and a
+    whole refill drops a register gone from the sources."""
+    import support.db as db
+    from links import rows
+    if not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
+        pytest.skip("no credential file on this box")
+    s = "scratch_links_merge_test"
+    cols = ", ".join(rows.ROW_COLUMNS)
+
+    def row(ref, name):
+        reg, key = ref.split(":", 1)
+        return (ref, reg, "v", key, "person", name, None, None, None, name.lower(), None, None, False, None, None, None,
+                None, None, False, None, None, False)
+
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as raw:
+        conn = _NoCommit(raw)
+        try:
+            conn.execute(f"CREATE SCHEMA {s}")
+            conn.execute(links.ddl(s))
+            with conn.cursor() as w:
+                with w.copy(f"COPY {s}.rows ({cols}) FROM STDIN") as cp:
+                    for r in (row("a:1", "Same"), row("a:2", "Old"), row("a:3", "Gone"), row("b:1", "Other"), row("z:1", "Retired")):
+                        cp.write_row(r)
+            where = dict(conn.execute(f"SELECT ref, ctid::text FROM {s}.rows").fetchall())
+            rows.stage_rows(conn, s)
+            with conn.cursor() as w:
+                with w.copy(f"COPY rows_new ({cols}) FROM STDIN") as cp:
+                    for r in (row("a:1", "Same"), row("a:2", "New"), row("a:4", "Fresh")):
+                        cp.write_row(r)
+            assert rows.merge_rows(conn, s, {"a"}) == {"kept": 1, "deleted": 2, "inserted": 2}
+            now = dict(conn.execute(f"SELECT ref, ctid::text FROM {s}.rows").fetchall())
+            assert now["a:1"] == where["a:1"] and now["b:1"] == where["b:1"]          # not rewritten
+            assert sorted(now) == ["a:1", "a:2", "a:4", "b:1", "z:1"]
+            assert conn.execute(f"SELECT name_filed FROM {s}.rows WHERE ref = 'a:2'").fetchone()[0] == "New"
+            rows.stage_rows(conn, s)
+            with conn.cursor() as w:
+                with w.copy(f"COPY rows_new ({cols}) FROM STDIN") as cp:
+                    cp.write_row(row("a:1", "Same"))
+            got = rows.merge_rows(conn, s, {"a", "b"}, stale_beyond={"a", "b"})
+            assert got == {"kept": 1, "deleted": 4, "inserted": 0}
+            assert [r[0] for r in conn.execute(f"SELECT ref FROM {s}.rows")] == ["a:1"]
+        finally:
+            raw.rollback()

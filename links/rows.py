@@ -664,6 +664,42 @@ def steady_registers(conn, schema: str) -> dict:
     return out
 
 
+#: the columns of `<schema>.rows`, in the order every write names them
+ROW_COLUMNS = ("ref", "register", "view", "key", "kind", "name_filed", "given", "middle", "family", "name_key", "fl_key",
+               "full_key", "has_middle", "entity_ref", "started_on", "ended_on", "election", "electorate", "politician",
+               "document", "part_of", "suppressed")
+
+
+def stage_rows(conn, schema: str) -> str:
+    """A temporary table shaped like `<schema>.rows`, keyed by ref, that a refill copies into: a temporary table writes
+    no WAL, and `merge_rows` then touches only the rows that changed (24 November 2026: wiping and refilling the rows
+    425 times in 17 days made 541 million inserts into a table of 17 million, the largest share of the primary's
+    600 GB of WAL a day). Gone at commit."""
+    conn.execute("DROP TABLE IF EXISTS rows_new")
+    conn.execute(f"CREATE TEMPORARY TABLE rows_new (LIKE {schema}.rows INCLUDING DEFAULTS) ON COMMIT DROP")
+    conn.execute("ALTER TABLE rows_new ADD PRIMARY KEY (ref)")    # a ref read twice still fails, as the COPY into rows did
+    return "rows_new"
+
+
+def merge_rows(conn, schema: str, refilled, stale_beyond=None) -> dict:
+    """Make `<schema>.rows` for the `refilled` registers equal to `rows_new`, writing only the difference: a row read
+    the same is left where it is, a changed or vanished one deleted, a changed or new one inserted. With
+    `stale_beyond` (a whole refill), rows of any register outside it are deleted too (a register gone from SOURCES).
+    Returns {"kept", "deleted", "inserted"}."""
+    cols = ", ".join(ROW_COLUMNS)
+    same = " AND ".join(f"n.{c} IS NOT DISTINCT FROM r.{c}" for c in ROW_COLUMNS)
+    conn.execute("ANALYZE rows_new")
+    deleted = conn.execute(f"""DELETE FROM {schema}.rows r WHERE r.register = ANY(%s)
+                               AND NOT EXISTS (SELECT 1 FROM rows_new n WHERE n.ref = r.ref AND {same})""",
+                           (sorted(refilled),)).rowcount
+    if stale_beyond is not None:
+        deleted += conn.execute(f"DELETE FROM {schema}.rows WHERE register <> ALL(%s)", (sorted(stale_beyond),)).rowcount
+    inserted = conn.execute(f"""INSERT INTO {schema}.rows ({cols}) SELECT {cols} FROM rows_new n
+                                WHERE NOT EXISTS (SELECT 1 FROM {schema}.rows r WHERE r.ref = n.ref)""").rowcount
+    total = conn.execute("SELECT count(*) FROM rows_new").fetchone()[0]
+    return {"kept": total - inserted, "deleted": deleted, "inserted": inserted}
+
+
 def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     """Wipe and refill `<schema>.rows`, `.entity_addresses`, `.org_names` from
     `pub`, in one transaction on `conn`. `reader` is a second connection the
@@ -691,10 +727,7 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
         counts[f"{reg} kept"] = why
         log(f"links.rows: {reg}: rows kept, {why}")
     with conn.cursor() as w:
-        if registers is None:
-            conn.execute(f"DELETE FROM {schema}.rows WHERE register <> ALL(%s)", (sorted(kept),))
-        else:
-            conn.execute(f"DELETE FROM {schema}.rows WHERE register = ANY(%s)", (sorted(registers),))
+        staged = stage_rows(conn, schema)
         if companies_too:
             for t in ("entity_addresses", "org_names"):
                 conn.execute(f"DELETE FROM {schema}.{t}")
@@ -712,9 +745,7 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
             with reader.cursor(name=f"links_rows_{view}") as cur:
                 cur.itersize = 20000
                 cur.execute(sql)
-                with w.copy(f"COPY {schema}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key, "
-                            f"fl_key, full_key, has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of, suppressed) "
-                            f"FROM STDIN") as copy:
+                with w.copy(f"COPY {staged} ({', '.join(ROW_COLUMNS)}) FROM STDIN") as copy:
                     for r in cur:
                         read += 1
                         why = aside.get((r[7], r[1])) if aside else None
@@ -741,6 +772,10 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
             if parts:
                 counts[f"{register}.{view}.parts"] = parts
             log(f"links.rows: {register}.{view}: {n} rows, {read - n} set aside {catch}, {parts} coupled-name parts ({time.monotonic() - t0:.0f} s)")
+        every = {r for r, _, _ in SOURCES}
+        refilled = (registers if registers is not None else every) - set(kept)
+        counts["rows merged"] = merge_rows(conn, schema, refilled, stale_beyond=None if registers is not None else every)
+        log(f"links.rows: merged {counts['rows merged']} ({time.monotonic() - t0:.0f} s)")
         counts["row_numbers"] = gather_numbers(conn, schema, registers)
         log(f"links.rows: row_numbers: {counts['row_numbers']} ({time.monotonic() - t0:.0f} s)")
         if bodies_too:

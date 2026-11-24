@@ -21,3 +21,12 @@ def test_a_standby_agent_not_caught_up_is_red_and_a_primary_is_not():
     assert standby.judge_agent({"box": "node2", "role": "standby", "caught_up": True})["ok"]
     assert standby.judge_agent({"box": "node1", "role": "primary"})["ok"]
     assert not standby.judge_agent(None)["ok"]
+
+
+def test_the_wal_budget_is_red_past_64_gb_a_day_and_measuring_before_a_day():
+    import datetime as dt
+    t = dt.datetime(2026, 11, 25, 17, 0, tzinfo=dt.timezone.utc)
+    day = dt.timedelta(hours=24)
+    assert standby.judge_wal([(t - dt.timedelta(hours=2), 0), (t, 10**9)], t)["detail"].startswith("measuring")
+    assert standby.judge_wal([(t - day, 0), (t, 3 * 10**9)], t)["ok"]
+    assert not standby.judge_wal([(t - day, 0), (t, 600 * 10**9)], t)["ok"]

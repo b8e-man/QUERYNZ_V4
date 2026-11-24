@@ -69,6 +69,40 @@ def judge_agent(st: dict | None) -> dict:
     return {"name": "agent", "ok": True, "detail": f"{box}'s agent: {role}" + (", caught up" if role == "standby" else "")}
 
 
+#: the change log's budget (T7.51's, October 2026): red when the primary wrote more than this in the last day. After
+#: the October settings it ran at 3.4 GB a day; with them lost (6 November rebuild) it ran at about 600
+WAL_BUDGET_GB_DAY = 64
+WAL_READINGS = os.path.join(LIVE, "checks", "wal-readings.jsonl")
+
+
+def wal_reading(conn) -> tuple:
+    return conn.execute("SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0')::bigint").fetchone()[0]
+
+
+def judge_wal(readings: list, now: dt.datetime) -> dict:
+    """readings: [(at, bytes)] oldest first. The rate since the newest reading at least 20 hours old."""
+    old = [(a, b) for a, b in readings if (now - a).total_seconds() >= 20 * 3600]
+    if not old or len(readings) < 2:
+        return {"name": "wal budget", "ok": True, "detail": "measuring: no reading a day old yet"}
+    (a0, b0), (a1, b1) = old[-1], readings[-1]
+    gb_day = (b1 - b0) / 1e9 / max((a1 - a0).total_seconds(), 1) * 86400
+    return {"name": "wal budget", "ok": gb_day <= WAL_BUDGET_GB_DAY,
+            "detail": f"{gb_day:.1f} GB of WAL a day over the last {(a1 - a0).total_seconds() / 3600:.0f} h "
+                      f"(budget {WAL_BUDGET_GB_DAY})"}
+
+
+def read_readings(path: str = None) -> list:
+    out = []
+    try:
+        with open(path or WAL_READINGS, encoding="utf-8") as f:
+            for line in f:
+                x = json.loads(line)
+                out.append((dt.datetime.fromisoformat(x["at"]), int(x["bytes"])))
+    except (OSError, ValueError, KeyError):
+        pass
+    return out
+
+
 def check(now: dt.datetime = None, conn=None, status=agent_status) -> dict:
     try:
         if conn is None:
@@ -79,8 +113,23 @@ def check(now: dt.datetime = None, conn=None, status=agent_status) -> dict:
     except Exception as exc:  # noqa: BLE001 — a primary that cannot be asked is a red item
         return {"check": NAME, "ok": False, "alarms": [],
                 "items": [{"name": "asked", "ok": False, "detail": f"{type(exc).__name__}: {str(exc)[:200]}"}]}
-    items = judge(m) + [judge_agent(status())]
+    items = judge(m) + [judge_agent(status()), judge_wal(read_readings(), now or dt.datetime.now().astimezone())]
     return {"check": NAME, "ok": all(i["ok"] for i in items), "items": items, "alarms": []}
+
+
+def record_wal(path: str = None) -> None:
+    """One reading of the primary's WAL position (the job's, every 15 minutes); a week of them kept."""
+    path = path or WAL_READINGS
+    with db.connect(db.READ_KEY, db.LIVE, autocommit=True) as c:
+        b = wal_reading(c)
+    now = dt.datetime.now().astimezone()
+    keep = [(a, x) for a, x in read_readings(path) if (now - a).days < 7] + [(now, b)]
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        for a, x in keep:
+            f.write(json.dumps({"at": a.isoformat(), "bytes": x}) + "\n")
+    os.replace(tmp, path)
 
 
 def main(argv=None) -> int:
@@ -88,6 +137,11 @@ def main(argv=None) -> int:
     from support import alarm, jobrun
     argv = sys.argv[1:] if argv is None else argv
     started = jobrun.now()
+    if "--alarm" in argv:
+        try:
+            record_wal()
+        except Exception as exc:  # noqa: BLE001 — the reading is skipped; the check still runs and says what it can
+            print(f"  wal reading skipped: {type(exc).__name__}")
     r = check()
     for i in r["items"]:
         print(f"  {'ok ' if i['ok'] else 'RED'}  {i['name']}  {i['detail']}")
