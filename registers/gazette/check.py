@@ -281,6 +281,7 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
         out["tables"] = dict(tables)                    # {"rows": n, "named_elsewhere": n}
     if texts is not None:
         out["carried"] = carried(texts)
+        out["published texts"] = len(texts)
     return out
 
 
@@ -489,7 +490,7 @@ def main(argv=None) -> int:
               f"since {MEMBERS_FROM} are Members of Parliament by surname")
     for fam, e in sorted((f.get("offices") or {}).items()):
         print(f"Office notices, {fam}: {e['titled']:,} titled, {e['taken']:,} taken by the profile")
-    print(f"Published text: {len(texts):,} distinct values in every text column, "
+    print(f"Published text: {f.get('published texts', 0):,} distinct values in every text column, "
           f"{sum(len(v) for v in f['carried'].values()):,} notices naming a street address or a property reference")
     why = failed(f)
     for w in why:

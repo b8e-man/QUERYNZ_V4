@@ -21,6 +21,7 @@ of the source and the live record that differs.
 """
 import argparse
 import sys
+import time
 
 from support import mcpsource as M
 from support.mcpsource import freshness as F
@@ -70,8 +71,21 @@ def main(argv=None) -> int:
         t = M.Tables(conn, a.schema)
         t.create()
         if not t.try_lock():
-            print(f"{M.SOURCE}: another pull holds {a.schema}; this one asks for nothing")
-            return 0
+            if not a.rewalk:
+                print(f"{M.SOURCE}: another pull holds {a.schema}; this one asks for nothing")
+                return 0
+            # the weekly rewalk waits its turn (25 November 2026: it started in the same minute as a pull every week,
+            # found the lock held, and exited 0, so it landed nothing on 5, 12 and 19 November while reporting ok;
+            # the diaries' 208,464 records changed in place went unseen)
+            wait_s = (a.budget_s or 7200) / 2
+            until = time.monotonic() + wait_s
+            while not t.try_lock():
+                if time.monotonic() > until:
+                    print(f"{M.SOURCE}: rewalk: another pull held {a.schema} for {wait_s:,.0f} s; "
+                          "nothing walked (red, so it runs again)")
+                    return 2
+                time.sleep(60)
+            print(f"{M.SOURCE}: rewalk: the lock is free; walking")
         try:
             if a.retry_caught:
                 n = M.retry_caught(conn, client, a.schema, log=log)

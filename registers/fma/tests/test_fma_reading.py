@@ -390,3 +390,24 @@ def test_an_item_taken_down_stays_with_its_date():
         conn.rollback()
     assert set(got) == {"gone", "stays"}
     assert got["stays"][5] is None and got["gone"][5] == dt.date(2026, 10, 8) and got["gone"][3] == "a" * 64
+
+
+def test_a_short_page_is_no_end_while_the_stated_count_is_not_walked():
+    """25 November 2026: the enforcement list's fifth page shows 14 cases and two pages follow; every pass stopped there."""
+    t, clock = FakeTables(), [0.0]
+    first = [f"c{i}" for i in range(14)]                     # a short page: 14 of 15
+    second = [f"d{i}" for i in range(6)]                     # 20 stated in all
+    pages = {read.list_url("enforcement", 1): _listing("enforcement", first, total=20),
+             read.list_url("enforcement", 2): _listing("enforcement", second, total=20),
+             read.list_url("warnings", 1): _listing("warnings", [], total=0)}
+
+    def opener(url, timeout):
+        clock[0] += 0.1
+        body = pages.get(url) or _page("Invented Limited", "<p>x</p>")
+        return types.SimpleNamespace(url=url, status=200, body=body, final_url=url, blocked="")
+
+    run = capture.Run(t, land_fn=lambda d, **k: (types.SimpleNamespace(sha256="a" * 64), True), opener=opener,
+                      clock=lambda: clock[0], sleep=lambda s: clock.__setitem__(0, clock[0] + s),
+                      now=lambda: dt.datetime(2026, 10, 22, 23, 0, tzinfo=capture.NZ), docs={})
+    run.run()
+    assert {s for (n, s) in t.items if n == "enforcement"} == set(first) | set(second)

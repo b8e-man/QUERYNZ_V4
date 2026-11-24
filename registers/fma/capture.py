@@ -306,7 +306,12 @@ class Run:
             self.counts["pages"] += 1
             walked += 1
             self.counts["listed"] += len(out["items"])
-            if len(out["items"]) < lst.per_page or (p["stated"] and p["items"] >= p["stated"]):
+            # the end: a page that lists nothing, the stated count reached, or the pages the stated count needs all
+            # walked. A short page alone is no end when a count is stated (25 November 2026: the enforcement list's
+            # fifth page shows 14 cases and two pages follow it; every pass since 21 October stopped there, 74 of 102)
+            stated = p["stated"]
+            if (not out["items"] or (stated and (p["items"] >= stated or n * lst.per_page >= stated))
+                    or (not stated and len(out["items"]) < lst.per_page)):
                 self.t.finish(p)
                 self.counts["passes_finished"] += 1
                 self.log(f"{SOURCE}: {lst.name}: pass {p['pass_id']} finished, {p['items']} listed of {p['stated']}")
