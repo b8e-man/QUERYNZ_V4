@@ -358,7 +358,7 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
         wanted[piece] = piece.split(":", 1)[1].split(".", 1)
         loads += [(piece, seg) for seg in segments(v)]          # a big table's ranges load side by side
     sums = {p: Multiset() for p in wanted}
-    with ProcessPoolExecutor(max_workers=jobs) as pool:
+    with ProcessPoolExecutor(max_workers=jobs, initializer=die_with_parent, initargs=(os.getpid(),)) as pool:
         running = []
         for piece, seg in loads:            # fetched in the prefetch's order; each goes to a worker once it is here
             path = src.fetch(seg["stamp"], seg["object"])
@@ -391,7 +391,7 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
         pages, generated = shape.get((schema, table), (0, True))
         ranges += [(piece, lo, hi) for lo, hi in page_ranges(pages, generated)]
     backs = {p: Multiset() for p in loaded}
-    with ProcessPoolExecutor(max_workers=jobs) as pool:
+    with ProcessPoolExecutor(max_workers=jobs, initializer=die_with_parent, initargs=(os.getpid(),)) as pool:
         futs = [(piece, pool.submit(read_back, root, database, *loaded[piece][:2], lo, hi)) for piece, lo, hi in ranges]
         for piece, fut in futs:
             backs[piece].add(fut.result())
@@ -426,6 +426,19 @@ def range_sql(schema: str, table: str, lo, hi) -> str:
         return f"COPY {name} TO STDOUT"
     upper = "" if hi is None else f" AND ctid < '({hi},0)'::tid"
     return f"COPY (SELECT * FROM {name} WHERE ctid >= '({lo},0)'::tid{upper}) TO STDOUT"
+
+
+def die_with_parent(pid: int) -> None:
+    """A pool worker ends when the rehearsal (`pid`) does (25 November 2026: a rehearsal stopped by a signal left its
+    eight workers running). The worker's parent is the fork server, not the rehearsal, so it watches the pid."""
+    def watch():
+        while True:
+            time.sleep(2)
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                os._exit(1)
+    threading.Thread(target=watch, daemon=True).start()
 
 
 def load_object(ci: str, schema: str, table: str, path: str, passphrase: str) -> tuple:

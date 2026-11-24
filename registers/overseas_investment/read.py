@@ -49,6 +49,7 @@ the private twin (`page_rows`).
 import datetime as dt
 import html
 import os
+import difflib
 import re
 import sys
 
@@ -61,7 +62,7 @@ LISTING_PROFILE = "oio-decisions-listing"
 DECISION_PROFILE = "oio-decision-summary"
 NOTIFICATION_PROFILE = "oio-standing-consent-notification"
 PROFILE_VERSION = 2
-READER = "registers.overseas_investment.read 2"
+READER = "registers.overseas_investment.read 3"
 KEY_PREFIX = "overseas_investment/decision"
 BASE = "https://www.linz.govt.nz"
 PATH = "/our-work/overseas-investment-regulation/decisions"
@@ -79,7 +80,11 @@ _PAGER_ANY = re.compile(r'<li class="page-item[^"]*">\s*<a href="\?[^"]*?page=(\
 _META = re.compile(r'<dl\s+class="content__wider-col node__meta-grid[^"]*">(.*?)</dl>', re.S)
 _DTDD = re.compile(r'<dt[^>]*>(.*?)</dt>\s*<dd[^>]*>(.*?)</dd>', re.S)
 _TABLE = re.compile(r'<div\s+class="prose[^"]*">\s*<div class="table-responsive">\s*<table[^>]*>(.*?)</table>', re.S)
-_HEADED = re.compile(r"<tr[^>]*>\s*<th[^>]*>(.*?)</th>\s*<td[^>]*>(.*?)</td>\s*</tr>", re.S)
+#: a headed row: <th>heading</th><td>…</td>, or the older layout (2017 to 2019 and some later pages) with the heading in a
+#: first <td>, bold: <td><strong>Decision</strong></td><td>…</td> (25 November 2026: 40 summaries had been set aside)
+_HEADED = re.compile(r"<tr[^>]*>\s*<(th|td)[^>]*>(.*?)</\1>\s*<td[^>]*>(.*?)</td>\s*</tr>", re.S)
+#: the first heading as the office printed it, a slip apart: 202200098 prints 'ecision'
+_FIRST = ("Decision", "Notification")
 _CLEARFIX = re.compile(r'<div class="clearfix">(.*?)</div>', re.S)
 _TAG = re.compile(r"<[^>]+>")
 _FOOTNOTE = re.compile(r"\s*\[\d+\]\s*$")
@@ -230,7 +235,12 @@ def _rows(t: str) -> list:
     m = _TABLE.search(t)
     if not m:
         return []
-    return [(_FOOTNOTE.sub("", clean(h)).rstrip(":").strip(), v) for h, v in _HEADED.findall(m.group(1))]
+    rows = [(_FOOTNOTE.sub("", clean(h)).rstrip(":").strip(), v) for _, h, v in _HEADED.findall(m.group(1))]
+    if rows and rows[0][0] not in _FIRST:
+        near = difflib.get_close_matches(rows[0][0].lower(), [f.lower() for f in _FIRST], n=1, cutoff=0.85)
+        if near:
+            rows[0] = (near[0].capitalize(), rows[0][1])
+    return rows
 
 
 def recognise_summary(body: bytes) -> str:

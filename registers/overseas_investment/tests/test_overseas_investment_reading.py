@@ -530,3 +530,15 @@ def test_a_summary_taken_down_stays_with_its_date():
         conn.rollback()
     assert set(got) == {"gone", "stays"}
     assert got["stays"][6] is None and got["gone"][6] == dt.date(2026, 10, 8) and got["gone"][4] == "a" * 64
+
+
+def test_the_older_layout_and_a_slip_in_the_first_heading_are_summaries():
+    # 2017 to 2019 (and some later pages) head each row with a bold first cell, not a <th> (25 November 2026)
+    old = _summary(BASIC).replace(b"<th>", b"<td><strong>").replace(b"</th>", b"</strong>&nbsp;</td>")
+    assert read.recognise_summary(old) == ""
+    assert read.read_summary(old, SHA, "z") == read.read_summary(_summary(BASIC), SHA, "z")
+    # 202200098 prints its first heading 'ecision'
+    slip = _summary([("ecision", BASIC[0][1])] + BASIC[1:])
+    assert read.recognise_summary(slip) == ""
+    assert read.read_summary(slip, SHA, "z") == read.read_summary(_summary(BASIC), SHA, "z")
+    assert read.recognise_summary(_summary([("Background", "x")] + BASIC[1:])).startswith("the table's first heading")

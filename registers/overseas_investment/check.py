@@ -154,8 +154,11 @@ def outside(conn, schema: str = SCHEMA) -> dict:
             ok = False
             continue
         pass_id, stated_pages, stated, pages, items = r
-        states = dict(conn.execute(f"SELECT state, count(*) FROM {T('read_items')} WHERE pass_id = %s GROUP BY state",
-                                   (pass_id,)).fetchall())
+        # the reading's state of each item the newest pass listed: a load skips a listing equal to the one published
+        # and keeps the earlier pass's number on its rows, so the pass number cannot be the join (25 November 2026)
+        states = dict(conn.execute(f"SELECT r.state, count(*) FROM {T('read_items')} r WHERE r.list = %s AND EXISTS "
+                                   f"(SELECT 1 FROM {T('capture_listed')} l WHERE l.pass_id = %s AND l.slug = r.slug) "
+                                   "GROUP BY r.state", (lst.name, pass_id)).fetchall())
         y_ok = stated is not None and items == stated and pages == stated_pages and states.get("read", 0) == items
         ok = ok and y_ok
         years[lst.year] = {"ok": y_ok, "stated": stated, "listed": items, "pages": pages, "stated_pages": stated_pages,
