@@ -34,6 +34,7 @@ import sys
 import urllib.parse
 
 from registers.grants import capture, read
+from support import db
 
 SCHEMA = "grants"
 ADDRESSISH = ("address", "street", "postal", "residential", "home", "email", "phone", "suburb", "postcode")
@@ -98,7 +99,13 @@ def reading(conn, schema: str = SCHEMA) -> list:
     n = one(f"SELECT count(*) FROM {T('grants')} WHERE period < '{read.WINDOW_FROM}'")
     if n:
         out.append(f"{n} grants before {read.WINDOW_FROM} (ruling 71)")
-    return out + private(conn, schema)
+    from registers.grants import load
+    # the read login may not use the private schema; the board's job counts through the owner (db.private_reader)
+    with db.private_reader(conn, load.private_table(schema, "x").split(".")[0]) as pc:
+        if pc is None:
+            print("  grants_private: not counted: this login may not read the private schema (the board's job may)")
+            return out
+        return out + private(pc, schema)
 
 
 def private(conn, schema: str = SCHEMA) -> list:

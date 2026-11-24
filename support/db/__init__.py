@@ -45,6 +45,7 @@ are never refused.
 
 Tests: support/db/tests/ (the SQL without a database; the apply against
 the sample database, marked slow)."""
+import contextlib
 import os
 import re
 import sys
@@ -244,6 +245,26 @@ def connect(key: str = OWNER_KEY, database: str = None, **kw):
     guard(key, database)
     import psycopg
     return psycopg.connect(url(key, database), **kw)
+
+
+@contextlib.contextmanager
+def private_reader(conn, schema: str):
+    """A connection a check may count rows of `schema` through: `conn` when its login may use the schema, else a
+    read-only owner connection to the same database, which only a marked job (the board, the scheduler's worker,
+    the integrator) may open; None to an unmarked session, which the check then says it could not count. Counts
+    only (24 November 2026: the read login may not use a *_private schema, and the board's checks of ruling 142's
+    private twins had been skipped)."""
+    if conn.execute("SELECT has_schema_privilege(%s, 'USAGE')", (schema,)).fetchone()[0]:
+        yield conn
+        return
+    try:
+        other = connect(OWNER_KEY, conn.info.dbname)
+    except LiveRefused:
+        yield None
+        return
+    with other:
+        other.read_only = True
+        yield other
 
 
 def apply(database: str, extra_schemas=(), log=print) -> None:

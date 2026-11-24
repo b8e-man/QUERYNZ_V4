@@ -28,6 +28,7 @@ import re
 import sys
 
 from registers.sanctions import capture
+from support import db
 
 SCHEMA = "sanctions"
 FRESH_DAYS = 14
@@ -45,13 +46,20 @@ def reading(conn, schema: str = SCHEMA, shared: bool = False) -> list:
             out.append(f"{list_id}: {got[0]} + {got[1]} listing rows against {n} + {ended} in its list line")
     # ruling 142: every listed record kept whole in the private twin, keyed by the row
     priv = load.table(load.private_of(schema), "details", shared)
-    if conn.execute("SELECT to_regclass(%s) IS NULL", (priv,)).fetchone()[0]:
+    # the read login may not use the private schema; the board's job counts through the owner (db.private_reader)
+    if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (load.private_of(schema),)).fetchone():
         out.append(f"{priv} is missing: the listed records are not kept whole")
-    else:
-        bare = conn.execute(f"SELECT count(*) FROM {T('listings')} l WHERE NOT EXISTS (SELECT 1 FROM {priv} d "
-                            f"WHERE d.key = l.key)").fetchone()[0]
-        if bare:
-            out.append(f"{bare} listing(s) with no record kept whole in {priv}")
+        return out
+    with db.private_reader(conn, load.private_of(schema)) as pc:
+        if pc is None:
+            print(f"  {priv}: not counted: this login may not read the private schema (the board's job may)")
+        elif pc.execute("SELECT to_regclass(%s) IS NULL", (priv,)).fetchone()[0]:
+            out.append(f"{priv} is missing: the listed records are not kept whole")
+        else:
+            bare = pc.execute(f"SELECT count(*) FROM {T('listings')} l WHERE NOT EXISTS (SELECT 1 FROM {priv} d "
+                              f"WHERE d.key = l.key)").fetchone()[0]
+            if bare:
+                out.append(f"{bare} listing(s) with no record kept whole in {priv}")
     return out
 
 

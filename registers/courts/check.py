@@ -66,6 +66,7 @@ from registers.courts import load as L
 from registers.courts import model_read
 from registers.courts import pieces as PC
 from registers.courts import read as R
+from support import db
 
 #: a column of that name in a published view or a reading table would carry an identifying detail
 FORBIDDEN_COLUMNS = {k for k in IDS.KINDS if k != "other"} | {"identifier", "identifiers", "home_address",
@@ -200,12 +201,17 @@ def _kept_privately(conn, schema: str, shared: bool, t, failures: list):
     name, a case) whose name left the row has it kept whole in the private table, with the source's words, keyed by
     the row; a row flagged with no name kept fails. Counts only; a login that cannot read the private schema is told so."""
     priv = L.private_of(schema)
-    W = L.table(priv, "withheld_names", shared)
     if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (priv,)).fetchone():
         return None
-    # asked before the table: to_regclass on a schema the login may not use is an error, not a null (24 Nov 2026)
-    if not conn.execute("SELECT has_schema_privilege(%s, 'USAGE')", (priv,)).fetchone()[0]:
-        return "not readable by this login"
+    # the read login may not use the private schema; the board's job counts through the owner (db.private_reader)
+    with db.private_reader(conn, priv) as pc:
+        if pc is None:
+            return "not counted: this login may not read the private schema (the board's job may)"
+        return _kept_privately_counts(pc, priv, shared, t, failures)
+
+
+def _kept_privately_counts(conn, priv: str, shared: bool, t, failures: list):
+    W = L.table(priv, "withheld_names", shared)
     if not _exists(conn, W):
         return None
     lost = 0
@@ -274,8 +280,13 @@ def _identifiers(conn, schema: str, shared: bool, failures: list) -> dict:
     name = L.table(priv, "identifiers", shared)
     if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (priv,)).fetchone():
         return {}
-    if not conn.execute("SELECT has_schema_privilege(%s, 'USAGE')", (priv,)).fetchone()[0]:
-        return {"not readable by this login": 0}
+    with db.private_reader(conn, priv) as pc:
+        if pc is None:
+            return {"not counted: this login may not read the private schema (the board's job may)": 0}
+        return _identifier_counts(pc, schema, name, shared, failures)
+
+
+def _identifier_counts(conn, schema: str, name: str, shared: bool, failures: list) -> dict:
     if not _exists(conn, name):
         return {}
     by = dict(conn.execute(f"SELECT kind, count(*) FROM {name} GROUP BY 1 ORDER BY 2 DESC").fetchall())
