@@ -152,6 +152,10 @@ class JobType:
     # 3 November 2026: 2.8 GB anonymous, up to 3 GB more of clean mapped index pages the kernel can take back). Never
     # for a job that maps a model into host memory.
     memory_counts: str = "pss"
+    # `boxes`: the boxes whose workers may claim it; () = any. 25 November 2026: /mnt/hdd2 is node2's disk, mounted on
+    # node1 over NFS, so the restore rehearsal's scratch server on node1 wrote its whole database over the network
+    # (4 MB/s, the 12-hour deadline missed twice); it runs where the disk is.
+    boxes: tuple[str, ...] = ()
 
     @property
     def name(self) -> str:
@@ -284,7 +288,8 @@ def load(path: pathlib.Path | None = None) -> dict[str, JobType]:
             enabled=bool(b.get("enabled", True)),
             pieces_command=tuple([pcmd] if isinstance(pcmd, str) else pcmd),
             then=tuple([then] if isinstance(then, str) else then), threads=int(b.get("threads", 1)),
-            memory_counts=_memory_counts(name, b.get("memory_counts", "pss")))
+            memory_counts=_memory_counts(name, b.get("memory_counts", "pss")),
+            boxes=tuple(b.get("boxes") or ()))
     return out
 
 

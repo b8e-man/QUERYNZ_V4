@@ -378,6 +378,8 @@ class Worker:
                 continue
             if self.only_profiles and jt.profile not in self.only_profiles:
                 continue
+            if jt.boxes and self.box not in jt.boxes:
+                continue
             mem = self.working_gb(jt)
             fits = int(free // mem) if mem > 0 else jt.concurrency
             cap = jt.concurrency

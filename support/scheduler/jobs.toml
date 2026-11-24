@@ -169,6 +169,7 @@ class = "whenever"
 priority = 15
 command = ["python", "-m", "support.offsite", "restore"]
 requires = ["pg_restore", "initdb", "gpg", "zstd"]
+boxes = ["node2"]          # /mnt/hdd2 is node2's own disk; node1 mounts it over NFS (25 November 2026)
 every_s = 2419200
 nice = 10
 

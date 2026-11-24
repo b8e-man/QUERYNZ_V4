@@ -307,3 +307,17 @@ def test_a_helper_that_dies_loses_only_its_running_piece_and_the_owner_finishes(
     assert wait_for(lambda: row(conn, s, qid)["state"] == "done", 90)
     assert row(conn, s, qid)["pieces_done"] == 10
     a.stop(); a._finish_stop(); b.stop(); b._finish_stop()
+
+
+def test_a_job_pinned_to_other_boxes_is_never_eligible_here(conn, s):
+    """`boxes` (25 November 2026): the restore rehearsal runs on node2, where /mnt/hdd2 is a local disk."""
+    import dataclasses
+    r = rehearsal_registry()
+    r["qv4-rehearsal-sleep"] = dataclasses.replace(r["qv4-rehearsal-sleep"], boxes=("node1",))
+    assert "qv4-rehearsal-sleep" not in worker("node2", s, registry=r).eligible()
+    r["qv4-rehearsal-sleep"] = dataclasses.replace(r["qv4-rehearsal-sleep"], boxes=("node2",))
+    assert "qv4-rehearsal-sleep" in worker("node2", s, registry=r).eligible()
+
+
+def test_the_shipped_rehearsal_runs_where_its_disk_is():
+    assert reg.load()["qv4-offsite-rehearsal"].boxes == ("node2",)
