@@ -1,9 +1,10 @@
 # WorkSafe's prosecutions and the regulators' actions have no lane, so the insurance template's safety record is always blocked
 kind: finding
-state: open
+state: closed
 use-case: 6 insurance underwriting; also 7 construction, 11 healthcare, 12 property
 session: insurance-1
 opened: 2026-10-21
+closed: 2026-11-25
 
 Use case 6 runs on "WorkSafe releases, regulator actions" (plan 5.2), and
 step 5.3 lists both as held and unread. The insurance template's
@@ -25,3 +26,5 @@ report's catalogue can name, with the defendant's business number as the
 link; then the insurance template reads it and unblocks `safety-record`
 (a fix in its folder). The legal position page (hard limit 9) comes with
 the lane.
+
+Closed 25 November 2026: the premise no longer holds. registers/worksafe, registers/fma and registers/commerce_commission are lanes with published views. WorkSafe's 608 of 608 prosecutions and 57 of 62 undertakings are read; the other 5 are asked of the provider (handover/asks/worksafe.json). The FMA's 727 warnings and the Commerce Commission's 1,729 cases are read. The insurance template's court-judgments flag now fires on real rows (its test was moved, 25 November).

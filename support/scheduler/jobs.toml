@@ -1918,6 +1918,7 @@ priority = 182
 command = ["python", "-m", "registers.insolvency.capture", "--night", "--budget-s", "3300"]
 nice = 10
 then = ["qv4-insolvency-load"]
+enabled = false   # Arthur, 25 November 2026: "hold and card" after four nights of transport errors from the API (21-24 Nov); card insolvency-capture-held-after-four-nights-of-transport-errors
 
 [jobs.qv4-insolvency-load]
 description = "The Insolvency Register: the capture's ledger read into staging_insolvency_load, checked (removals asked within two days, nothing suppressed, annulled or past the API's display window, no address column, in equals out, the estates seen within 1% of the API's own totalItems), published (pub.insolvency_people, pub.insolvency_companies) only on green; an estate removed after the build is taken out again at publish. Queued by qv4-insolvency-capture."

@@ -68,6 +68,10 @@ RULES = {
     "querynz_v4.linz.*": (OUT, "the LINZ tables, reloaded from the captured pulls", f"{V4_REPO}/registers/linz/load.py"),
     "querynz_v4.linz_private.*": (OUT, "the LINZ private tables, reloaded from the captured pulls",
                                   f"{V4_REPO}/registers/linz/load.py"),
+    # Arthur, 25 November 2026 ("cut them"): a lane's staging and a session's scratch schemas are build output, made
+    # again by the next load from what the lane captured; 23.3 GB of the 99 GB copy of 24 November
+    "querynz_v4.staging_*": (OUT, "a lane's staging build, made again by its next load", f"{V4_REPO}/support/staging/__init__.py"),
+    "querynz_v4.scratch_*": (OUT, "a session's scratch schema, build output", f"{V4_REPO}/support/staging/__init__.py"),
     "extractions.candidates.*": (OUT, "the candidate register, 120 GB",
         f"{OLD_REPO}/data-layer/candidate_register/candidate_register/cli.py"),
     "extractions.v3.extract_queue": (OUT, "a work queue (extract-queue refills it)", f"{OLD_REPO}/v3/cli.py"),

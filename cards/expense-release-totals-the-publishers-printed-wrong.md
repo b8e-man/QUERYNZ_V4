@@ -23,3 +23,9 @@ fails on these releases every time it runs. At the checkpoint: accept onto
 the known-limits page (the release's figure and ours are both shown), or
 keep a list of known differences the check passes over.
 Blocks: nothing.
+
+**For Arthur's review (25 November 2026).** The lane check is still red on these releases every night. As of today:
+- parliamentary-service: 31 release tables; 2 have a column that differs from its rows.
+- internal-affairs: 72 release tables; the grand total equals the rows in 64; a column differs in 13.
+
+Examples, printed against our row sums: 2016-10-01..2016-12-31 Domestic Air Travel 255,918.71 against 254,415.55; 2020-10-01..2020-12-31 Sub Total Internal Costs 658,332.00 against 661,981.22. Arthur, 25 November: "card this for review". The choice is unchanged: the known-limits page (both figures shown), or a list of known differences the check passes over.

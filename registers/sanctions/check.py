@@ -34,6 +34,9 @@ SCHEMA = "sanctions"
 FRESH_DAYS = 14
 FORBIDDEN = ("address", "street", "city", "postal", "passport", "document_number", "national_id", "comment")
 
+#: how far the 1373 page's stated count may sit from the workbook's current rows (Arthur, 25 November 2026)
+PAGE_TOLERANCE = 1
+
 
 def reading(conn, schema: str = SCHEMA, shared: bool = False) -> list:
     from registers.sanctions import load
@@ -78,8 +81,14 @@ def outside(conn, schema: str = SCHEMA, today: dt.date = None, shared: bool = Fa
         if list_id == "nz-police-tsa":
             cur = conn.execute(f"SELECT count(*) FROM {T('listings')} WHERE list_id = 'nz-police-tsa' AND status = "
                                "'designated' AND key LIKE 'sanctions/nz-police-tsa/1373/%%'").fetchone()[0]
-            per[list_id] = {"ok": stated is not None and cur == stated, "stated": stated, "where": where,
+            # Arthur, 25 November 2026: "we are interested in the records themselves. this discrepancy is minor. we
+            # will be monitoring over time so we can accept 21" (the page stated 22; the Police's own workbook of 29
+            # October lists 21 current). The records rule; the page's count may differ by PAGE_TOLERANCE, said each run
+            gap = None if stated is None else cur - stated
+            per[list_id] = {"ok": stated is not None and abs(gap) <= PAGE_TOLERANCE, "stated": stated, "where": where,
                             "current_1373": cur, "listings": n}
+            if gap:
+                per[list_id]["page_differs_by"] = gap
         elif list_id == "mfat-russia":
             off = conn.execute(f"SELECT count(*) FROM {T('read_set_aside')} WHERE list_id = 'mfat-russia' "
                                "AND stage = 'total'").fetchone()[0]

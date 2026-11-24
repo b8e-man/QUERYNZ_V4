@@ -1,9 +1,10 @@
 # node1 set up as the second box of the estate
 kind: blocker
-state: open
+state: closed
 use-case: -
 session: scheduler
 opened: 2026-10-18
+closed: 2026-11-25
 
 Arthur, 18 October, on the queue item about a second worker on node2:
 "card the node 1 setup". This reopens what ruling 55 closed: node1 comes
@@ -148,3 +149,5 @@ Arthur's half, in order, at node1's console:
   /etc/querynz/not-primary stays: node1 is the standby.
 - 10:48, helpers (fbcff15): a worker with nothing of its own joins another box's leased row and takes its pieces.
   After both workers restarted, node1 owns the courts row 1687 and node2 helps; both read with their own Flash-Next.
+
+Closed 25 November 2026: done. node1 returned on 5 November and is the database primary (epoch 4). Workers run on both boxes (ruling 145), the takeover drill passed on 7 November, and node2 was rebuilt as node1's streaming standby on 24 November. checks/boxes.py watches both boxes every 15 minutes.

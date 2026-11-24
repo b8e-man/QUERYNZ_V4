@@ -355,11 +355,15 @@ def test_the_check_reads_each_list_against_its_own_figure(built):
     conn, _ = built
     out = check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)
     assert out["lists"]["mfat-russia"]["ok"] and out["lists"]["un-sc"]["ok"]
-    # the hand-made 1373 sheet holds 2 current designations and its page says 2; one more on the page is red
+    # the hand-made 1373 sheet holds 2 current designations and its page says 2; one more on the page is green and
+    # said (Arthur, 25 November 2026: the records rule, the page may differ by one); two more is red
     assert out["lists"]["nz-police-tsa"]["ok"] and out["lists"]["nz-police-tsa"]["current_1373"] == 2
     t = load.table(SAMPLE_SCHEMA, "lists", True)
     conn.execute(f"UPDATE {t} SET stated = stated + 1 WHERE list_id = 'nz-police-tsa'")
     try:
+        one = check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)["lists"]["nz-police-tsa"]
+        assert one["ok"] and one["page_differs_by"] == -1
+        conn.execute(f"UPDATE {t} SET stated = stated + 1 WHERE list_id = 'nz-police-tsa'")
         assert not check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)["lists"]["nz-police-tsa"]["ok"]
     finally:
         conn.rollback()
