@@ -60,7 +60,8 @@ def test_every_column_added_after_a_table_first_shipped_has_its_alter_line():
     for table, cols in (("old_decisions", ("source", "verdict", "mapped_how")), ("rows", ("part_of",)), ("links", ("relation",)),
                         ("readings", ("run_id", "pair_id", "kind", "truth", "band", "screen", "evidence", "citations", "model", "seconds"))):
         for col in cols:
-            assert f"ALTER TABLE links.{table} ADD COLUMN IF NOT EXISTS {col} " in sql, (table, col)
+            # added only where missing (24 November 2026: the unguarded form locked the table on every run)
+            assert f"attname = '{col}' AND NOT attisdropped) THEN ALTER TABLE links.{table} ADD COLUMN {col} " in sql, (table, col)
 
 
 class _NoCommit:
@@ -94,7 +95,7 @@ def test_the_groups_never_join_two_companies_through_a_relation():
         conn = _NoCommit(raw)
         try:
             conn.execute(f"CREATE SCHEMA {s}")
-            two_grades = (links.ddl(s).split(f"ALTER TABLE {s}.links ADD COLUMN IF NOT EXISTS relation")[0]
+            two_grades = (links.ddl(s).split(f"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = '{s}.links'::regclass AND attname = 'relation'")[0]
                           .replace("CONSTRAINT links_grade_check CHECK (grade IN ('confirmed', 'near', 'related'))", "CHECK (grade IN ('confirmed', 'near'))")
                           .replace("    relation     text,", "")
                           .replace("    CONSTRAINT links_relation_graded CHECK ((grade = 'related') = (relation IS NOT NULL)),", ""))

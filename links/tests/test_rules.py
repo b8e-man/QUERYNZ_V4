@@ -339,7 +339,7 @@ def test_a_refiled_name_needs_a_person_on_both_and_the_twelve_months():
 
 def test_the_tables_carry_the_third_grade_and_the_view_never_shows_it_confirmed():
     sql = links.tables_sql()
-    assert "CHECK (grade IN ('confirmed', 'near', 'related'))" in sql and "ALTER TABLE links.links ADD COLUMN IF NOT EXISTS relation " in sql
+    assert "CHECK (grade IN ('confirmed', 'near', 'related'))" in sql and "THEN ALTER TABLE links.links ADD COLUMN relation " in sql
     assert "links_relation_graded CHECK ((grade = 'related') = (relation IS NOT NULL))" in sql
     pub = links.publish_sql()
     assert "l.relation\nFROM links.links l" in pub                        # appended last: CREATE OR REPLACE VIEW keeps the columns before it

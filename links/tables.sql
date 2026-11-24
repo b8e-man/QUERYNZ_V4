@@ -22,9 +22,13 @@ CREATE INDEX IF NOT EXISTS links_row_b ON links.links (row_b);
 -- a rebuild deletes and refills millions of rows; autovacuum's truncation of the emptied pages took an exclusive lock
 -- against the refill and deadlocked it twice (20 October 2026). The pages are reused on the next build.
 ALTER TABLE links.links SET (vacuum_truncate = off);
+-- every column added after a table was first made is added only where it is missing: ALTER TABLE ... ADD COLUMN IF NOT
+-- EXISTS takes an exclusive lock even when the column is there, and links.rows runs this file on every per-register
+-- refill, so a refill during the build deadlocked it (23 and 24 November 2026: links.links left without its related
+-- links)
 -- The third grade (ruling 106, links-3): a relation between two rows that is not an identity ('succeeded by'). A table made
 -- before it has the two-grade check and no `relation`; the check is replaced once, only where it still lacks the grade.
-ALTER TABLE links.links ADD COLUMN IF NOT EXISTS relation text;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.links'::regclass AND attname = 'relation' AND NOT attisdropped) THEN ALTER TABLE links.links ADD COLUMN relation text; END IF; END $$;
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'links.links'::regclass AND conname = 'links_grade_check'
                    AND pg_get_constraintdef(oid) LIKE '%related%') THEN
@@ -50,9 +54,13 @@ CREATE INDEX IF NOT EXISTS decisions_rows ON links.decisions (row_a, row_b);
 -- only ever added to: no UPDATE, no DELETE
 CREATE OR REPLACE FUNCTION links.decisions_are_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'links.decisions is only ever added to'; END $$;
-DROP TRIGGER IF EXISTS decisions_append_only ON links.decisions;
-CREATE TRIGGER decisions_append_only BEFORE UPDATE OR DELETE ON links.decisions
-    FOR EACH ROW EXECUTE FUNCTION links.decisions_are_append_only();
+-- made once (dropping it on every run took an exclusive lock on the decisions every view of the links joins, 24 Nov 2026)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'links.decisions'::regclass AND tgname = 'decisions_append_only') THEN
+        CREATE TRIGGER decisions_append_only BEFORE UPDATE OR DELETE ON links.decisions
+            FOR EACH ROW EXECUTE FUNCTION links.decisions_are_append_only();
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS links.groups (
     group_id     text NOT NULL,            -- the smallest row key in the group
@@ -77,9 +85,9 @@ CREATE TABLE IF NOT EXISTS links.old_decisions (
 );
 -- Columns added since the table first shipped (card the-links-tables-do-not-migrate-an-existing-column):
 -- CREATE TABLE IF NOT EXISTS leaves an existing table as it was, so each later column is added here too.
-ALTER TABLE links.old_decisions ADD COLUMN IF NOT EXISTS source text;
-ALTER TABLE links.old_decisions ADD COLUMN IF NOT EXISTS verdict text;
-ALTER TABLE links.old_decisions ADD COLUMN IF NOT EXISTS mapped_how text;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.old_decisions'::regclass AND attname = 'source' AND NOT attisdropped) THEN ALTER TABLE links.old_decisions ADD COLUMN source text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.old_decisions'::regclass AND attname = 'verdict' AND NOT attisdropped) THEN ALTER TABLE links.old_decisions ADD COLUMN verdict text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.old_decisions'::regclass AND attname = 'mapped_how' AND NOT attisdropped) THEN ALTER TABLE links.old_decisions ADD COLUMN mapped_how text; END IF; END $$;
 
 -- The rows the rules read: every person row of every published register,
 -- under the one shared reading of names (keys.names). Rebuilt with the registers.
@@ -102,8 +110,8 @@ CREATE TABLE IF NOT EXISTS links.rows (
     document     text,
     part_of      text                      -- a coupled donor row's part (ruling 73): the donor row's ref; NULL on every filed row
 );
-ALTER TABLE links.rows ADD COLUMN IF NOT EXISTS part_of text;
-ALTER TABLE links.rows ADD COLUMN IF NOT EXISTS suppressed boolean NOT NULL DEFAULT false;   -- ruling 142: a suppressed or withheld name is a row, its flag carried
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.rows'::regclass AND attname = 'part_of' AND NOT attisdropped) THEN ALTER TABLE links.rows ADD COLUMN part_of text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.rows'::regclass AND attname = 'suppressed' AND NOT attisdropped) THEN ALTER TABLE links.rows ADD COLUMN suppressed boolean NOT NULL DEFAULT false; END IF; END $$;   -- ruling 142: a suppressed or withheld name is a row, its flag carried
 CREATE INDEX IF NOT EXISTS rows_fl ON links.rows (fl_key);
 CREATE INDEX IF NOT EXISTS rows_part_of ON links.rows (part_of) WHERE part_of IS NOT NULL;
 CREATE INDEX IF NOT EXISTS rows_full ON links.rows (full_key);
@@ -125,7 +133,7 @@ CREATE TABLE IF NOT EXISTS links.rows_catch (
 );
 -- 4 November 2026: the reading's code a view's rows were gathered under (links.rows.fingerprint), so a steady register's
 -- rows (links.rows.STEADY, kept while their source is unchanged) are read again when the code changes
-ALTER TABLE links.rows_catch ADD COLUMN IF NOT EXISTS fingerprint text;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.rows_catch'::regclass AND attname = 'fingerprint' AND NOT attisdropped) THEN ALTER TABLE links.rows_catch ADD COLUMN fingerprint text; END IF; END $$;
 
 -- The official numbers a row prints (3 November 2026, Arthur: "the views the links never read, yes ... exact number
 -- joins come first"): an NZBN, a company number or a charity number, as its view publishes it, keyed by the row's ref.
@@ -261,16 +269,16 @@ CREATE TABLE IF NOT EXISTS links.readings (
     seconds      real
 );
 -- columns added since the table first shipped (track C; card the-links-tables-do-not-migrate-an-existing-column)
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS run_id text;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS pair_id bigint;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS kind text;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS truth text;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS band text;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS screen text;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS evidence jsonb;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS citations jsonb;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS model text;
-ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS seconds real;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'run_id' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN run_id text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'pair_id' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN pair_id bigint; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'kind' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN kind text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'truth' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN truth text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'band' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN band text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'screen' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN screen text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'evidence' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN evidence jsonb; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'citations' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN citations jsonb; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'model' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN model text; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'seconds' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN seconds real; END IF; END $$;
 CREATE INDEX IF NOT EXISTS readings_run ON links.readings (run_id);
 CREATE INDEX IF NOT EXISTS readings_link ON links.readings (link_id);
 
@@ -302,7 +310,7 @@ CREATE TABLE IF NOT EXISTS links.entities (
     politician   boolean NOT NULL DEFAULT false,
     built_at     timestamptz NOT NULL DEFAULT now()
 );
-ALTER TABLE links.entities ADD COLUMN IF NOT EXISTS suppressed boolean NOT NULL DEFAULT false;   -- ruling 142: the display name is a suppressed one (every row's name is)
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.entities'::regclass AND attname = 'suppressed' AND NOT attisdropped) THEN ALTER TABLE links.entities ADD COLUMN suppressed boolean NOT NULL DEFAULT false; END IF; END $$;   -- ruling 142: the display name is a suppressed one (every row's name is)
 ALTER TABLE links.entities SET (vacuum_truncate = off);   -- rebuilt whole, as links.links is (the deadlock of 20 October 2026)
 
 -- Ruling 4 (Arthur, 3 November 2026): a case's documents gathered into one case by citation and case number (judgments,
