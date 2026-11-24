@@ -207,6 +207,17 @@ priority = 131   # unique (24 November 2026)
 command = ["python", "-m", "checks.standby", "--alarm"]
 every_s = 900
 
+[jobs.qv4-boxes-check]
+description = "Every 15 minutes, on whichever box claims it: both boxes read, here and over ssh (checks/boxes.py): free disk (floor 150 GB), out-of-memory kills and memory pressure, an unclean reboot, exactly one holder of the database address and it the primary, the voter answering and agreeing, the two databases' settings that must match, and the two release copies at one commit. One alarm while red, at most every 6 hours. 24 November 2026: these were the old audit's box arms, stopped with v3-audit and never replaced."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 240
+query_timeout_s = 30
+class = "due"
+priority = 132   # unique (24 November 2026)
+command = ["python", "-m", "checks.boxes", "--alarm"]
+every_s = 900
+
 [jobs.qv4-reread]
 description = "Re-read a set of documents after a reader, a profile or a rule changes (step 2.14): one piece per document, each compared with the reading it would replace before it lands. Queued by a session or a lane, never fired by hand (ruling 45)."
 needs = "model-profile"
