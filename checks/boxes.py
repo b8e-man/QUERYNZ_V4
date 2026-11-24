@@ -96,11 +96,17 @@ def remote_reading(box: str) -> dict | None:
         return None
 
 
-def ask_voter() -> dict | None:
-    try:
-        return json.loads(_run([sys.executable, "-m", "support.takeover", "ask-voter"], timeout=20))
-    except ValueError:
-        return None
+def ask_voter(tries: int = 2, wait_s: float = 5.0) -> dict | None:
+    """The voter's answer; asked again once before it counts as none (25 November 2026: two checks in a row at 04:15
+    and 04:30 got no answer in 4 s, and every ask since answered)."""
+    import time
+    for k in range(tries):
+        try:
+            return json.loads(_run([sys.executable, "-m", "support.takeover", "ask-voter"], timeout=20))
+        except ValueError:
+            if k + 1 < tries:
+                time.sleep(wait_s)
+    return None
 
 
 def judge(now: dict, before: dict, voter: dict | None, at: float) -> list:
