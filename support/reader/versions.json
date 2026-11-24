@@ -180,8 +180,8 @@
    "registers/grants/read.py",
    "registers/grants/society.py"
   ],
-  "reader": "registers.grants.read 3",
-  "sha256": "e6ec736de99718af5889f57d2b9fe91a3798a45ca879418bc74cf0e95ea9dbbd"
+  "reader": "registers.grants.read 4",
+  "sha256": "2f749047cf0ed68523ddd41c6c27e9581dedf806be69e29d76c2fa6099a6ab7e"
  },
  "registers/grants/society.py": {
   "files": [
@@ -190,8 +190,8 @@
    "registers/grants/read.py",
    "registers/grants/society.py"
   ],
-  "reader": "registers.grants.society 3",
-  "sha256": "bd3d1e7895d74bc20601ac785c69128fadb9716dd15a7d4fd47e8d7c7153d33f"
+  "reader": "registers.grants.society 4",
+  "sha256": "0e42d14f25433b5ab96eafaaa85589642498c235eded574dcf59b3ebe9546013"
  },
  "registers/hansard/model_read.py": {
   "files": [

@@ -164,7 +164,11 @@ def listing(conn, schema: str = SCHEMA) -> list:
     rows = conn.execute(
         f"SELECT DISTINCT ON (url) url, sha256, recognised FROM {T('capture_docs')} WHERE list = 'lottery-page' "
         "ORDER BY url, at DESC").fetchall()
-    out += [("lottery-page", u, s) for u, s, slug in rows if slug == read.LOTTERY_PAGE or RECORD_ADDRESS.search(u)]
+    # the walk's seeds are index pages that link records, never records (25 November 2026: the Lottery index, matched by
+    # "grants-made", counted as a document no profile recognises)
+    seeds = {capture.canonical(x) for x in capture.CM_SEEDS}
+    out += [("lottery-page", u, s) for u, s, slug in rows
+            if (slug in (read.LOTTERY_PAGE, read.FUND_PAGE) or RECORD_ADDRESS.search(u)) and capture.canonical(u) not in seeds]
     rows = conn.execute(
         f"SELECT DISTINCT ON (url) url, sha256 FROM {T('capture_docs')} WHERE list = 'society-file' "
         "ORDER BY url, at DESC").fetchall()

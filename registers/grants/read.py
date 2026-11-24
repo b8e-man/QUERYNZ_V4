@@ -52,10 +52,13 @@ from support import profiles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profiles-proposed.jsonl")
-READER = "registers.grants.read 3"   # 14-15 November 2026: six society layouts; the private columns kept
+READER = "registers.grants.read 4"   # 4: the Department's own funds' records of grants (25 Nov 2026); 3: six society layouts
 #   3 (25 November): society.py's READER moved (its check.py dependency); no reading changed
 DIA_CSV = "dia-class4-grants-csv"
 LOTTERY_PAGE = "lottery-record-of-grants-page"
+#: the Department's own funds' records of grants on Community Matters (25 November 2026): the Community and Volunteering
+#: Capability Fund (a calendar year, a category in brackets) and the Community-led Development Programme (a financial year)
+FUND_PAGE = "community-matters-fund-record-of-grants"
 WINDOW_FROM = 2017      # ruling 71: the window is 2017 on
 SCAN_WORDS = 60         # a PDF carrying fewer words than this on its text layer is a scan
 EXCEL_EPOCH = dt.date(1899, 12, 30)
@@ -157,7 +160,9 @@ def publishers() -> list:
     out = [{"key": DIA, "name": "Te Tari Taiwhenua Department of Internal Affairs", "kind": "government department",
             "website": "https://www.dia.govt.nz", "on_departments_list": None, "licence": CC_BY_4,
             "attribution": DIA_ATTRIBUTION,
-            "role": "publishes the national file of class 4 grants and the Lottery records of grants"},
+            "role": "publishes the national file of class 4 grants and the Lottery records of grants, and makes and publishes "
+                    "the grants of its own funds (the Community and Volunteering Capability Fund, the Community-led "
+                    "Development Programme)"},
            {"key": LOTTERY, "name": "Te Puna Tahua Lottery Grants Board", "kind": "statutory board",
             "website": "https://www.communitymatters.govt.nz/lottery-grants-board", "on_departments_list": None,
             "licence": CC_BY_4, "attribution": LOTTERY_ATTRIBUTION,
@@ -226,14 +231,16 @@ def recognise(data: bytes):
     head = data[:600000].decode("utf-8", "replace")
     if "<html" not in head[:2000].lower():
         return None
-    r = profile(LOTTERY_PAGE)["recognise"]
-    if not any(re.search(r["heading_pattern"], h, re.I) for h in headings(head)):
-        return None
+    hs = headings(head)
     tables = _TABLE.findall(head)
-    for t in tables:
-        rows = _ROW.findall(t)
-        if rows and [text_of(c[1]) for c in _CELL.findall(rows[0])] == r["table_head"]:
-            return LOTTERY_PAGE
+    for slug in (LOTTERY_PAGE, FUND_PAGE):
+        r = profile(slug)["recognise"]
+        if not any(re.search(r["heading_pattern"], h, re.I) for h in hs):
+            continue
+        for t in tables:
+            rows = _ROW.findall(t)
+            if rows and [text_of(c[1]) for c in _CELL.findall(rows[0])] == r["table_head"]:
+                return slug
     return None
 
 
@@ -400,16 +407,36 @@ def heading_parts(heading: str) -> tuple:
     return period, (r.group(0).lower() if r else None), re.sub(r"\s+", " ", rest).strip(" -–")
 
 
-_MONEY = re.compile(r"^\$\s?(?P<n>\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)\s*(?P<star>\*?)$")
+#: a trailing full stop is the publisher's slip ('$60,000.', the Capability Fund's 2024 sector leadership record)
+_MONEY = re.compile(r"^\$\s?(?P<n>\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)\s*(?P<star>\*?)\.?$")
 
 
-def read_lottery_page(data: bytes, sha: str, only=None) -> Reading:
-    p = profile(LOTTERY_PAGE)
+def fund_heading_parts(heading: str) -> tuple:
+    """(period, fund, category) of a fund's record heading: '2024 Community and Volunteering Capability Fund record of
+    grants (Organisational Capability)' -> ('2024', 'Community and Volunteering Capability Fund', 'Organisational
+    Capability'); 'Community-led Development Programme 2023/24 record of grants' -> ('2023/24', ..., None)."""
+    year = re.search(r"\b(\d{4}(?:/\d{2})?)\b", heading)
+    fund = re.search(profile(FUND_PAGE)["recognise"]["fund_pattern"], heading, re.I)
+    cat = re.search(r"\(([^)]*)\)\s*$", heading)
+    return (year.group(1) if year else None, fund.group(0) if fund else None,
+            re.sub(r"\s+", " ", cat.group(1)).strip() if cat else None)
+
+
+def read_fund_page(data: bytes, sha: str, only=None) -> Reading:
+    return read_lottery_page(data, sha, only, slug=FUND_PAGE)
+
+
+def read_lottery_page(data: bytes, sha: str, only=None, slug: str = LOTTERY_PAGE) -> Reading:
+    p = profile(slug)
     r = p["recognise"]
-    out = Reading(LOTTERY_PAGE, int(p["version"]))
+    out = Reading(slug, int(p["version"]))
     page = data.decode("utf-8", "replace")
     heading = next(h for h in headings(page) if re.search(r["heading_pattern"], h, re.I))
-    period, rnd, committee = heading_parts(heading)
+    if slug == FUND_PAGE:
+        period, fund, committee = fund_heading_parts(heading)
+        rnd = None
+    else:
+        period, rnd, committee = heading_parts(heading)
     if period is None:
         raise ValueError("the heading names no financial year")
     if int(period[:4]) < WINDOW_FROM:
@@ -443,8 +470,9 @@ def read_lottery_page(data: bytes, sha: str, only=None) -> Reading:
         if mm.group("star") and not multi_year_note:
             out.notes["an asterisk with no footnote on the page"] += 1
         out.grants.append({
-            "key": f"grants/lottery/{sha[:16]}/{i}",
-            "publisher_key": DIA, "grantor_key": LOTTERY, "grantor_as_published": f"Lottery {committee}",
+            "key": f"grants/{'lottery' if slug == LOTTERY_PAGE else 'dia-fund'}/{sha[:16]}/{i}",
+            "publisher_key": DIA, "grantor_key": LOTTERY if slug == LOTTERY_PAGE else DIA,
+            "grantor_as_published": f"Lottery {committee}" if slug == LOTTERY_PAGE else fund,
             "committee": committee,
             "recipient_as_published": name, "recipient_final_as_published": None,
             "recipient_kind": recipient_kind(name, None, None),
@@ -460,14 +488,14 @@ def read_lottery_page(data: bytes, sha: str, only=None) -> Reading:
             "amount_refunded_as_published": None, "benefits": None, "territorial_authority": None,
             "other_territorial_authority": None, "region": None,
             "document": sha, "page": 1, "place": place, "read_from": "text", "reader": READER,
-            "profile": LOTTERY_PAGE, "profile_version": out.version,
+            "profile": slug, "profile_version": out.version,
         })
     out.stated["heading"] = heading
     _reconcile(out)
     return out
 
 
-READERS = {DIA_CSV: read_dia_csv, LOTTERY_PAGE: read_lottery_page}
+READERS = {DIA_CSV: read_dia_csv, LOTTERY_PAGE: read_lottery_page, FUND_PAGE: read_fund_page}
 
 
 def _reconcile(out: Reading) -> None:

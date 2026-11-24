@@ -221,3 +221,19 @@ def test_the_whole_file_reads_and_reconciles():
     assert r.records == check.records_in_bytes(data) == 178739
     assert len(r.grants) == 178729 and len(r.set_aside) == 10
     assert {g["grantor_key"] for g in r.grants} >= {k for k, (_, _, on) in read.SOCIETIES.items() if on}
+
+
+def test_a_department_fund_s_record_of_grants_is_read_with_the_department_as_grantor():
+    """25 November 2026: the Community and Volunteering Capability Fund's and the Community-led Development
+    Programme's records of grants, one Name and Amount table as the Lottery's; the grantor is the Department."""
+    page = ("<html><body><main><h1>2024 Community and Volunteering Capability Fund record of grants (Sector Leadership)</h1>"
+            "<table><tr><th>Name</th><th>Amount</th></tr><tr><td>Example Trust</td><td>$100,000</td></tr>"
+            "<tr><td>Other Society Inc</td><td>$60,000.</td></tr></table></main></body></html>").encode()
+    assert read.recognise(page) == read.FUND_PAGE
+    r = read.read_fund_page(page, "f" * 64)
+    assert [g["amount_nzd"] for g in r.grants] == [100000.0, 60000.0] and not r.set_aside
+    g = r.grants[0]
+    assert (g["grantor_key"], g["grantor_as_published"], g["committee"], g["period"]) == (
+        read.DIA, "Community and Volunteering Capability Fund", "Sector Leadership", "2024")
+    assert read.fund_heading_parts("Community-led Development Programme 2023/24 record of grants") == (
+        "2023/24", "Community-led Development Programme", None)
