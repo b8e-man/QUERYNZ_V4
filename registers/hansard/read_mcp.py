@@ -37,15 +37,16 @@ from dataclasses import dataclass, field
 
 from support import profiles
 
-READER = "registers.hansard.read_mcp 1"
+READER = "registers.hansard.read_mcp 2"   # 2: the record's file, file_uri and version read (20 Nov 2026 fields)
 INDEX, DAYS = "parliament-hansard-index", "parliament-hansard-debates"
 PROFILES = {INDEX: "mcp-hansard-index-record", DAYS: "mcp-hansard-debates-record"}
 NOTE = ("a record of the query-nz ingest MCP's {corpus} corpus: captured and read off-estate by Arthur's provider "
         "(ruling 78); the estate never fetched parliament.nz")
 PDF = re.compile(r"^https://hansard\.parliament\.nz/api/resources/daily/related/(\d{4}-\d\d-\d\d)/[^/]+\.pdf$")
-KNOWN = {INDEX: ("bytes", "capture", "date", "fetched", "id", "lastmod", "raw_file", "text", "updated_at", "url"),
-         DAYS: ("bytes", "capture", "date", "fetched_at", "http_status", "id", "page_count", "raw_file", "sha256",
-                "sitting_date", "text", "title", "updated_at", "url", "word_count")}
+KNOWN = {INDEX: ("bytes", "capture", "date", "fetched", "file", "file_uri", "id", "lastmod", "raw_file", "text",
+                 "updated_at", "url"),
+         DAYS: ("bytes", "capture", "date", "fetched_at", "file", "file_uri", "http_status", "id", "page_count",
+                "raw_file", "sha256", "sitting_date", "text", "title", "updated_at", "url", "version", "word_count")}
 NEAR = 3                                          # held days either side looked in for a section of a long sitting
 
 
@@ -171,6 +172,7 @@ def read_index(items, get_bytes, loaded_at: str = None) -> Result:
         res.index_pages.append({
             "url": rec["url"], "lastmod": _stamp(rec.get("lastmod")), "fetched": _stamp(rec.get("fetched")),
             "index_on": _day(rec.get("date")), "record": rec["id"], "raw_file": _str(rec.get("raw_file")),
+            "provider_file": _str(rec.get("file")), "file_uri": _str(rec.get("file_uri")),
             "versions": versions, "fields_unread": unread(INDEX, rec), **_cite(INDEX, sha, "record", loaded_at)})
     res.counts = {"index documents": len(res.files), "index pages": len(res.index_pages),
                   "index set aside": len(res.set_aside)}
@@ -221,7 +223,8 @@ def read_days(items, get_bytes, subjects: dict, sink, loaded_at: str = None) -> 
             "key": d, "sitting_on": d, "title": _str(rec.get("title")), "pdf_url": rec["url"],
             "pdf_sha256": _str(pick("sha256")), "pdf_bytes": _int(pick("bytes")), "http_status": _int(pick("http_status")),
             "captured_at": _stamp(pick("fetched_at")), "raw_file": _str(pick("raw_file")),
-            "updated_at": _str(rec.get("updated_at")), "page_count": _int(rec.get("page_count")),
+            "provider_file": _str(rec.get("file")), "file_uri": _str(rec.get("file_uri")),
+            "text_version": _str(rec.get("version")), "updated_at": _str(rec.get("updated_at")), "page_count": _int(rec.get("page_count")),
             "word_count": _int(rec.get("word_count")), "text_words": len(text.split()), "chars": len(text),
             "versions": versions, "fields_unread": unread(DAYS, rec), "old_sections": None, "old_subjects": None,
             "subjects_in_text": None, **_cite(DAYS, sha, "record", loaded_at)})

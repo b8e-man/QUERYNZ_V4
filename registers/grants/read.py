@@ -52,7 +52,8 @@ from support import profiles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profiles-proposed.jsonl")
-READER = "registers.grants.read 2"   # 14-15 November 2026: six society layouts; the private columns kept
+READER = "registers.grants.read 3"   # 14-15 November 2026: six society layouts; the private columns kept
+#   3 (25 November): society.py's READER moved (its check.py dependency); no reading changed
 DIA_CSV = "dia-class4-grants-csv"
 LOTTERY_PAGE = "lottery-record-of-grants-page"
 WINDOW_FROM = 2017      # ruling 71: the window is 2017 on

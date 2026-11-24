@@ -92,16 +92,26 @@ def views(conn, prefix: str = "pub.") -> list:
         name = (stem + v) if stem else v
         cols = [r for r in conn.execute("SELECT column_name, data_type FROM information_schema.columns "
                                         "WHERE table_schema = %s AND table_name = %s", (schema, name))]
-        extra = [c for c, _ in cols if any(w in c for w in ADDRESSISH)]
+        extra = [c for c, _ in cols if any(w in c for w in ADDRESSISH) and not c.endswith("_address_shaped")]
         if extra:
             out.append(f"{v} carries {', '.join(extra)}")
         for c, typ in cols:
             if typ not in ("text", "ARRAY") or c in ("key", "action_key", "document", "reader", "profile", "place", "url"):
                 continue
             expr = f"array_to_string({c}, ' ; ')" if typ == "ARRAY" else c
-            keys = [r[0] for r in conn.execute(f"SELECT key, {expr} FROM {schema}.{name}") if r[1] and STREET.search(r[1])]
+            # ruling 102: a value with its flag beside it is published whole; one shaped like an address without is red
+            has_flag = any(col == f"{c}_address_shaped" for col, _ in cols)
+            flag = f"{c}_address_shaped" if has_flag else "false"
+            keys = [r[0] for r in conn.execute(f"SELECT key, {expr}, {flag} FROM {schema}.{name}")
+                    if r[1] and STREET.search(r[1]) and not r[2]]
             if keys:
-                out.append(f"{v}.{c}: {len(keys)} values shaped like a street address (first key {keys[0]})")
+                out.append(f"{v}.{c}: {len(keys)} values shaped like a street address with no flag beside the column "
+                           f"(first key {keys[0]})")
+            if has_flag:
+                wrong = [r[0] for r in conn.execute(f"SELECT key, {expr}, {flag} FROM {schema}.{name}")
+                         if r[2] and not (r[1] and STREET.search(r[1]))]
+                if wrong:
+                    out.append(f"{v}.{c}: {len(wrong)} values flagged that are not shaped like an address")
     return out
 
 

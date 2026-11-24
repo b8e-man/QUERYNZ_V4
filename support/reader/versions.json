@@ -18,8 +18,8 @@
   "files": [
    "registers/building_practitioners/read.py"
   ],
-  "reader": "registers.building_practitioners.read 2",
-  "sha256": "88aa8c4d16cb369f252f24bc6d3a384ed23c6e3ec8ebca34b400e9d908148550"
+  "reader": "registers.building_practitioners.read 3",
+  "sha256": "0312f36f700f4076d880894226ea7ffa4c391922ab2916c38e66a2972c6fc50a"
  },
  "registers/building_practitioners/register.py": {
   "files": [
@@ -180,8 +180,8 @@
    "registers/grants/read.py",
    "registers/grants/society.py"
   ],
-  "reader": "registers.grants.read 2",
-  "sha256": "ea778306f3dd78c4942ed714ab90481ea9a0ad69be8f6f01db1a8a4f0e5f61ec"
+  "reader": "registers.grants.read 3",
+  "sha256": "e6ec736de99718af5889f57d2b9fe91a3798a45ca879418bc74cf0e95ea9dbbd"
  },
  "registers/grants/society.py": {
   "files": [
@@ -190,8 +190,8 @@
    "registers/grants/read.py",
    "registers/grants/society.py"
   ],
-  "reader": "registers.grants.society 2",
-  "sha256": "9199526a0f087109a7d62bdb07d2af505a41dbc1451e254c383566c986cd8275"
+  "reader": "registers.grants.society 3",
+  "sha256": "bd3d1e7895d74bc20601ac785c69128fadb9716dd15a7d4fd47e8d7c7153d33f"
  },
  "registers/hansard/model_read.py": {
   "files": [
@@ -215,8 +215,8 @@
    "registers/hansard/read.py",
    "registers/hansard/read_mcp.py"
   ],
-  "reader": "registers.hansard.read_mcp 1",
-  "sha256": "1d3ce8d79fec3bf49002ae97c19877f52023f00f2b872b79cb682dd458753fb1"
+  "reader": "registers.hansard.read_mcp 2",
+  "sha256": "34e7e82f4f6b500535913c3209c849fdc1f196580df6327127860188e487c698"
  },
  "registers/hdc_decisions/read.py": {
   "files": [
@@ -312,8 +312,8 @@
   "files": [
    "registers/overseas_investment/read.py"
   ],
-  "reader": "registers.overseas_investment.read 2",
-  "sha256": "258ac9f05cf5e3bb783eb58be503e375c62cdfc8ca2878d5b8f6837797ce74bb"
+  "reader": "registers.overseas_investment.read 3",
+  "sha256": "5413e32b264601a2a34f048f36c23001577e057ea5845f6075541d4107967b72"
  },
  "registers/papers_past/read.py": {
   "files": [
@@ -335,8 +335,8 @@
    "registers/parliament/read.py",
    "registers/parliament/shapes.py"
   ],
-  "reader": "registers.parliament.read 3",
-  "sha256": "4795a3c21b67a014358278871b6c3e86ce279163c22997a56676e55d678cb803"
+  "reader": "registers.parliament.read 4",
+  "sha256": "7c499efb12c1f239595073f07717ee327f3e4048ad4c3c230fe743f32df9670e"
  },
  "registers/parties/labels.py": {
   "files": [

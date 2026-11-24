@@ -15,8 +15,12 @@ at most every `EVERY_DAYS` days:
 
 Politeness (hard limit 7): one request at a time, `FLOOR_S` apart (Clutha
 states 7 s), off-peak unless `--anytime`; a 403, 429 or a challenge stops
-the run (a failed read, not retried); a redirect is not followed; a gate
-refusal is never caught.
+the run (a failed read, not retried); a redirect to another host is not
+followed, one on the same host is, at most `SAME_HOST_HOPS` hops, each through
+the gate (25 November 2026: VendorPanel's marketplace page answered 302 to
+its own MarketPlace.aspx); the page it lands on must still carry the watched
+words, and one that is a sign-in page is a failed read; a gate refusal is
+never caught.
 
     python -m registers.council_procurement.capture [--anytime]
 """
@@ -36,6 +40,8 @@ JOB = "qv4-council-procurement-watch"
 FLOOR_S = 7.0
 OFF_PEAK = (22, 6)
 EVERY_DAYS = 30
+SAME_HOST_HOPS = 2
+SIGN_IN = re.compile(r"log-?in|sign-?in|logon|/account|auth", re.I)
 NZ = ZoneInfo("Pacific/Auckland")
 HERE = os.path.dirname(os.path.abspath(__file__))
 #: until the integrator moves `position/council-procurement-platforms.md` to docs/legal/positions/, a session runs
@@ -88,7 +94,7 @@ class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None, anytime=False, log=print):
         self.t, self.land_fn, self.log = tables, land_fn, log
         self.opener = opener or (lambda url, timeout: fg.open_url(url, timeout=timeout, positions_dir=POSITIONS,
-                                                                  same_host_hops=0))
+                                                                  same_host_hops=SAME_HOST_HOPS))
         self.pacer = fg.Pacer(now=clock or time.monotonic, sleep=sleep or time.sleep)
         self.now = now or (lambda: dt.datetime.now(NZ))
         self.anytime = anytime
@@ -113,6 +119,10 @@ class Run:
             self.t.add(url, f.status, None, f"set aside: {f.blocked}")
             self.counts["set_aside"] += 1
             raise Stop(f.blocked)
+        if f.final_url and f.final_url != url and SIGN_IN.search(f.final_url):
+            self.t.add(url, f.status, None, f"set aside: redirected to a sign-in page ({f.final_url[:120]}): a failed read")
+            self.counts["set_aside"] += 1
+            return
         if f.status != 200 or not f.body:
             self.t.add(url, f.status, None, f"set aside: HTTP {f.status}" +
                        (f", redirected to {f.location}: not followed" if f.location else ""))

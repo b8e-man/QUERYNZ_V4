@@ -46,7 +46,7 @@ class FakeTables:
         for u in urls:
             self.frontier.setdefault(u, {"depth": depth, "asked": None})
 
-    def frontier_next(self, host, limit, days):
+    def frontier_next(self, host, limit, days, unanswered_before=None):
         return [(u, f["depth"]) for u, f in self.frontier.items() if not f["asked"] and f["depth"] >= 0][:limit]
 
     def frontier_unasked(self, host, depth):
@@ -275,3 +275,28 @@ def test_a_block_holds_the_host_for_the_next_run_and_the_other_lists_still_run(t
     out, t, asked, _ = _run(capture, {f"{CM}/": (200, home, ""), f"{CM}/a": (200, _record("Alpha"), "")},
                             ("lottery-page",), ledger=ledger)
     assert f"{CM}/" in asked and not out["blocked_hosts"]
+
+
+def test_an_address_the_copy_lacked_is_due_again_on_the_next_run_once():
+    """14 November 2026: the Lottery's records of grants were asked of the MCP's copy a day before it landed them, and
+    an unanswered address was not due again for 30 days. Against the sample database, in a scratch schema."""
+    import os
+    import pytest
+    from support import db
+    if os.environ.get("QV4_NO_DB") or not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
+        pytest.skip("no sample database environment here")
+    schema = "scratch_test_grants_frontier"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample", autocommit=True) as conn:
+        t = capture.Tables(conn, schema)
+        t.create()
+        conn.execute(f"DELETE FROM {capture.table(schema, 'capture_frontier')}")
+        t.frontier_add("h", ["https://h/a", "https://h/b"], 0)
+        t.frontier_asked("h", "https://h/a", None)          # the copy lacked it
+        t.frontier_asked("h", "https://h/b", 200)           # the copy held it
+        before = conn.execute("SELECT now() + interval '1 second'").fetchone()[0]
+        assert t.frontier_next("h", 50, 30) == []                                  # the web's walk: 30 days
+        assert t.frontier_next("h", 50, 30, before) == [("https://h/a", 0)]       # the copy's: again at once
+        t.frontier_asked("h", "https://h/a", None)
+        conn.execute(f"UPDATE {capture.table(schema, 'capture_frontier')} SET asked_at = %s + interval '1 second'",
+                     (before,))
+        assert t.frontier_next("h", 50, 30, before) == []                          # once a run, not in a loop

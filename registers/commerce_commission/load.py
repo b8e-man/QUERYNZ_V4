@@ -35,9 +35,10 @@ PRIVATE_TABLES = ("suppressed_names", "suppressed_cases", "contacts")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_items": ("list", "slug", "pass_id", "document", "state", "parties", "taken_down_on"),
-    "cases": ("key", "slug", "case_number", "title", "title_withheld", "category", "sub_category", "act_section", "acts",
+    "cases": ("key", "slug", "case_number", "title", "title_withheld", "title_address_shaped", "category", "sub_category", "act_section", "acts",
               "sections", "industry", "status", "outcome", "opened_on", "closed_on", "action_on", "url", "taken_down_on") + _CITE,
-    "parties": ("key", "case_key", "ordinal", "name", "trading_as", "withheld", "withheld_by", "organisation",
+    "parties": ("key", "case_key", "ordinal", "name", "trading_as", "trading_as_address_shaped", "withheld",
+                "withheld_by", "organisation",
                 "company_number", "split_from") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
     "suppressed_names": ("key", "case_key", "ordinal", "name", "trading_as", "company_number", "suppressed_by") + _CITE,
@@ -85,6 +86,7 @@ def _copy(conn, name: str, cols: tuple, rows) -> int:
 def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
     """`entries`: [(list, slug, url, sha256 or None, pass_id[, taken_down_on])], one per entry ever listed: the newest
     pass's, and one taken off the register since (kept, flagged with the date; ruling 142)."""
+    from registers.commerce_commission import check
     t0 = time.monotonic()
     create_tables(conn, schema)
     T = lambda t: table(schema, t)
@@ -101,8 +103,11 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": sha, "state": "set aside",
                            "parties": 0, "taken_down_on": down})
             continue
-        cases.append({**out["case"], "taken_down_on": down})
-        parties += out["parties"]
+        # ruling 102: a value whose shape names a street address (a trading name that names its premises) is published
+        # whole with a flag beside it, and each product applies the limit at its own surface by the flag
+        street = lambda v: bool(v and check.STREET.search(v))       # noqa: E731
+        cases.append({**out["case"], "taken_down_on": down, "title_address_shaped": street(out["case"].get("title"))})
+        parties += [{**p, "trading_as_address_shaped": street(p.get("trading_as"))} for p in out["parties"]]
         names += out.get("suppressed_names") or []
         kept += [out["suppressed_case"]] if out.get("suppressed_case") else []
         contacts += [out["contact"]] if out.get("contact") else []
@@ -122,10 +127,18 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             "seconds": round(time.monotonic() - t0, 1)}
 
 
+#: a pass is complete when its distinct entries reach the total its first page stated, less this (an entry added while
+#: the pass ran). Only a complete pass can show an entry is gone: the register's order shifts between its pages (25
+#: November 2026: passes of 1,729 entries listed 1,194 to 1,497 distinct, together all 1,729), so an entry one pass did
+#: not show is not taken down, and 494 cases had been flagged taken down that the register still lists.
+COMPLETE_SLACK = 2
+
+
 def listing(conn, schema: str = SCHEMA) -> list:
     """Every entry the newest finished pass of each listing lists, with the newest hash held for it, then every entry an
-    older finished pass listed and the newest does not: taken off the register, kept, with the date of the first
-    finished pass after its last listing (ruling 142: a row the publisher takes down stays, flagged)."""
+    older finished pass listed and the newest does not: with the date of the first complete finished pass after its
+    last listing, taken off the register and kept (ruling 142: a row the publisher takes down stays, flagged), or with
+    no date when no complete pass has run since (still listed, hidden from a pass by the register's shifting order)."""
     T = lambda t: table(schema, t)
     out = []
     for lst in capture.LISTS:
@@ -139,11 +152,13 @@ def listing(conn, schema: str = SCHEMA) -> list:
             f"SELECT l.list, l.slug, l.url, {latest}, l.pass_id FROM {T('capture_listed')} l "
             "WHERE l.pass_id = %s ORDER BY l.ordinal", (r[0],))]
         out += [tuple(x) for x in conn.execute(
-            f"WITH fin AS (SELECT pass_id, finished_at FROM {T('capture_passes')} WHERE list = %s AND finished_at IS NOT "
-            f"NULL), last AS (SELECT l.slug, max(l.pass_id) AS pass_id FROM {T('capture_listed')} l JOIN fin "
+            f"WITH fin AS (SELECT pass_id, finished_at, stated FROM {T('capture_passes')} WHERE list = %s AND finished_at "
+            f"IS NOT NULL), complete AS (SELECT f.pass_id, f.finished_at FROM fin f WHERE f.stated IS NOT NULL AND "
+            f"(SELECT count(DISTINCT c.slug) FROM {T('capture_listed')} c WHERE c.pass_id = f.pass_id) >= f.stated - "
+            f"{int(COMPLETE_SLACK)}), last AS (SELECT l.slug, max(l.pass_id) AS pass_id FROM {T('capture_listed')} l JOIN fin "
             "USING (pass_id) WHERE l.list = %s GROUP BY l.slug HAVING max(l.pass_id) < %s) "
-            f"SELECT l.list, l.slug, l.url, {latest}, l.pass_id, (SELECT min(f.finished_at) FROM fin f WHERE f.pass_id > "
-            f"last.pass_id)::date FROM last JOIN {T('capture_listed')} l ON l.pass_id = last.pass_id AND l.slug = last.slug "
+            f"SELECT l.list, l.slug, l.url, {latest}, l.pass_id, (SELECT min(f.finished_at) FROM complete f WHERE "
+            f"f.pass_id > last.pass_id)::date FROM last JOIN {T('capture_listed')} l ON l.pass_id = last.pass_id AND l.slug = last.slug "
             "ORDER BY l.pass_id, l.ordinal", (lst.name, lst.name, r[0]))]
     return out
 

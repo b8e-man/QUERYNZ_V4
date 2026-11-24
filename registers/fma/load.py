@@ -36,8 +36,8 @@ PRIVATE_TABLES = ("suppressed_names", "suppressed_actions", "warning_fields")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_items": ("list", "slug", "pass_id", "document", "state", "parties", "taken_down_on"),
-    "actions": ("key", "kind", "slug", "title", "title_withheld", "summary", "published_on", "acts", "sections", "outcome",
-                "outcome_when", "outcome_on", "names_nobody", "url", "taken_down_on") + _CITE,
+    "actions": ("key", "kind", "slug", "title", "title_withheld", "summary", "summary_address_shaped", "published_on", "acts",
+                "sections", "outcome", "outcome_when", "outcome_on", "names_nobody", "url", "taken_down_on") + _CITE,
     "parties": ("key", "action_key", "ordinal", "name", "withheld", "withheld_by", "organisation", "company_number",
                 "named_in", "split_from") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
@@ -103,7 +103,11 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": sha, "state": "set aside",
                            "parties": 0, "taken_down_on": down})
             continue
-        actions.append({**out["action"], "taken_down_on": down})
+        # ruling 102: a summary whose shape names a street address (a warned business's premises) is published whole
+        # with a flag beside it, and each product applies the limit at its own surface by the flag
+        from registers.fma import check
+        s = out["action"].get("summary")
+        actions.append({**out["action"], "taken_down_on": down, "summary_address_shaped": bool(s and check.STREET.search(s))})
         parties += out["parties"]
         private["suppressed_names"] += out.get("suppressed_names") or []
         private["suppressed_actions"] += [out["suppressed_action"]] if out.get("suppressed_action") else []

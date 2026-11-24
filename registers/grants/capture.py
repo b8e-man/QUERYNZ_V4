@@ -337,11 +337,16 @@ class Tables:
             self.conn.execute(f"INSERT INTO {self.T('capture_frontier')} (host, url, depth) VALUES (%s, %s, %s) "
                               "ON CONFLICT DO NOTHING", (host, u, depth))
 
-    def frontier_next(self, host, limit, recrawl_days):
+    def frontier_next(self, host, limit, recrawl_days, unanswered_before=None):
+        """The next addresses due. `unanswered_before` (a run answered from the MCP's copy): an address the copy did
+        not hold (no status) when asked before then is due again at once, not after `recrawl_days`: the copy grows
+        (the Lottery's records of grants were asked on 14 November 2026, landed in the copy on the 15th, and were not
+        due again until 14 December)."""
         return [tuple(r) for r in self.conn.execute(
             f"SELECT url, depth FROM {self.T('capture_frontier')} WHERE host = %s AND depth <= %s AND "
-            "depth >= 0 AND (asked_at IS NULL OR asked_at < now() - make_interval(days => %s)) ORDER BY asked_at NULLS FIRST, depth, "
-            "found_at, url LIMIT %s", (host, MAX_DEPTH, recrawl_days, limit))]
+            "depth >= 0 AND (asked_at IS NULL OR asked_at < now() - make_interval(days => %s) "
+            "OR (status IS NULL AND asked_at < %s::timestamptz)) ORDER BY asked_at NULLS FIRST, depth, "
+            "found_at, url LIMIT %s", (host, MAX_DEPTH, recrawl_days, unanswered_before, limit))]
 
     def frontier_unasked(self, host, depth):
         """The addresses at `depth` (a society's files, or its pages about the source) never asked, in order found."""
@@ -380,6 +385,7 @@ class Run:
         self.budget_s, self.max_requests, self.anytime, self.lists = budget_s, max_requests, anytime, lists
         self.societies = tuple(societies)
         self.started = self.clock()
+        self.began_at = dt.datetime.now(dt.timezone.utc)      # an address the copy lacked before this is asked again
         self.failures = {}
         self.blocked = {}
         self.run_id = None
@@ -553,7 +559,7 @@ class Run:
         host = CM_HOST
         self.t.frontier_add(host, [canonical(CM_HOME)], 0)
         while self.time_left():
-            batch = self.t.frontier_next(host, 50, RECRAWL_DAYS)
+            batch = self.t.frontier_next(host, 50, RECRAWL_DAYS, self.began_at if self.mcp else None)
             if not batch:
                 return
             for url, depth in batch:
@@ -597,7 +603,7 @@ class Run:
         self.t.frontier_add(host, [canonical(start)], 0)
         seen = set()
         while self.time_left():
-            batch = [(u, d) for u, d in self.t.frontier_next(host, 50, RECRAWL_DAYS)
+            batch = [(u, d) for u, d in self.t.frontier_next(host, 50, RECRAWL_DAYS, self.began_at if self.mcp else None)
                      if 0 <= d <= SOCIETY_DEPTH and u not in seen]
             if not batch:
                 break

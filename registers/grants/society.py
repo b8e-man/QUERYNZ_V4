@@ -21,7 +21,8 @@ import re
 
 from registers.grants import pdftable, read
 
-READER = "registers.grants.society 2"   # 14-15 November 2026: six layouts; the private columns kept
+READER = "registers.grants.society 3"   # 14-15 November 2026: six layouts; the private columns kept;
+#   3 (25 November): check.py, whose STREET flags the private values, changed (the private count); the reading did not
 MONTHS = {m: i for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov",
                                       "dec"), 1)}
 _DAY = r"(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})"

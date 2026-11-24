@@ -615,3 +615,11 @@ def test_the_pieces_command_lists_every_waiting_page_then_the_questions_batch_le
     assert order == sorted(order, reverse=True), "newest first"
     buckets = {M._bucket(r["question_year"], r["question_number"]) for r in wq_rows.values()}
     assert len([p for _, p in all_waiting if p == M.WQ]) == len(buckets)
+
+
+def test_a_refusal_the_archive_kept_compressed_is_blocked_too():
+    """25 November 2026: three archived refusals carry the refusal's title over the page's gzipped bytes."""
+    body = REFUSAL[:len("Unauthorized Request Blocked")] + " �\x01��W{o�H�;��\x02��" * 4
+    assert read.refused({"html_title": "Unauthorized Request Blocked", "text": body}) == read.BLOCKED
+    page = "Unauthorized Request Blocked " + "word " * 300
+    assert read.refused({"html_title": "Unauthorized Request Blocked", "text": page}) != read.BLOCKED

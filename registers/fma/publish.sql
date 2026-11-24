@@ -7,7 +7,7 @@
 CREATE OR REPLACE VIEW pub.fma_actions AS
 SELECT a.key, a.kind,
        CASE WHEN a.title_withheld THEN 'name withheld by the FMA' ELSE a.title END AS title,
-       a.title_withheld, a.summary, a.published_on AS action_on, a.acts, a.sections, a.outcome, a.outcome_when,
+       a.title_withheld, a.summary, a.summary_address_shaped, a.published_on AS action_on, a.acts, a.sections, a.outcome, a.outcome_when,
        a.outcome_on, a.names_nobody, a.url, a.taken_down_on,
        a.document, a.page, a.place, a.read_from, a.reader, a.profile, a.profile_version, a.loaded_at
 FROM fma.actions a;

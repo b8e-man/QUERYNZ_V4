@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS commerce_commission.cases (
     case_number      text,                          -- PRJ…, [2026] NZCC 25, [2021] NZHC 2279, or none stated
     title            text,                          -- the heading as published; NULL where the Commission withholds it
     title_withheld   boolean NOT NULL,
+    title_address_shaped boolean NOT NULL DEFAULT false,  -- the heading's shape names a street address (ruling 102)
     category         text,
     sub_category     text,
     act_section      text,                          -- as stated: 'Commerce Act 1986 ss 30, 80(1)'
@@ -121,6 +122,7 @@ CREATE TABLE IF NOT EXISTS commerce_commission.parties (
     ordinal          integer NOT NULL,
     name             text,                          -- as published; NULL where withheld (hard limit 16)
     trading_as       text,
+    trading_as_address_shaped boolean NOT NULL DEFAULT false,  -- a trading name that names its premises (ruling 102)
     withheld         boolean NOT NULL,
     withheld_by      text,
     organisation     boolean NOT NULL,              -- carries an organisation word; false is "not shown to be", never "a person"

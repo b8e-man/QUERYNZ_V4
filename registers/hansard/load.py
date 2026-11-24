@@ -58,10 +58,11 @@ COLUMNS = {
     "members": ("key", "display_name", "sort_name", "parliaments") + CITE,
     "old_speeches": ("key", "sitting_on", "section_index", "member_id", "speaker_label", "speaker_name",
                      "speech_count", "retired_at", "document"),
-    "index_pages": ("url", "lastmod", "fetched", "index_on", "record", "raw_file", "versions", "fields_unread") + CITE
+    "index_pages": ("url", "lastmod", "fetched", "index_on", "record", "raw_file", "provider_file", "file_uri",
+                    "versions", "fields_unread") + CITE
                    + ("loaded_at",),
     "days": ("key", "sitting_on", "title", "pdf_url", "pdf_sha256", "pdf_bytes", "http_status", "captured_at",
-             "raw_file", "updated_at", "page_count", "word_count", "text_words", "chars", "versions", "fields_unread",
+             "raw_file", "provider_file", "file_uri", "text_version", "updated_at", "page_count", "word_count", "text_words", "chars", "versions", "fields_unread",
              "old_sections", "old_subjects", "subjects_in_text", "layout", "parliament", "sections", "turns",
              "attributed", "unattributed", "speakers", "split_rule", "reading", "pieces", "names", "unusable_pieces")
             + CITE + ("loaded_at",),

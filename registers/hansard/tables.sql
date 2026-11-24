@@ -135,6 +135,8 @@ CREATE TABLE IF NOT EXISTS hansard.index_pages (
     index_on         date,                           -- the record's `date`
     record           text,                           -- the MCP's record id
     raw_file         text,                           -- the provider's file name on its box
+    provider_file    text,                           -- the record's `file`: the provider's full path on its box (20 Nov 2026)
+    file_uri         text,                           -- the record's `file_uri`: the MCP's handle for the file, where it serves one
     versions         integer NOT NULL,               -- documents the MCP has served for this record
     fields_unread    text[] NOT NULL DEFAULT '{}',   -- any field of the record this lane has no column for
     source_note      text NOT NULL,
@@ -161,6 +163,9 @@ CREATE TABLE IF NOT EXISTS hansard.days (
     http_status      integer,
     captured_at      timestamptz,                    -- when the provider fetched the PDF
     raw_file         text,                           -- the provider's file name on its box
+    provider_file    text,                           -- the record's `file`: the provider's full path on its box (20 Nov 2026)
+    file_uri         text,                           -- the record's `file_uri`: the MCP's handle for the PDF (qnz-pdf://...)
+    text_version     text,                           -- the record's `version`: which Hansard text it is (corrected, ...)
     updated_at       text,                           -- the MCP's: moves when the record changes
     page_count       integer,
     word_count       integer,                        -- as served

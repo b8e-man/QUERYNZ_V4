@@ -5,10 +5,12 @@ The source's own count is the Commission's: the case register listing's
 2026; the old estate held 112). Exit 1 on any of:
 
   1. no finished pass of the listing is held
-  2. the newest finished pass's distinct entries differ from the total its
-     first page stated by more than `SLACK` (the Commission can add an entry
+  2. the entries held (listed by some pass, and not shown gone by a complete
+     pass since: the register's order shifts between its pages, so one pass
+     shows only part of it) differ from the total the newest pass's first
+     page stated by more than `SLACK` (the Commission can add an entry
      while a pass of eighteen pages runs)
-  3. an entry it listed is not read: not captured yet, or set aside
+  3. an entry held is not read: not captured yet, or set aside
   4. the reading does not reconcile (a listed entry with no ledger line, a
      case row with no ledger line, a party with no case), or a view shows a
      withheld name, carries an address column, or a text value shaped like a
@@ -92,16 +94,26 @@ def views(conn, prefix: str = "pub.") -> list:
         name = (stem + v) if stem else v
         cols = [r for r in conn.execute("SELECT column_name, data_type FROM information_schema.columns "
                                         "WHERE table_schema = %s AND table_name = %s", (schema, name))]
-        extra = [c for c, _ in cols if any(w in c for w in ADDRESSISH)]
+        extra = [c for c, _ in cols if any(w in c for w in ADDRESSISH) and not c.endswith("_address_shaped")]
         if extra:
             out.append(f"{v} carries {', '.join(extra)}")
         for c, typ in cols:
             if typ not in ("text", "ARRAY") or c in ("key", "case_key", "document", "reader", "profile", "place", "url"):
                 continue
             expr = f"array_to_string({c}, ' ; ')" if typ == "ARRAY" else c
-            keys = [r[0] for r in conn.execute(f"SELECT key, {expr} FROM {schema}.{name}") if r[1] and STREET.search(r[1])]
+            # ruling 102: a value with its flag beside it is published whole; one shaped like an address without is red
+            has_flag = any(col == f"{c}_address_shaped" for col, _ in cols)
+            flag = f"{c}_address_shaped" if has_flag else "false"
+            keys = [r[0] for r in conn.execute(f"SELECT key, {expr}, {flag} FROM {schema}.{name}")
+                    if r[1] and STREET.search(r[1]) and not r[2]]
             if keys:
-                out.append(f"{v}.{c}: {len(keys)} values shaped like a street address (first key {keys[0]})")
+                out.append(f"{v}.{c}: {len(keys)} values shaped like a street address with no flag beside the column "
+                           f"(first key {keys[0]})")
+            if has_flag:
+                wrong = [r[0] for r in conn.execute(f"SELECT key, {expr}, {flag} FROM {schema}.{name}")
+                         if r[2] and not (r[1] and STREET.search(r[1]))]
+                if wrong:
+                    out.append(f"{v}.{c}: {len(wrong)} values flagged that are not shaped like an address")
     return out
 
 
@@ -112,13 +124,17 @@ def outside(conn, schema: str = SCHEMA) -> dict:
     if r is None:
         return {"ok": False, "detail": "no finished pass of the listing is held"}
     pass_id, stated, pages, items = r
-    states = dict(conn.execute(f"SELECT state, count(*) FROM {T('read_items')} WHERE pass_id = %s GROUP BY state",
-                               (pass_id,)).fetchall())
-    listed = sum(states.values())
-    ok = stated is not None and abs(items - stated) <= SLACK and states.get("read", 0) == items
-    return {"ok": ok, "pass_id": pass_id, "stated": stated, "pages": pages, "listed": items, "read": states.get("read", 0),
-            "set_aside": states.get("set aside", 0), "not_captured": states.get("not captured", 0),
-            "ledger": listed, "difference": None if stated is None else items - stated, "old_estate": 112}
+    # the register's order shifts between its pages, so one pass shows only part of it (25 November 2026: 1,235 of
+    # 1,729); held is every entry listed by some pass and not since shown gone by a complete one (load.listing)
+    states = dict(conn.execute(f"SELECT state, count(*) FROM {T('read_items')} WHERE taken_down_on IS NULL "
+                               "GROUP BY state").fetchall())
+    held = sum(states.values())
+    gone = conn.execute(f"SELECT count(*) FROM {T('read_items')} WHERE taken_down_on IS NOT NULL").fetchone()[0]
+    ok = stated is not None and abs(held - stated) <= SLACK and states.get("read", 0) == held
+    return {"ok": ok, "pass_id": pass_id, "stated": stated, "pages": pages, "newest_pass_listed": items, "held": held,
+            "read": states.get("read", 0), "set_aside": states.get("set aside", 0),
+            "not_captured": states.get("not captured", 0), "taken_down": gone,
+            "difference": None if stated is None else held - stated, "old_estate": 112}
 
 
 def main(argv=None) -> int:

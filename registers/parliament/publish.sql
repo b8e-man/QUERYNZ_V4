@@ -19,7 +19,7 @@ FROM parliament.written_questions w;
 
 -- one per record of the API's bills, select committee calls and reports, and supplementary order papers
 CREATE OR REPLACE VIEW pub.parliament_api_items AS
-SELECT a.key, a.corpus, a.record_id, a.document_type, a.item_type, a.title, a.short_title, a.bill_title,
+SELECT a.key, a.corpus, a.record_id, a.document_type, a.item_type, a.title, a.title_names_address, a.short_title, a.bill_title,
        a.bill_number, a.bill_current_stage_name, a.bill_stages, a.select_committee, a.member_name, a.party_name,
        a.author, a.people, a.publication_date, a.publication_on, a.last_stage_date, a.last_modified,
        a.iob_closing_date, a.reference, a.order_number, a.parliament_number, a.sop, a.status,
@@ -31,7 +31,7 @@ FROM parliament.api_items a;
 
 -- one per archived parliament.nz page, its text whole
 CREATE OR REPLACE VIEW pub.parliament_wayback_pages AS
-SELECT p.key, p.citation_url, p.snapshot_url, p.archived_at, p.dated, p.html_title, p.doc_type, p.kind,
+SELECT p.key, p.citation_url, p.snapshot_url, p.archived_at, p.dated, p.html_title, p.html_title_names_address, p.doc_type, p.kind,
        p.text, p.text_names_address, p.text_words, p.captured_at, p.captured_sha256, p.capture_status, p.capture,
        p.served, p.versions, p.source_note, p.document, p.page, p.place, p.read_from, p.reader, p.profile, p.profile_version, p.loaded_at
 FROM parliament.wayback_pages p;

@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 
 from registers.parliament import shapes
 
-READER = "registers.parliament.read 3"
+READER = "registers.parliament.read 4"   # 4: titles flagged where their shape names an address; a compressed refusal is blocked (25 Nov 2026)
 PROFILE = {"wq": "mcp-parliament-written-question", "api": "mcp-parliament-api-item",
            "wayback": "mcp-parliament-wayback-page"}
 OLDER_TEXT = "older text"       # files: an archived page's older version whose text differs from the version read
@@ -126,7 +126,7 @@ COMMON = {"_corpus": ("provider_corpus", T), "_fetched_at": ("provider_fetched_a
 SHAPE = {"wq": WQ_FIELDS, "api": API_FIELDS, "wayback": WAYBACK_FIELDS}
 OWN = {"wq": {"id", "text"}, "api": {"id"}, "wayback": {"id", "text"}}     # read by hand, not by the map
 TABLE = {"wq": "written_questions", "api": "api_items", "wayback": "wayback_pages"}
-FLAGGED = {"wq": ("question_text", "reply_text"), "api": ("text",), "wayback": ("text",)}   # published whole, flagged
+FLAGGED = {"wq": ("question_text", "reply_text"), "api": ("text", "title"), "wayback": ("text", "html_title")}   # published whole, flagged
 
 
 def shape_of(corpus: str) -> str:
@@ -141,8 +141,8 @@ def columns(shape: str) -> tuple:
     """The table's columns in order, as tables.sql has them."""
     head = {"wq": ("key",), "api": ("key", "corpus", "record_id"), "wayback": ("key",)}[shape]
     own = {"wq": ("question_released_on", "reply_present", "question_text_names_address", "reply_text_names_address"),
-           "api": ("publication_on", "citation_url", "text_names_address"),
-           "wayback": ("archived_at", "citation_url", "text", "text_names_address")}[shape]
+           "api": ("publication_on", "citation_url", "text_names_address", "title_names_address"),
+           "wayback": ("archived_at", "citation_url", "text", "text_names_address", "html_title_names_address")}[shape]
     return (head + tuple(c for c, _ in SHAPE[shape].values()) + tuple(c for c, _ in COMMON.values()) + own
             + ("text_words", "fields_unread", "versions", "seq", "served", "source_note")
             + ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"))
@@ -234,6 +234,14 @@ def _norm(v) -> str:
     return " ".join(v.split()) if isinstance(v, str) else ""
 
 
+def compressed_body(text: str) -> bool:
+    """The refusal's title, then a body that is bytes no reader decoded (the archive kept the page gzipped; the
+    provider's text holds U+FFFD and control characters in their place): at least a third of what follows the title."""
+    body = text[len(REFUSAL_TITLE):] if text.startswith(REFUSAL_TITLE) else ""
+    odd = sum(ch == "\ufffd" or (ord(ch) < 32 and ch not in "\t\n\r") for ch in body)
+    return len(body) >= 20 and odd * 3 >= len(body)
+
+
 def refused(rec: dict) -> str:
     """BLOCKED when an archived page is the site's refusal by its shape, '' when it is not. The refusal's title
     over a text that is not the refusal's (measured: none) is set aside too, under its own reason: a block's
@@ -242,6 +250,8 @@ def refused(rec: dict) -> str:
     short = len(text.split()) <= REFUSAL_MAX_WORDS and text.startswith(REFUSAL_TITLE) and REFUSAL_MARK in text
     if short and title in (REFUSAL_TITLE, ""):
         return BLOCKED
+    if title == REFUSAL_TITLE and compressed_body(text):
+        return BLOCKED          # the refusal kept compressed by the archive: 3 pages, 25 November 2026
     if title == REFUSAL_TITLE:
         return "the refusal's title over a text that is not the refusal's shape: a failed read (hard limit 6)"
     return ""

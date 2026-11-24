@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS parliament.api_items (
     publication_on           date,                       -- the day of `publicationDate` (a midnight-UTC stamp)
     citation_url             text,                       -- the page's own address where the record gives one; NULL where none
     text_names_address       boolean NOT NULL,           -- `text`'s shape names an address (shapes.py)
+    title_names_address      boolean NOT NULL,           -- `title`'s, the same (25 November 2026: 24 titles name one)
     text_words               integer NOT NULL DEFAULT 0,
     fields_unread            text[] NOT NULL DEFAULT '{}',
     versions                 integer NOT NULL DEFAULT 1,
@@ -165,6 +166,7 @@ CREATE TABLE IF NOT EXISTS parliament.wayback_pages (
     citation_url             text NOT NULL,              -- the page's own address
     text                     text,                       -- the page's text as served, whole
     text_names_address       boolean NOT NULL,           -- the text's shape names an address (shapes.py)
+    html_title_names_address boolean NOT NULL,           -- the page title's, the same (25 November 2026: 3 titles name one)
     text_words               integer NOT NULL DEFAULT 0, -- words of its text
     fields_unread            text[] NOT NULL DEFAULT '{}',
     versions                 integer NOT NULL DEFAULT 1,

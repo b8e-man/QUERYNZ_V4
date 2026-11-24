@@ -114,7 +114,6 @@ MUTANTS = {
     "the key from the decision's address": ('"key": f"{KEY_PREFIX}/{number}/{kind_slug(kind)}"',
                                             '"key": f"{KEY_PREFIX}/{href}"'),
     "the key without the kind": ('"key": f"{KEY_PREFIX}/{number}/{kind_slug(kind)}"', '"key": f"{KEY_PREFIX}/{number}"'),
-    "the prefixed number not read": (r"BPB\s*(?:[A-Z]{1,3})?(?P<number>\d+)", r"BPB\s*(?P<number>\d+)"),
     "upheld from the first ground": ('any(not g.lower().endswith("not upheld") for g in grounds)', 'True'),
     "any page read": ('    if len(items) != shown:\n', '    if False:\n'),
 }
@@ -251,7 +250,9 @@ def test_every_row_meets_the_row_contract(filled):
 
 
 def test_the_hard_cases_read_as_the_list_says(filled):
-    by = {r["key"]: r for r in filled["decisions"]}
+    # the key: complaint number, kind, and a hash of the decision's own page (two practitioners, one complaint)
+    by = {r["key"].rsplit("/", 1)[0]: r for r in filled["decisions"]}
+    assert all(len(r["key"].rsplit("/", 1)[1]) == 10 for r in filled["decisions"])
     om = by["building_practitioners/decision/CB26816/not-upheld"]
     assert om["suppressed"] and om["name"] is None and om["upheld"] is False
     assert "building_practitioners/decision/CB26862/decision" in by
@@ -310,3 +311,28 @@ def test_a_decision_the_board_takes_down_stays_flagged_and_the_private_twin_keep
         conn.rollback()
     assert got == {"CB10001": None, "CB10003": dt.date(2026, 10, 8)} and counts["taken_down"] == 1
     assert kept == [("Second Invented",)] and summaries >= 1
+
+
+def test_the_older_title_forms_are_read():
+    """25 November 2026: 786 of 1606 decisions were set aside on the strict title form alone (invented names)."""
+    for title, want in [
+        ("Invented Person [2025] BPB 26720 – Penalty Decision", ("Invented Person", "2025", "26720", "Penalty Decision")),
+        ("Invented Person C2-01848 - Substantive", ("Invented Person", None, None, "Substantive")),
+        ("Invented Person 2019 BPB CB25149 – Penalty Decision", ("Invented Person", "2019", "25149", "Penalty Decision")),
+        ("Invented Person CB24639 2019 - Penalty", ("Invented Person", "2019", None, "Penalty")),
+        ("Invented Person 2018 BPB CB24282 (C2-01921) - Not Upheld", ("Invented Person", "2018", "24282", "Not Upheld")),
+        ("Invented C-1234 - substantive penalty", ("Invented", None, None, "substantive penalty")),
+    ]:
+        h = read.head_of(title)
+        assert (h["name"], h["year"], h["number"], h["kind"]) == want, title
+    assert read.head_of("C2-01848 – 12 the decision") is None          # no name before the number
+
+
+def test_an_item_with_no_complaint_number_is_its_own_line_not_its_pages():
+    item = lambda n: ('<article class="listing-item processlist-item"><a class="process-link" href="/d/' + str(n) + '">'
+                      '<h3 class="process-title">Invented Person [2025] BPB 2672' + str(n) + ' – Penalty Decision</h3></a>'
+                      + ('<li class="process-item"><span class="process-term">Complaint number:</span>'
+                         '<span class="process-value">CB2672' + str(n) + '</span></li>' if n else '') + '</article>')
+    body = ('Displaying <span class="x">2</span> of 2 results' + item(1) + item(0)).encode()
+    out = read.read_page(body, "0" * 64, 1)
+    assert len(out["rows"]) == 1 and [a["reason"] for a in out["set_aside"]] == ["no complaint number"]

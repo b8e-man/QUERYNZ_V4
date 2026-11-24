@@ -34,6 +34,7 @@ property or a complainant.
 Every line this module prints is a count.
 """
 import datetime as dt
+import hashlib
 import html
 import os
 import re
@@ -42,7 +43,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 PROFILE = "lbp-board-decisions-list-page"
-READER = "registers.building_practitioners.read 2"
+READER = "registers.building_practitioners.read 3"
 KEY_PREFIX = "building_practitioners/decision"
 BASE = "https://www.lbp.govt.nz"
 
@@ -54,6 +55,31 @@ _TERM = re.compile(r'<span class="process-term">(.*?)</span>', re.S)
 _VALUE = re.compile(r'<span class="process-value[^"]*">(.*?)</span>', re.S)
 _PDF = re.compile(r'<a class="process-pdf" href="([^"]+)"')
 _HEAD = re.compile(r"^(?P<name>.*?)\s*\[(?P<year>\d{4})\]\s*BPB\s*(?:[A-Z]{1,3})?(?P<number>\d+)(?:\s*[–—-]\s*(?P<kind>.+?))?\s*$", re.I)
+# The older titles (2018 to 2022) take many forms: "<name> C2-01234 - Substantive", "<name> 2019 BPB CB25149 - Penalty
+# Decision", "<name> CB24639 2019 - Penalty", "<name> [2019] CB25173 - ...", "<name> C-1234 - Penalty". The name is what comes before the first
+# year, bracket, BPB or complaint number; the kind what follows the last dash (25 November 2026: 786 of 1606 decisions
+# were set aside on the strict form alone).
+_LOOSE_NAME = re.compile(r"^(?P<name>.*?)\s*(?=\[|\(|\b(?:19|20)\d{2}\b|\bBPB\b|\b[A-Z]{0,3}\d-?\d{4,}\b|\b[A-Z]{1,3}\d{4,}\b|\b[A-Z]{1,3}-\d{3,}\b)")
+_LOOSE_YEAR = re.compile(r"\[?\b((?:19|20)\d{2})\b\]?")
+_LOOSE_BPB = re.compile(r"\bBPB\s*(?:[A-Z]{1,3})?(\d+)", re.I)
+_LOOSE_KIND = re.compile(r"\s[–—-]\s*(?P<kind>[^–—-]+?)\s*$")
+
+
+def head_of(title: str):
+    """{name, year, number, kind} from a decision's title: the strict form, else the older forms; None when no name
+    can be told from a number."""
+    m = _HEAD.match(title or "")
+    if m:
+        return {k: m.group(k) for k in ("name", "year", "number", "kind")}
+    n = _LOOSE_NAME.match(title or "")
+    if not n or not n.group("name").strip(" -–—"):
+        return None
+    rest = title[n.end():]
+    y, b, k = _LOOSE_YEAR.search(rest), _LOOSE_BPB.search(rest), _LOOSE_KIND.search(rest)
+    return {"name": n.group("name").strip(" -–—"), "year": y.group(1) if y else None,
+            "number": b.group(1) if b else None, "kind": k.group("kind") if k else None}
+
+
 OMITTED = re.compile(r"\[\s*omitted\s*\]|^omitted$", re.I)
 SUPPRESSION = re.compile(r"suppress|must not be published|anonymis|anonymiz|not to be published|name.{0,20}withheld", re.I)
 MONTHS = {m: i for i, m in enumerate(("january", "february", "march", "april", "may", "june", "july", "august",
@@ -93,10 +119,10 @@ def recognise(body: bytes):
     items = _ITEM.findall(body)
     if len(items) != shown:
         return None, f"the heading says {shown} shown and the page holds {len(items)} items"
-    for it in items:
-        s = it.decode("utf-8")
-        if not _TITLE.search(s) or "Complaint number" not in s:
-            return None, "an item with no title or no complaint number"
+    # an item with no title or no complaint number is that item's catch-log line (read_item), not the page's: one
+    # such item had set aside two whole pages of twenty (25 November 2026)
+    if items and not any(_TITLE.search(it.decode("utf-8")) for it in items):
+        return None, "no item carries a decision title"
     return (shown, total), ""
 
 
@@ -130,24 +156,28 @@ def read_item(raw: bytes, sha: str, version: int):
     number = one("complaint number")
     if not number:
         return None, "no complaint number"
-    head = _HEAD.match(title or "")
+    head = head_of(title)
     if not head:
-        return None, "a title not of the form '<name> [YYYY] BPB <number>[ – <kind>]'"
+        return None, "a title with no name before its year or number"
     decided = day(one("decision date"))
     if one("decision date") and decided is None:
         return None, "a decision date that is not a day"
-    name = head.group("name").strip() or None
+    name = head["name"].strip() or None
     lbp = one("lbp number")
     summary = " ".join(fields.get("summary") or [])
     suppressed = bool((name and OMITTED.search(name)) or (lbp and OMITTED.search(lbp)) or SUPPRESSION.search(summary)
                       or not name)
     grounds = fields.get("disciplinary grounds") or []
     pdf = _PDF.search(s)
-    kind = head.group("kind") or "decision"          # a title may give no kind ("<name> [2025] BPB 26862"), and older
+    kind = head["kind"] or "decision"          # a title may give no kind ("<name> [2025] BPB 26862"), and older
     #                                                  ones write the number with its complaint prefix ("BPB CB26720")
     return {
-        "key": f"{KEY_PREFIX}/{number}/{kind_slug(kind)}", "complaint_number": number,
-        "citation": f"[{head.group('year')}] BPB {head.group('number')}", "decision_kind": kind,
+        # one complaint against two practitioners is two decisions of one number and kind (CB26329: three); the
+        # decision's own page tells them apart, by a hash so that a suppressed name in its address never shows
+        "key": f"{KEY_PREFIX}/{number}/{kind_slug(kind)}" + (f"/{hashlib.sha256(href.encode()).hexdigest()[:10]}"
+                                                            if href else ""), "complaint_number": number,
+        "citation": (f"[{head['year']}] BPB {head['number']}" if head["year"] and head["number"] else None),
+        "decision_kind": kind,
         "name": None if suppressed else name, "lbp_number": None if suppressed or (lbp and OMITTED.search(lbp)) else lbp,
         "suppressed": suppressed, "region": None if (one("region") or "").lower() == "omitted" else one("region"),
         "licence_classes": [c.strip(" ,") for c in fields.get("licence class") or [] if c.strip(" ,")], "decided_on": decided,

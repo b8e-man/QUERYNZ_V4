@@ -7,7 +7,7 @@
 CREATE OR REPLACE VIEW pub.commerce_commission_cases AS
 SELECT c.key, c.case_number,
        CASE WHEN c.title_withheld THEN 'name withheld by the Commission' ELSE c.title END AS title,
-       c.title_withheld, c.category AS kind, c.sub_category, c.act_section, c.acts, c.sections, c.industry, c.status,
+       c.title_withheld, c.title_address_shaped AND NOT c.title_withheld AS title_address_shaped, c.category AS kind, c.sub_category, c.act_section, c.acts, c.sections, c.industry, c.status,
        c.outcome, c.opened_on, c.closed_on, c.action_on, c.url, c.taken_down_on,
        c.document, c.page, c.place, c.read_from, c.reader, c.profile, c.profile_version, c.loaded_at
 FROM commerce_commission.cases c;
@@ -15,7 +15,7 @@ FROM commerce_commission.cases c;
 CREATE OR REPLACE VIEW pub.commerce_commission_parties AS
 SELECT p.key, p.case_key, p.ordinal,
        CASE WHEN p.withheld THEN 'name withheld' ELSE p.name END AS name,
-       p.trading_as, p.withheld, p.withheld_by, p.organisation, p.company_number, p.split_from,
+       p.trading_as, p.trading_as_address_shaped AND NOT p.withheld AS trading_as_address_shaped, p.withheld, p.withheld_by, p.organisation, p.company_number, p.split_from,
        p.document, p.page, p.place, p.read_from, p.reader, p.profile, p.profile_version, p.loaded_at,
        (SELECT c.action_on FROM commerce_commission.cases c WHERE c.key = p.case_key) AS action_on   -- the case's own date, for a report (1 November 2026)
 FROM commerce_commission.parties p;

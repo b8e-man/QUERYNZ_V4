@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS fma.actions (
     title            text,                          -- the heading as published; NULL where withheld
     title_withheld   boolean NOT NULL,
     summary          text,                          -- the FMA's own one-line description of the page
+    summary_address_shaped boolean NOT NULL DEFAULT false,  -- the summary's shape names a street address (ruling 102)
     published_on     date,
     acts             text[] NOT NULL,               -- each Act the body names by title
     sections         text[] NOT NULL,               -- each 'section N of the <Act>' the body states, verbatim

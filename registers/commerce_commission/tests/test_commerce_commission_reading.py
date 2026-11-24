@@ -380,3 +380,24 @@ def test_an_entry_taken_off_the_register_stays_with_its_date():
         conn.rollback()
     assert set(got) == {"gone", "stays"}
     assert got["stays"][5] is None and got["gone"][5] == dt.date(2026, 10, 8) and got["gone"][3] == "a" * 64
+
+
+def test_a_pass_that_shows_part_of_the_register_takes_nothing_down():
+    """25 November 2026: the register's order shifts between its pages, so a pass of 1,729 listed 1,235 distinct, and
+    every entry it did not show had been flagged taken down (494). Only a complete pass shows an entry gone. In one
+    transaction, rolled back."""
+    _db_or_skip()
+    sch = "scratch_test_commerce_commission_partial"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        conn.execute(f"CREATE SCHEMA {sch}")
+        conn.execute(capture.capture_sql(sch))
+        T = lambda t: capture.table(sch, t)
+        lst = capture.LISTS[0].name
+        for pid, day in ((1, "2026-10-01"), (2, "2026-10-08")):
+            conn.execute(f"INSERT INTO {T('capture_passes')} (pass_id, list, stated, finished_at) VALUES (%s, %s, 10, %s)",
+                         (pid, lst, day))
+        conn.execute(f"INSERT INTO {T('capture_listed')} VALUES (1, %s, 'hidden', 'u1', 'c', 1), "
+                     f"(2, %s, 'shown', 'u2', 'c', 1)", (lst, lst))      # pass 2: 1 of the 10 stated
+        got = {e[1]: e for e in load.listing(conn, sch)}
+        conn.rollback()
+    assert set(got) == {"hidden", "shown"} and got["hidden"][5] is None

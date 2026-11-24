@@ -147,10 +147,27 @@ def test_a_challenge_stops_the_watch_and_nothing_is_asked_by_day():
     assert asked == [] and out["stopped"] == "stopped: off-peak is over"
 
 
-def test_a_redirect_is_not_followed():
+def test_a_redirect_the_gate_did_not_follow_is_set_aside():
     url = capture.PAGES[0]
     out, t, _ = _run({url: (302, b"")})
     assert out["set_aside"] == 1 and t.rows[0][2].startswith("set aside: HTTP 302")
+
+
+def test_a_same_host_redirect_is_followed_through_the_gate_and_a_sign_in_page_is_a_failed_read():
+    import support.fetchgate as gate
+    seen = {}
+
+    def fake_open(url, timeout=None, positions_dir=None, same_host_hops=0):
+        seen["hops"] = same_host_hops
+        return gate.Fetched(url, 200, b"<html>sign in</html>", "https://www.vendorpanel.nz/Login.aspx?r=1")
+    run = capture.Run(FakeTables(True), land_fn=lambda *a, **k: (Ref(), True), anytime=True)
+    real, gate.open_url = gate.open_url, fake_open
+    try:
+        run.ask("https://www.vendorpanel.nz/marketplace")
+    finally:
+        gate.open_url = real
+    assert seen["hops"] == capture.SAME_HOST_HOPS > 0
+    assert run.t.rows[0][2].startswith("set aside: redirected to a sign-in page") and run.counts["set_aside"] == 1
 
 
 def _db_or_skip():
