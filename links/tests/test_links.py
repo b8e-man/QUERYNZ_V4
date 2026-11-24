@@ -170,3 +170,49 @@ def test_a_refill_writes_only_the_rows_that_changed():
             assert [r[0] for r in conn.execute(f"SELECT ref FROM {s}.rows")] == ["a:1"]
         finally:
             raw.rollback()
+
+
+def test_two_people_sitting_together_on_two_bodies_are_joined_and_a_different_middle_name_is_not():
+    """shared-associate@1 (Arthur, 25 November 2026), on the real engine (a schema of the sample database, rolled back):
+    Jane Smith and Tom Brown sit on Acme and on a trust; the two Jane Smith rows and the two Tom Brown rows are joined.
+    A Jane Ann Smith beside Tom Brown on a third body with no middle-name agreement to "Jane Mary" is not; a pair on
+    one body only is not; a body naming more than ASSOCIATE_BODY_PEOPLE people does not count."""
+    import support.db as db
+    from links import build, rules
+    if not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
+        pytest.skip("no credential file on this box")
+    s = "scratch_links_associate_test"
+    rows = [  # ref, view, filed, given, middle, family, entity
+        ("companies:d1", "directors", "Jane Mary SMITH", "jane", "Mary", "smith", "companies:acme"),
+        ("companies:d2", "directors", "Tom BROWN", "tom", None, "brown", "companies:acme"),
+        ("charities:o1", "charity_officers", "Jane Smith", "jane", None, "smith", "charities:trust"),
+        ("charities:o2", "charity_officers", "Tom Brown", "tom", None, "brown", "charities:trust"),
+        ("societies:o3", "society_officers", "Jane Ann SMITH", "jane", "Ann", "smith", "societies:club"),
+        ("societies:o4", "society_officers", "Tom BROWN", "tom", None, "brown", "societies:club"),
+        ("companies:d5", "directors", "Ann LEE", "ann", None, "lee", "companies:acme"),
+        ("companies:d6", "directors", "Ann LEE", "ann", None, "lee", "companies:other"),
+    ] + [(f"companies:big{i}", "directors", f"Person{i} X", f"person{i}", None, "x", "companies:big") for i in range(rules.ASSOCIATE_BODY_PEOPLE)] \
+      + [("companies:big-jane", "directors", "Jane SMITH", "jane", None, "smith", "companies:big"),
+         ("companies:big-tom", "directors", "Tom BROWN", "tom", None, "brown", "companies:big")]
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as raw:
+        conn = _NoCommit(raw)
+        try:
+            conn.execute(f"CREATE SCHEMA {s}")
+            conn.execute(links.ddl(s))
+            for ref, view, filed, g, mid, fam, ent in rows:
+                full = " ".join(w for w in (g, (mid or "").lower(), fam) if w)
+                conn.execute(f"""INSERT INTO {s}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key,
+                                   fl_key, full_key, has_middle, entity_ref)
+                                 VALUES (%s, %s, %s, %s, 'person', %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                             (ref, ref.split(":")[0], view, ref, filed, g, mid, fam, full, f"{g} {fam}", full, bool(mid), ent))
+            n = build.associate_links(conn, s)
+            got = {(a, b) for a, b in conn.execute(f"SELECT row_a, row_b FROM {s}.links WHERE rule = %s",
+                                                   (rules.RULE_SHARED_ASSOCIATE,)).fetchall()}
+            assert ("charities:o1", "companies:d1") in got and ("charities:o2", "companies:d2") in got
+            assert ("charities:o2", "societies:o4") in got or ("companies:d2", "societies:o4") in got
+            assert not any("societies:o3" in p for p in got if "companies:d1" in p)      # Mary and Ann differ
+            assert not any("companies:big" in x for p in got for x in p)                 # the big body does not count
+            assert not any("companies:d5" in p or "companies:d6" in p for p in got)      # Ann Lee shares Acme with Jane, not a second body
+            assert n == len(got)
+        finally:
+            raw.rollback()

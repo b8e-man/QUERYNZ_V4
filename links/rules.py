@@ -84,6 +84,17 @@ One more, ruling 125 (30 October 2026), the organisation rules on every row:
    stays near, the reason "undated" (`body_on_date`). @2 is kept as it was
    and no longer built (`RETIRED`).
 
+One more, Arthur 25 November 2026 ("let's use the shared associates ... to link"):
+
+11. `shared-associate@1`: two people who sit together on two bodies are the
+   same two people. Rows of one first and last name, each on a body (a
+   company, charity, society or partnership: `entity_ref`) where a row of a
+   second name sits too, on at least ASSOCIATE_BODIES different bodies.
+   Confirmed, unless their filed middle names differ (`middles_agree`). A
+   body naming more than ASSOCIATE_BODY_PEOPLE people is too big to say two
+   sat together. Where both names are common (each carried by more than
+   ASSOCIATE_COMMON rows) the pair needs ASSOCIATE_BODIES_COMMON bodies.
+
 Everything else that shares a name is near, with the reason. A
 politician's row (a candidate, a member, a declared-interests return)
 joined to the director register by name is near whatever the name
@@ -96,6 +107,12 @@ from __future__ import annotations
 import datetime as dt
 import re
 
+RULE_SHARED_ASSOCIATE = "shared-associate@1"
+ASSOCIATE_BODIES = 2            # bodies the two names must share
+ASSOCIATE_BODIES_COMMON = 3     # ... where both names are common (measured 25 November 2026: "Gurpreet Singh" beside
+                                # "Mandeep Kaur" on two unrelated companies; 1,049 of 249,088 pairs)
+ASSOCIATE_COMMON = 500          # rows carrying a first and last name, every register, above which it is common
+ASSOCIATE_BODY_PEOPLE = 25      # a body naming more people than this is not "sitting together"
 HUB_FLOOR = 50          # ruling 217: an address shared by more than this many companies is busy
 RULE_FULL = "full-name@1"
 RULE_ADDRESS = "name-and-address@1"

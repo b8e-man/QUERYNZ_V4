@@ -281,6 +281,9 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # ruling 142 (4 November 2026): the rules that read a private value, an address, an email or a phone (links.identifiers)
     from links import identifiers
     out["identifiers"] = identifiers.build(conn, s, log)
+    # two people who sit together on two bodies are the same two people (Arthur, 25 November 2026)
+    out[rules.RULE_SHARED_ASSOCIATE] = associate_links(conn, s, reader=reader)
+    log(f"links.build: {rules.RULE_SHARED_ASSOCIATE}: {out[rules.RULE_SHARED_ASSOCIATE]} ({time.monotonic() - t0:.0f} s)")
     # a name a text reader's model read is its own, lower tier (Arthur, 1 November 2026): whatever rule matched it, a link
     # that touches one is near, never confirmed, so a model's row never joins a group nor carries one entity to another
     out["model_rows_near_only"] = model_tier(conn, s)
@@ -1099,6 +1102,67 @@ def _insert_near(w, s: str, batch: list) -> int:
     w.executemany(f"INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason) VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
                   f"ON CONFLICT DO NOTHING", batch)
     return len(batch)
+
+
+ASSOCIATE_SQL = """
+    WITH m AS (SELECT ref, fl_key, entity_ref FROM {s}.rows WHERE kind = 'person' AND entity_ref IS NOT NULL AND fl_key IS NOT NULL),
+         small AS (SELECT entity_ref FROM m GROUP BY 1 HAVING count(DISTINCT fl_key) <= {people}),
+         np AS (SELECT DISTINCT a.fl_key AS x, b.fl_key AS y, a.entity_ref AS e
+                FROM m a JOIN m b ON b.entity_ref = a.entity_ref AND b.fl_key <> a.fl_key
+                WHERE a.entity_ref IN (SELECT entity_ref FROM small)),
+         fl AS (SELECT fl_key, count(*) AS n FROM {s}.rows WHERE kind = 'person' AND fl_key IN (SELECT x FROM np) GROUP BY 1),
+         np2 AS (SELECT np.x, np.y, array_agg(np.e ORDER BY np.e COLLATE "C") AS es
+                 FROM np JOIN fl fx ON fx.fl_key = np.x JOIN fl fy ON fy.fl_key = np.y
+                 GROUP BY np.x, np.y, fx.n, fy.n
+                 HAVING count(*) >= CASE WHEN fx.n > {common} AND fy.n > {common} THEN {bodies_common} ELSE {bodies} END)
+    SELECT p.x, p.y, p.es, r.ref, r.middle, r.has_middle, r.name_filed, r.entity_ref, r.register
+    FROM np2 p JOIN {s}.rows r ON r.fl_key = p.x AND r.kind = 'person' AND r.entity_ref = ANY(p.es)
+    ORDER BY p.x, p.y, r.ref COLLATE "C"
+"""
+
+
+def associate_links(conn, s: str, reader=None) -> int:
+    """shared-associate@1 (Arthur, 25 November 2026): the rows of one name on the bodies where a second name sits too,
+    two bodies at least, joined as one person; a star from the first row, a row whose middle name differs from it drawn
+    to the first earlier row it agrees with, or to none."""
+    reader = reader or conn
+    sql = ASSOCIATE_SQL.format(s=s, people=rules.ASSOCIATE_BODY_PEOPLE, common=rules.ASSOCIATE_COMMON,
+                               bodies=rules.ASSOCIATE_BODIES, bodies_common=rules.ASSOCIATE_BODIES_COMMON)
+    n, batch = 0, []
+
+    def flush(group):
+        out = []
+        if len(group) < 2:
+            return out
+        x, y, es = group[0][:3]
+        for k, r in enumerate(group[1:], 1):
+            hub = next((h for h in group[:k] if rules.middles_agree(h[4] if h[5] else None, r[4] if r[5] else None)), None)
+            if hub is None or hub[3] == r[3]:
+                continue
+            a, b = links.pair(hub[3], r[3])
+            ev = {"first_last": x, "beside": y, "shared_bodies": len(es), "bodies": [hub[7], r[7]],
+                  "as_filed": [hub[6], r[6]], "registers": [hub[8], r[8]]}
+            out.append((a, b, rules.RULE_SHARED_ASSOCIATE, json.dumps(ev), "confirmed", None))
+        return out
+
+    with reader.cursor(name="links_associates") as cur, conn.cursor() as w:
+        cur.itersize = 20000
+        cur.execute(sql)
+        group, key = [], None
+        for row in cur:
+            if (row[0], row[1]) != key:
+                batch += flush(group)
+                group, key = [], (row[0], row[1])
+            group.append(row)
+            if len(batch) >= 5000:
+                n += _insert_near(w, s, batch)
+                conn.commit()
+                batch = []
+        batch += flush(group)
+        if batch:
+            n += _insert_near(w, s, batch)
+            conn.commit()
+    return conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_SHARED_ASSOCIATE,)).fetchone()[0]
 
 
 def _insert_different(w, s: str, batch: list) -> int:
