@@ -201,10 +201,13 @@ def _kept_privately(conn, schema: str, shared: bool, t, failures: list):
     the row; a row flagged with no name kept fails. Counts only; a login that cannot read the private schema is told so."""
     priv = L.private_of(schema)
     W = L.table(priv, "withheld_names", shared)
-    if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (priv,)).fetchone() or not _exists(conn, W):
+    if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (priv,)).fetchone():
         return None
+    # asked before the table: to_regclass on a schema the login may not use is an error, not a null (24 Nov 2026)
     if not conn.execute("SELECT has_schema_privilege(%s, 'USAGE')", (priv,)).fetchone()[0]:
         return "not readable by this login"
+    if not _exists(conn, W):
+        return None
     lost = 0
     # a case page may print no case name at all, so only the parties and the model-read names are held to it
     for tname in ("judgment_parties", "people"):

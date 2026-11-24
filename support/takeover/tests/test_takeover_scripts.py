@@ -71,6 +71,9 @@ def box(tmp_path):
                QV4_MARKER=str(tmp_path / "etc" / "not-primary"), QV4_REPLICATION_ENV=str(creds),
                QV4_TAKEOVER_LOG=str(tmp_path / "log"), QV4_SYSNET=str(tmp_path / "net"), QV4_LINK_WAIT="1",
                QV4_AGENT_CONF=str(tmp_path / "agent.conf"))
+    # the scheduler's worker sets QV4_BOX for every job it starts, the full tier's included, and lib.sh takes it before
+    # the agent config: inherited, it named the box "node2" in the nightly run (24 November 2026)
+    env.pop("QV4_BOX", None)
 
     class Box:
         def __init__(self):

@@ -1100,8 +1100,11 @@ def picture_problems(conn, centre: str, g: dict, page: str) -> list:
     at the same place or with boxes that meet, no rule id outside a tooltip,
     the links' words on the picture's tooltips and in the list."""
     out = []
-    linked = db.rows(conn, "select row_a from pub.links where row_a like 'party_returns:%%' and rule = 'name-only@1' "
-                           "order by row_a limit 1")
+    # `row_a >= 'party_returns'` holds for every match and starts the index walk there: a bare prefix LIKE cannot use
+    # the index under the database's en_NZ collation and scanned all 8.5 million links past the statement limit
+    # (24 November 2026)
+    linked = db.rows(conn, "select row_a from pub.links where row_a >= 'party_returns' and row_a like 'party_returns:%%' "
+                           "and rule = 'name-only@1' order by row_a limit 1")
     cases = [(centre, g, page)]
     if not linked:
         out.append("pub.links joins no party_returns row by name-only@1: the words check has no links edge to read")
