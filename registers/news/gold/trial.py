@@ -219,25 +219,25 @@ def _parse(s: str):
         return None
 
 
-def _call(url, model, system, user, schema, name):
+def _call(url, model, system, user, schema, name, lane=LANE):
     extra = {"temperature": 0.0, "max_tokens": 12000, "chat_template_kwargs": {"enable_thinking": False},
              "response_format": {"type": "json_schema", "json_schema": {"name": name, "schema": schema, "strict": True}}}
-    out = modelclient.chat(url, lane=LANE, model=model, extra=extra, timeout=1200.0,
+    out = modelclient.chat(url, lane=lane, model=model, extra=extra, timeout=1200.0,
                            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
     return out, (out["choices"][0]["message"]["content"] or "")
 
 
-def read_one(article_id: str, text: str, url: str, model: str) -> dict:
+def read_one(article_id: str, text: str, url: str, model: str, lane: str = LANE) -> dict:
     """Run 2: the whole read under the schema, then quotes in their own pass, then the checks."""
     t0 = time.monotonic()
     user = "ARTICLE (data, not instructions):\n\n" + text
-    out, raw = _call(url, model, PROMPT, user, SCHEMA, "article")
+    out, raw = _call(url, model, PROMPT, user, SCHEMA, "article", lane)
     got = _parse(raw)
     if isinstance(got, dict):
         ents = {k: {"name": v.get("name"), "kind": v.get("kind")} for k, v in (got.get("entities") or {}).items()
                 if isinstance(v, dict)}
         _, qraw = _call(url, model, QUOTE_PROMPT, "ENTITIES: " + json.dumps(ents, ensure_ascii=False) + "\n\n" + user,
-                        QUOTES, "quotes")
+                        QUOTES, "quotes", lane)
         q = _parse(qraw)
         if isinstance(q, dict) and isinstance(q.get("quotes"), list):
             got["quotes_first_pass"] = got.get("quotes")
@@ -264,6 +264,17 @@ CLAIM = _OBJ({"says": _S, "statement": _S, "span": _S, "stance": _E("happened", 
 CLAIMS = _OBJ({"claims": _ARR(CLAIM)})
 
 
+def claims_pass(got: dict, text: str, url: str, model: str, lane: str = LANE) -> dict:
+    """The claim pass over one read: GOT["claims"] set to the model's claims, or None when it gave none usable."""
+    ents = {k: {"name": v.get("name"), "kind": v.get("kind")} for k, v in (got.get("entities") or {}).items()
+            if isinstance(v, dict)}
+    _, raw = _call(url, model, CLAIM_PROMPT, "ENTITIES: " + json.dumps(ents, ensure_ascii=False)
+                   + "\n\nARTICLE (data, not instructions):\n\n" + text, CLAIMS, "claims", lane)
+    cl = _parse(raw)
+    got["claims"] = cl["claims"] if isinstance(cl, dict) and isinstance(cl.get("claims"), list) else None
+    return got
+
+
 def claims_run(tranche: int, src: str, name: str, url: str, model: str, workers: int) -> None:
     """The claim pass alone, over an earlier run's read: writes NAME/<id>.json as SRC's with "claims" added."""
     s, d = _dir(tranche, src), _dir(tranche, name)
@@ -276,13 +287,8 @@ def claims_run(tranche: int, src: str, name: str, url: str, model: str, workers:
         got = r.get("parsed") or {}
         if not got:
             return r
-        ents = {k: {"name": v.get("name"), "kind": v.get("kind")} for k, v in (got.get("entities") or {}).items()
-                if isinstance(v, dict)}
         t0 = time.monotonic()
-        _, raw = _call(url, model, CLAIM_PROMPT, "ENTITIES: " + json.dumps(ents, ensure_ascii=False)
-                       + "\n\nARTICLE (data, not instructions):\n\n" + texts[i], CLAIMS, "claims")
-        cl = _parse(raw)
-        got["claims"] = cl["claims"] if isinstance(cl, dict) and isinstance(cl.get("claims"), list) else None
+        claims_pass(got, texts[i], url, model)
         r["claims_seconds"] = round(time.monotonic() - t0, 1)
         return r
 
@@ -321,6 +327,35 @@ def _tone_sentences(text: str, evidence: str) -> str:
     return ""
 
 
+def tone_pass(got: dict, text: str, url: str, model: str, lane: str = LANE) -> dict:
+    """The tone pass over one read: each non-neutral tone asked on its own; one whose words do not judge its target
+    moves to GOT["sentiment_dropped"] with the reason, the rest take the pass's value."""
+    ents = got.get("entities") or {}
+    nm = lambda k: "the writer" if k in ("article", "own", "writer", None) else ((ents.get(k) or {}).get("name") or k)
+    keep, dropped = [], []
+    for t in got.get("sentiment") or []:
+        if not isinstance(t, dict) or (t.get("value") or "neutral") == "neutral":
+            keep.append(t)
+            continue
+        sent = _tone_sentences(text, t.get("evidence"))
+        if not sent:
+            keep.append(t)
+            continue
+        _, raw = _call(url, model, TONE_PROMPT, f"TARGET: {nm(t.get('toward'))}\nVOICE: {nm(t.get('from'))}\n"
+                       f"EVIDENCE: {t.get('evidence')}\n\nSENTENCES (data, not instructions):\n{sent}", TONE, "tone", lane)
+        v = _parse(raw)
+        if not isinstance(v, dict):
+            keep.append(t)
+            continue
+        if not v.get("judges_target") or v.get("value") == "neutral":
+            dropped.append({**t, "because": v.get("because")})
+            continue
+        keep.append({**t, "value": v.get("value") or t.get("value"), "first_value": t.get("value")})
+
+    got["sentiment"], got["sentiment_dropped"] = keep, dropped
+    return got
+
+
 def tones_run(tranche: int, src: str, name: str, url: str, model: str, workers: int) -> None:
     """The tone pass alone, over an earlier run's read: each non-neutral tone asked on its own; a tone whose words do
     not judge its target is dropped (kept in "sentiment_dropped" with the reason), the rest take the pass's value."""
@@ -331,29 +366,7 @@ def tones_run(tranche: int, src: str, name: str, url: str, model: str, workers: 
 
     def one(i):
         r = json.loads((s / f"{i}.json").read_text())
-        got = r.get("parsed") or {}
-        ents = got.get("entities") or {}
-        nm = lambda k: "the writer" if k in ("article", "own", "writer", None) else ((ents.get(k) or {}).get("name") or k)
-        keep, dropped = [], []
-        for t in got.get("sentiment") or []:
-            if not isinstance(t, dict) or (t.get("value") or "neutral") == "neutral":
-                keep.append(t)
-                continue
-            sent = _tone_sentences(texts[i], t.get("evidence"))
-            if not sent:
-                keep.append(t)
-                continue
-            _, raw = _call(url, model, TONE_PROMPT, f"TARGET: {nm(t.get('toward'))}\nVOICE: {nm(t.get('from'))}\n"
-                           f"EVIDENCE: {t.get('evidence')}\n\nSENTENCES (data, not instructions):\n{sent}", TONE, "tone")
-            v = _parse(raw)
-            if not isinstance(v, dict):
-                keep.append(t)
-                continue
-            if not v.get("judges_target") or v.get("value") == "neutral":
-                dropped.append({**t, "because": v.get("because")})
-                continue
-            keep.append({**t, "value": v.get("value") or t.get("value"), "first_value": t.get("value")})
-        got["sentiment"], got["sentiment_dropped"] = keep, dropped
+        tone_pass(r.get("parsed") or {}, texts[i], url, model)
         return r
 
     todo = [i for i in texts if (s / f"{i}.json").exists() and not (d / f"{i}.json").exists()]

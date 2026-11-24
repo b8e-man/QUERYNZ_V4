@@ -1804,6 +1804,8 @@ LINKS_PUBLISHED = frozenset({"links", "groups", "decisions", "names", "old_decis
 #: 3 November 2026: views published for the links lane to read and not (yet) panes of the board: the courts lane's
 #: printed company numbers (ruling 1) and the links lane's court cases (ruling 4)
 LINKS_PUBLISHED = LINKS_PUBLISHED | {"court_company_numbers", "court_case_documents"}
+#: 25 November 2026: the pairs a links rule finds are two people (middle-names-differ@1), the links lane's own record
+LINKS_PUBLISHED = LINKS_PUBLISHED | {"links_different"}
 
 
 #: ruling 92 (2): shown columns holding another view's key that no parent tuple or Relation names, as data:

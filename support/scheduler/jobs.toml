@@ -2044,6 +2044,21 @@ command = ["python", "-m", "support.oldcopy", "files"]
 at_utc = "11:50"
 nice = 15
 
+[jobs.qv4-news-read]
+description = "The first read of the news corpus (Arthur, 25 November 2026): one piece per article (key url_key), newest first, through the text-reader profile in the golden sample's four passes (read, quotes, claims, tones); the reading stored ungated by the text's hash, then the gates (registers.news.gates) judge each quote, role, claim and tone into news_private.read_items, kept or not, with the rule. Keys from python -m registers.news.read --pieces (2,000 a row). Queued by hand on Arthur's word; nothing schedules it."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.5
+deadline_s = 900   # the trial's four passes: median about 60 s an article, the longest read 152 s
+query_timeout_s = 60
+class = "whenever"
+priority = 190   # unique (25 November 2026): the corpus read yields to every other reader on the card
+command = ["python", "-m", "registers.news.read", "--piece"]
+pieces_command = ["python", "-m", "registers.news.read", "--pieces"]
+pieces = true
+can_share = true
+concurrency = 8   # the text-reader profile's 8 streams
+
 [jobs.qv4-news-sites]
 description = "The old news copy one line a site, for the board's Sources tab (Arthur, 14 November 2026: a light for every source, news by site): old_incoming_news_private.articles grouped by its address's host, counts and dates only (never text or an address), written to <live>/checks/news-sites.json, which the source lights read. The owner login, read-only transaction (the read login has no grant on a _private schema). Daily at 06:00 NZDT, after the night's copy; about six seconds over 2.8 million rows."
 needs = "processor"

@@ -239,3 +239,30 @@ def take(form: dict) -> str:
         raise ValueError("no such question or choice")
     state.answer(name, qid, choice, get("note").strip())
     return href(name, after=qid)
+
+
+#: where `--export` writes each set's answers, for a lane that measures against them (a lane never reads board.answers)
+ANSWERS = DIR / "answers"
+
+
+def export(names: list, out: Path = None) -> list:
+    """Each set's newest answers written to OUT/<set>.json as {question id: {"choice", "note"}}; returns the paths."""
+    out = Path(out or ANSWERS)
+    out.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name in names:
+        got = {q: {"choice": a["choice"], "note": a["note"]} for q, a in state.answers(name).items()}
+        p = out / f"{name}.json"
+        p.write_text(json.dumps(got, indent=1, ensure_ascii=False) + "\n")
+        paths.append(p)
+    return paths
+
+
+if __name__ == "__main__":
+    import sys
+    args = sys.argv[1:]
+    if args[:1] != ["--export"] or len(args) < 2:
+        print("usage: python -m products.board.review --export SET [SET ...]")
+        raise SystemExit(2)
+    for p in export(args[1:]):
+        print(p)

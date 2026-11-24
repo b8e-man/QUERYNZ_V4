@@ -154,3 +154,36 @@ CREATE TABLE IF NOT EXISTS news_private.comment_read (
     at               timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (capture_sha256, url)
 );
+
+-- ── the first read of the corpus (Arthur, 25 November 2026: "apply these rules to the first read we do") ──
+-- registers.news.read: each article read by the text reader (the golden sample's passes: the read, quotes, claims,
+-- tones), the reading stored whole and ungated in the reader store by the hash of the text read, and its items here
+-- with the gate's verdict (registers.news.gates). Reading again replays the store, so the gates can change and the
+-- items be rewritten without a model call.
+
+-- one row per article read (never wiped: it names the stored reading, which cost a model's time)
+CREATE TABLE IF NOT EXISTS news_private.read_done (
+    url_key          text PRIMARY KEY,
+    text_sha256      text NOT NULL,                  -- the hash of the masked text the model read
+    reading_key      text NOT NULL,                  -- the reader store's key
+    reader           text NOT NULL,
+    model            text NOT NULL,
+    gates            text NOT NULL,
+    outcome          text NOT NULL CHECK (outcome IN ('read', 'replayed', 'unusable')),
+    seconds          real,
+    counts           jsonb NOT NULL DEFAULT '{}',    -- per kind: kept, dropped, citations
+    read_at          timestamptz NOT NULL DEFAULT now()
+);
+
+-- every gated item of a reading, kept or not, with the rule that decided it (rewritten from the store at will)
+CREATE TABLE IF NOT EXISTS news_private.read_items (
+    url_key          text NOT NULL,
+    kind             text NOT NULL CHECK (kind IN ('quotes', 'roles', 'claims', 'sentiment')),
+    n                integer NOT NULL,               -- the item's place in the reading's list
+    item             jsonb NOT NULL,                 -- the model's record, as read
+    kept             boolean NOT NULL,
+    citation         boolean NOT NULL DEFAULT false, -- a document's words: kept apart, not speech
+    rule             text NOT NULL,
+    PRIMARY KEY (url_key, kind, n)
+);
+CREATE INDEX IF NOT EXISTS read_items_kept ON news_private.read_items (kind) WHERE kept;

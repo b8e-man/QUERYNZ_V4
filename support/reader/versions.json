@@ -301,6 +301,15 @@
   "reader": "support.docread 1: text-layer (pdftotext -layout, per page)",
   "sha256": "272178c45506dba6fe42f36c48072d4b6f6b8ff85677a3d5b8ba55ffc633ee1d"
  },
+ "registers/news/read.py": {
+  "files": [
+   "registers/news/gates.py",
+   "registers/news/gold/sample.py",
+   "registers/news/read.py"
+  ],
+  "reader": "registers.news.read 1",
+  "sha256": "c1e1d251b78c6539b3930bcf63b4d85c55b28fde45b5c6f64f137959178fc491"
+ },
  "registers/openlaw/read.py": {
   "files": [
    "registers/openlaw/read.py"

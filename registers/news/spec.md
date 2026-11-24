@@ -41,3 +41,22 @@ going forward. dont worry about backwalking at this stage". Linking a commenter 
 - `news_private.comment_read`: every page read for comments. Each `qv4-news-load` reads the new pages.
 - Sites whose comments load after the page opens (nzherald, stuff, rnz, the Spinoff's Coral) hold none in the
   provider's pages; the provider was asked to capture them going forward (`estate-news-comments@2026-11-18`).
+
+## The first read (Arthur, 25 November 2026)
+
+"I'd like to read the media corpora and extract signal from them"; "let's not apply these rules to tranche 8. I want
+to judge liberally, but let's apply these rules to the first read we do."
+
+- `registers.news.read`: one article a piece of `qv4-news-read` (text-reader profile), newest first, in the golden
+  sample's four passes with the trial's prompts unchanged (registers.news.gold.trial: the read, quotes, claims, tones).
+  The reading is stored ungated in the reader store by the hash of the masked text and replayed from there; a brief
+  (under 300 characters), a page ending on a paywall prompt and one over 50,000 characters are not read.
+- `registers.news.gates`: one gate per kind, no model call; every item lands in `news_private.read_items` kept or not,
+  with the rule. Quotes: the speaker named within 250 characters and not a document (a document's words are a
+  citation). Roles: a title word, no "of" or possessive, no leading descriptor. Claims: the claimant and a verb of
+  saying or finding in the span's own sentence, the writer's own claims passing. Tones: four words of evidence.
+- `news_private.read_done`: one row per article read, naming the stored reading; never wiped. `read_items`: rewritten
+  from the store by `--regate` whenever the gates change.
+- Measured by `python -m registers.news.gold.gates_check` on Arthur's judged answers of tranches 2-7. The golden
+  sample's tranches are never gated.
+- Queued by hand on Arthur's word only; no timer queues it.
