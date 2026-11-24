@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-24 NZDT. **Process:** ruling 131 (31 Oct) ended the
+**Date:** 2026-11-25 NZDT. **Process:** ruling 131 (31 Oct) ended the
 plan's gate process; work runs on Arthur's word. **Boxes:** two, both
 take every job (ruling 145); jobs run from the release copy
 (`python -m support.installer release` on each box after every push).
@@ -20,6 +20,10 @@ take every job (ruling 145); jobs run from the release copy
   each linked to its article and commenter; Substack free posts into
   the articles table once their files land.
 - The gold sample: tranche 7 (140 questions) on the board.
+- 25 Nov: the off-site restore rehearsal passed, equal, in 6.1 h (was
+  over 12 h: it ran on node1 over NFS; now pinned to node2). Links:
+  middle names that differ are two people (pub.links_different,
+  996,528 pairs); every near link says why. Lane reds of 24 Nov fixed.
 
 ## Running
 
@@ -29,17 +33,19 @@ take every job (ruling 145); jobs run from the release copy
 
 ## Half-done
 
-- Provider asks open: estate-news-gaps@2026-11-21 (77 old-only sites,
-  stale sites, date holes, undated coverage); the party-site back-fill.
+- Provider asks open: estate-news-gaps@2026-11-21 (first landings
+  26 Nov); estate-lane-gaps@2026-11-25 (REA 27, WorkSafe 5, tenancy 504).
+- Links: shared-associate@1 built, first in the 26 Nov 07:45 build;
+  document co-mention being measured for the same build.
 - Held back until after the council landings due 24 Nov: disclosure
   statements, Electoral Commission, council minutes, ERA and courts.
 - 4.5: the rebuilt site's build is refused since 23 Nov: the
   Commission's over-$20,000 list was re-captured on 18 Nov with a new
   hash the frozen listing lacks, so its 305 rows are left out and the
   commission gate is red. Waits on Arthur.
-- The full tier: board, report and template tests over the real data
-  (timings, statement timeouts, changed dossiers) and three takeover
-  script tests fail; not yet looked at.
+- The full tier: 3 speed tests over the Beehive group miss by 2-15%
+  on a loaded box (was 26 failures); a quiet re-run owed.
+- Insolvency capture held after four nights of transport errors (card).
 
 ## Waits on Arthur
 
