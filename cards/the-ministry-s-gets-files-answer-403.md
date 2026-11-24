@@ -1,9 +1,10 @@
 # The ministry's GETS open-data files answer 403 to the estate, so the award notices cannot be refreshed
 kind: blocker
-state: open
+state: closed
 use-case: 10 tender and award intelligence; 9 government procurement integrity
 session: tenders-1
 opened: 2026-10-21
+closed: 2026-11-25
 
 Step 6's done-line asks that the award notices be "refreshed on a
 schedule". On 21 October 2026 `www.mbie.govt.nz` answered HTTP 403 to both
@@ -31,3 +32,5 @@ done-line's "refreshed on a schedule" stays open; the rest of it ("read,
 checked against the source's own count") is met.
 
 22 October 2026: the letter sent by Arthur to opendata@mbie.govt.nz (`docs/letters/mbie-gets-files-request.md`); it also asks for the supplier file's business numbers as text. Waits on the ministry's answer.
+
+Closed 25 November 2026: settled by ruling 166 (Arthur, 11 November: "move gets to the mcp"). The award-notice files are the provider's to gather (corpus `estate-tenders`, registers/tenders/asks.py); `qv4-tenders-refresh` reads them nightly from the provider's copy and asks the web nothing (24 November 23:00: the 8 files the copy holds are the bytes held, 1 not in the copy and asked for). The boxes still never get past the 403.

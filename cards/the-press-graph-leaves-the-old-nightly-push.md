@@ -1,9 +1,10 @@
 # The press graph leaves the old nightly push, on Arthur's word after the election
 kind: finding
-state: open
+state: closed
 use-case: the off-site copy (track B)
 session: offsite
 opened: 2026-10-19
+closed: 2026-11-25
 
 The press graph (`extractions`, 276 GB on disk) has had no writer since 18
 October (step 1.4 stopped `feed-parties` and `gazette-feed`). Track B's copy
@@ -24,3 +25,5 @@ When: after 7 November, the new copy restored to equality from the bucket on
 19 October (`docs/merges/offsite-2b`); Arthur says so, and the old push's
 `DBS` loses `extractions`. The database itself is never dropped without his
 word.
+
+Closed 25 November 2026: settled by ruling 167 (Arthur, 11 November: "stop the old estate's backups"). The old estate's push (`offsite-push`) stopped; no `offsite-push.timer` exists on node1 or node2 (checked 25 November). qv4-offsite-copy sends the new estate only; the old databases are kept, not sent (support/offsite/pieces.py), and nothing of the old estate is deleted (limit 18).
