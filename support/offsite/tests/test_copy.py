@@ -273,3 +273,22 @@ def test_objects_needed_follow_the_restore_order():
     assert R.objects_needed(man) == [
         ("S1", "a--_schema.dump.gpg"), ("S1", "r0"), ("S2", "r1"), ("S1", "a--s.t.copy.zst.gpg"),
         ("S2", "b--_schema.dump.gpg"), ("S1", "tree--t.tar.zst.gpg"), ("S2", "tree--t.tar.zst.gpg")]
+
+
+def test_a_table_read_back_in_parts_sums_to_the_whole():
+    whole, a, b = R.Multiset(), R.Multiset(), R.Multiset()
+    whole.feed(b"a\t1\nb\t2\nc\t3\n")
+    a.feed(b"c\t3\n")
+    b.feed(b"a\t1\nb\t2\n")
+    parts = R.Multiset()
+    parts.add((a.acc, a.rows))
+    parts.add((b.acc, b.rows))
+    assert parts.digest() == whole.digest()
+
+
+def test_read_back_ranges_cover_every_page_and_spare_generated_columns():
+    assert R.page_ranges(10, False, per=10) == [(None, None)]
+    assert R.page_ranges(10**6, True, per=10) == [(None, None)]
+    assert R.page_ranges(25, False, per=10) == [(0, 10), (10, 20), (20, None)]     # the last range is open
+    assert R.range_sql("s", "t", None, None) == 'COPY "s"."t" TO STDOUT'
+    assert "ctid >= '(20,0)'::tid) TO STDOUT" in R.range_sql("s", "t", 20, None)

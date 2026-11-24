@@ -51,7 +51,9 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 import time
+from concurrent.futures import ProcessPoolExecutor
 
 from support import db
 from support.offsite import read_env, ENV_FILE, LIVE
@@ -70,6 +72,13 @@ SERVER_SETTINGS = ("listen_addresses=", "fsync=off", "synchronous_commit=off", "
 # initdb's settings when the rehearsal restores no database (trees only)
 SERVER_LOCALE = {"encoding": "UTF8", "provider": "libc", "collate": "C.UTF-8", "ctype": "C.UTF-8",
                  "locale": None, "icu_rules": None, "from": "default"}
+# Speed (25 November 2026): one Python process hashing every row in and out ran at 10 MB/s and took the rehearsal past
+# its 12 hours; the scratch server sat at 2% of a core. The loads and the read-backs now run JOBS at once in worker
+# processes, the read-back through psql in 1 MB blocks (psycopg gives a COPY back one row at a time), a big table's
+# read-back in page ranges, and the downloads FETCH_STREAMS at once.
+JOBS = 8
+FETCH_STREAMS = 4
+CHECK_PAGES = 131_072        # 1 GB of 8 kB pages per read-back range
 
 
 class Source:
@@ -107,30 +116,38 @@ class Source:
             raise RuntimeError("no complete copy in the bucket")
         return max(stamps)
 
-    def prefetch(self, wanted: list) -> None:
-        """Download `wanted` [(stamp, name)] in order on a thread, so the
-        link and the load overlap; `fetch` then waits for its object."""
-        import threading
+    def prefetch(self, wanted: list, streams: int = FETCH_STREAMS) -> None:
+        """Download `wanted` [(stamp, name)] in order on `streams` threads, so
+        the link and the load overlap; `fetch` then waits for its object."""
         if self.kind == "local":
             return
-        self._lock = getattr(self, "_lock", None) or threading.Lock()
+        self._guard = getattr(self, "_guard", None) or threading.Lock()
+        self._locks = getattr(self, "_locks", None) or {}
+        todo = iter(list(wanted))
 
         def run():
-            for stamp, name in wanted:
+            while True:
+                with self._guard:
+                    item = next(todo, None)
+                if item is None:
+                    return
                 try:
-                    self.fetch(stamp, name)
+                    self.fetch(*item)
                 except Exception:  # noqa: BLE001 — fetch() retries in the caller and raises there
                     return
-        threading.Thread(target=run, daemon=True).start()
+        for _ in range(streams):
+            threading.Thread(target=run, daemon=True).start()
 
     def fetch(self, stamp: str, name: str) -> str:
         if self.kind == "local":
             return os.path.join(self.spool, "objects", stamp, name)
         path = os.path.join(self.work, "objects", stamp, name)
-        lock = getattr(self, "_lock", None)
-        if lock is None or os.path.exists(path):
+        guard = getattr(self, "_guard", None)
+        if guard is None or os.path.exists(path):
             return self._download(stamp, name, path)
-        with lock:          # one download at a time; the loader waits its turn
+        with guard:
+            lock = self._locks.setdefault(path, threading.Lock())
+        with lock:          # one download per object; the loader waits for the one it needs
             return self._download(stamp, name, path)
 
     def _download(self, stamp: str, name: str, path: str) -> str:
@@ -330,37 +347,33 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
 
     t = time.monotonic()
     mine = {p: v for p, v in man["pieces"].items() if p.startswith(database + ":")}
-    loaded = {}
-    with psycopg.connect(conninfo(root, database), autocommit=True) as conn:
-        for piece, v in sorted(mine.items()):
-            if v["fate"] == "out":
-                continue
-            if v["fate"] == "local" and src.kind != "local":
-                rec["skipped"].append(f"{piece}: kept on the box only, not in the bucket")
-                continue
-            schema, table = piece.split(":", 1)[1].split(".", 1)
-            if v.get("plain_bytes", 0) > 100e6:
-                log(f"    {piece}: {v['plain_bytes'] / 1e6:,.0f} MB")
-            rows_in = Multiset()
-            with conn.cursor().copy(f"COPY {C.qident(schema)}.{C.qident(table)} FROM STDIN") as cp:
-                for seg in segments(v):          # a big table's ranges
-                    gpg, zstd = C.opened(src.fetch(seg["stamp"], seg["object"]), passphrase)
-                    h, rows, n = hashlib.sha256(), 0, 0
-                    for chunk in iter(lambda: zstd.stdout.read(C.CHUNK), b""):
-                        h.update(chunk)
-                        rows += chunk.count(b"\n")
-                        n += len(chunk)
-                        rows_in.feed(chunk)
-                        cp.write(chunk)
-                    if zstd.wait() or gpg.wait():
-                        raise RuntimeError(f"{piece}: object does not open")
-                    if h.hexdigest() != seg["sha256"] or rows != seg["rows"]:
-                        rec["in_bad"].append(piece)
-                    rec["rows"] += rows
-                    rec["plain_bytes"] += n
-            loaded[piece] = (schema, table, rows_in.digest())
-            rec["tables"] += 1
+    ci = conninfo(root, database)
+    wanted, loads = {}, []
+    for piece, v in sorted(mine.items(), key=lambda kv: -kv[1].get("plain_bytes", 0)):    # the big ones first
+        if v["fate"] == "out":
+            continue
+        if v["fate"] == "local" and src.kind != "local":
+            rec["skipped"].append(f"{piece}: kept on the box only, not in the bucket")
+            continue
+        wanted[piece] = piece.split(":", 1)[1].split(".", 1)
+        loads += [(piece, seg) for seg in segments(v)]          # a big table's ranges load side by side
+    sums = {p: Multiset() for p in wanted}
+    with ProcessPoolExecutor(max_workers=jobs) as pool:
+        running = []
+        for piece, seg in loads:            # fetched in the prefetch's order; each goes to a worker once it is here
+            path = src.fetch(seg["stamp"], seg["object"])
+            running.append((piece, seg, pool.submit(load_object, ci, *wanted[piece], path, passphrase)))
+        for piece, seg, fut in running:
+            sha, rows, n, m = fut.result()
+            if sha != seg["sha256"] or rows != seg["rows"]:
+                rec["in_bad"].append(piece)
+            sums[piece].add(m)
+            rec["rows"] += rows
+            rec["plain_bytes"] += n
+    loaded = {p: (*wanted[p], sums[p].digest()) for p in wanted}
+    rec["tables"] = len(loaded)
     rec["seconds"]["rows_in"] = round(time.monotonic() - t, 1)
+    log(f"    rows in: {rec['tables']} tables, {rec['plain_bytes'] / 1e9:,.1f} GB in {rec['seconds']['rows_in']:,} s")
 
     t = time.monotonic()
     set_sequences(root, database, dbm.get("sequences") or {})
@@ -371,21 +384,83 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
     rec["seconds"]["schema_after"] = round(time.monotonic() - t, 1)
 
     t = time.monotonic()
-    with psycopg.connect(conninfo(root, database)) as conn:
-        cur = conn.cursor()
-        for stmt in C.SESSION_SQL.split("; "):
-            cur.execute(stmt)
-        for piece, (schema, table, want) in sorted(loaded.items()):
-            back = Multiset()
-            with cur.copy(f"COPY {C.qident(schema)}.{C.qident(table)} TO STDOUT") as cp:
-                for chunk in cp:
-                    back.feed(bytes(chunk))
-            if back.digest() != want or want[1] != mine[piece]["rows"]:
-                rec["out_bad"].append(piece)
+    with psycopg.connect(ci) as conn:
+        shape = {(s, r): (pages, gen) for s, r, pages, gen in conn.execute(SHAPE_SQL).fetchall()}
+    ranges = []
+    for piece, (schema, table, _) in loaded.items():
+        pages, generated = shape.get((schema, table), (0, True))
+        ranges += [(piece, lo, hi) for lo, hi in page_ranges(pages, generated)]
+    backs = {p: Multiset() for p in loaded}
+    with ProcessPoolExecutor(max_workers=jobs) as pool:
+        futs = [(piece, pool.submit(read_back, root, database, *loaded[piece][:2], lo, hi)) for piece, lo, hi in ranges]
+        for piece, fut in futs:
+            backs[piece].add(fut.result())
+    for piece, (_, _, want) in loaded.items():
+        if backs[piece].digest() != want or want[1] != mine[piece]["rows"]:
+            rec["out_bad"].append(piece)
     rec["seconds"]["check"] = round(time.monotonic() - t, 1)
     rec["equal"] = rec["tables"] - len(set(rec["in_bad"]) | set(rec["out_bad"]))
     log(f"  {database}: {rec['tables']} tables, {rec['rows']:,} rows, {rec['equal']} equal; {rec['seconds']}")
     return rec
+
+
+SHAPE_SQL = """
+SELECT n.nspname, c.relname, pg_relation_size(c.oid) / current_setting('block_size')::int,
+       EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attgenerated <> '')
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'r'"""
+
+
+def page_ranges(pages: int, generated: bool, per: int = None) -> list:
+    """A table's read-back ranges [(lo, hi)] of pages, the last open-ended; one whole read (None, None) for a small
+    table or one with a generated column (`SELECT *` carries a generated column, `COPY table` does not)."""
+    per = per or CHECK_PAGES
+    if generated or pages <= per:
+        return [(None, None)]
+    n = -(-pages // per)
+    return [(k * per, (k + 1) * per if k < n - 1 else None) for k in range(n)]
+
+
+def range_sql(schema: str, table: str, lo, hi) -> str:
+    name = f"{C.qident(schema)}.{C.qident(table)}"
+    if lo is None:
+        return f"COPY {name} TO STDOUT"
+    upper = "" if hi is None else f" AND ctid < '({hi},0)'::tid"
+    return f"COPY (SELECT * FROM {name} WHERE ctid >= '({lo},0)'::tid{upper}) TO STDOUT"
+
+
+def load_object(ci: str, schema: str, table: str, path: str, passphrase: str) -> tuple:
+    """One object's rows into its table, in a worker: (sha256, rows, bytes, (multiset sum, rows))."""
+    import psycopg
+    m, h, rows, n = Multiset(), hashlib.sha256(), 0, 0
+    with psycopg.connect(ci, autocommit=True) as conn:
+        with conn.cursor().copy(f"COPY {C.qident(schema)}.{C.qident(table)} FROM STDIN") as cp:
+            gpg, zstd = C.opened(path, passphrase)
+            for chunk in iter(lambda: zstd.stdout.read(C.CHUNK), b""):
+                h.update(chunk)
+                rows += chunk.count(b"\n")
+                n += len(chunk)
+                m.feed(chunk)
+                cp.write(chunk)
+            if zstd.wait() or gpg.wait():
+                raise RuntimeError(f"{schema}.{table}: {os.path.basename(path)} does not open")
+    m.digest()                  # raises if the object ends mid-row
+    return h.hexdigest(), rows, n, (m.acc, m.rows)
+
+
+def read_back(root: str, database: str, schema: str, table: str, lo, hi, popen=subprocess.Popen) -> tuple:
+    """One range of a table read back through psql in blocks, in a worker: (multiset sum, rows)."""
+    m = Multiset()
+    p = popen(["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1"], env=scratch_env(root, database),
+              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p.stdin.write((C.SESSION_SQL + "; " + range_sql(schema, table, lo, hi) + ";\n").encode())
+    p.stdin.close()
+    for chunk in iter(lambda: p.stdout.read(C.CHUNK), b""):
+        m.feed(chunk)
+    err = p.stderr.read()
+    if p.wait():
+        raise RuntimeError(f"read back {schema}.{table}: {err.decode(errors='replace')[-300:]}")
+    m.digest()
+    return m.acc, m.rows
 
 
 def segments(entry: dict) -> list:
@@ -407,6 +482,11 @@ class Multiset:
         self.rows += len(lines)
         h = hashlib.blake2b
         self.acc += sum(int.from_bytes(h(ln, digest_size=16).digest(), "little") for ln in lines)
+
+    def add(self, part: tuple) -> None:
+        """Another part of the same table, hashed elsewhere: (sum, rows)."""
+        self.acc += part[0]
+        self.rows += part[1]
 
     def digest(self) -> tuple:
         if self.tail:
@@ -480,7 +560,7 @@ def restore_tree(tree: str, tm: dict, src: Source, passphrase: str, root: str, l
 # ── the rehearsal ───────────────────────────────────────────────────────
 
 def rehearse(source: str = "bucket", databases=None, trees=None, keep: bool = False, root: str = None,
-             jobs: int = 4, stamp: str = None, spool: str = None, log=print, live=live_locale,
+             jobs: int = JOBS, stamp: str = None, spool: str = None, log=print, live=live_locale,
              run=subprocess.run) -> dict:
     root = root or ROOT
     started = time.monotonic()
@@ -537,7 +617,7 @@ def main(argv=None) -> int:
     ap.add_argument("--databases", nargs="*")
     ap.add_argument("--trees", nargs="*")
     ap.add_argument("--stamp")
-    ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--jobs", type=int, default=JOBS)
     ap.add_argument("--spool", help="the local copy to restore from (default the copy's own)")
     ap.add_argument("--keep", action="store_true")
     a = ap.parse_args(argv)
