@@ -113,6 +113,15 @@ NEAR_OWNER_NAME_ALONE = "a LINZ title owner's full name alone, not corroborated 
 
 NEAR_NO_MIDDLE = "the two rows share a first and last name but no middle name is filed to compare, and no shared address"
 NEAR_MIDDLE_DIFFERS = "the two rows share a first and last name but their middle names differ"
+#: Arthur, 25 November 2026: two middle names that differ are evidence of two people, not a weak link. Such a pair is
+#: written to `links.different` under RULE_MIDDLE_DIFFERS, never to `links.links`; a middle name that is the other's
+#: initial, or one of the other's middle names ("A" and "Alan", "Alan" and "Alan James"), is not a difference and stays near
+RULE_MIDDLE_DIFFERS = "middle-names-differ@1"
+DIFFERENT_MIDDLE = "the two rows share a first and last name but file different middle names"
+NEAR_MIDDLE_AGREES = "the two rows share a first and last name; one middle name is the other's initial or a shorter form of it"
+#: the full name equal, but each row sits in a group of its own that this pair does not join (a row a text reader's model
+#: read, whose confirmed links are near only, takes MODEL_TIER instead; links.build)
+NEAR_KEPT_APART = "the same full name, but the two rows are confirmed into different groups and this pair does not join them"
 NEAR_ONE_MIDDLE = "the two rows share a first and last name; only one files a middle name, and no shared address"
 NEAR_BUSY_ADDRESS = "the shared address is a busy one (more than 50 companies) and the name has no middle name"
 NEAR_POLITICIAN = "a politician's name on another register needs a supporting link: a shared directorship, a shareholding, or a declared company"
@@ -244,6 +253,30 @@ def same_full_name(a: dict, b: dict) -> bool:
     return bool(a.get("has_middle") and b.get("has_middle") and a.get("full_key") and a["full_key"] == b["full_key"])
 
 
+def _middle_tokens(m) -> list:
+    import unicodedata
+    t = unicodedata.normalize("NFKD", m or "").encode("ascii", "ignore").decode().lower()
+    return [w for w in re.split(r"[^a-z]+", t) if w]
+
+
+def middles_agree(a, b) -> bool:
+    """Two filed middle names that could be one person's: every name of the shorter matches a different name of the
+    longer, in any order, where one is the other or begins it ("A" and "Alan"; "Sam" and "Samuel"; "Alan" and "Alan
+    James"; "James Alan" and "Alan James"). "Not the same" is the stronger claim, so a doubt stays near."""
+    x, y = _middle_tokens(a), _middle_tokens(b)
+    if not x or not y:
+        return True
+    if len(x) > len(y):
+        x, y = y, x
+    free = list(y)
+    for w in x:
+        hit = next((i for i, v in enumerate(free) if v.startswith(w) or w.startswith(v)), None)
+        if hit is None:
+            return False
+        free.pop(hit)
+    return True
+
+
 def shared_addresses(a_keys: set, b_keys: set) -> set:
     return set(a_keys or ()) & set(b_keys or ())
 
@@ -273,6 +306,11 @@ def judge(a: dict, b: dict, a_keys: set = (), b_keys: set = (), hub_sizes: dict 
     name: {rule, grade, reason, evidence}. A politician's row is never
     confirmed here."""
     hub_sizes = hub_sizes or {}
+    if (a.get("has_middle") and b.get("has_middle") and a.get("full_key") != b.get("full_key")
+            and not middles_agree(a.get("middle"), b.get("middle"))):
+        return {"rule": RULE_MIDDLE_DIFFERS, "grade": "different", "reason": DIFFERENT_MIDDLE,
+                "evidence": {"first_last": a.get("fl_key"), "middles": [a.get("middle"), b.get("middle")],
+                             "as_filed": [a.get("name_filed"), b.get("name_filed")]}}
     if a.get("politician") or b.get("politician"):
         shared = shared_addresses(a_keys, b_keys)
         return {"rule": RULE_NAME_ONLY, "grade": "near", "reason": NEAR_POLITICIAN,
@@ -289,6 +327,8 @@ def judge(a: dict, b: dict, a_keys: set = (), b_keys: set = (), hub_sizes: dict 
         return {"rule": RULE_ADDRESS, "grade": "confirmed", "reason": None,
                 "evidence": {"first_last": a["fl_key"], "shared_addresses": sorted(shared)[:6],
                              "busiest": max(int(hub_sizes.get(k, 1)) for k in shared), "as_filed": [a.get("name_filed"), b.get("name_filed")]}}
+    if reason == NEAR_MIDDLE_DIFFERS or (reason is None and a.get("has_middle") and b.get("has_middle")):
+        reason = NEAR_MIDDLE_AGREES       # differing middle names that disagree were taken out at the top
     if reason is None:
         if a.get("has_middle") and b.get("has_middle"):
             reason = NEAR_MIDDLE_DIFFERS

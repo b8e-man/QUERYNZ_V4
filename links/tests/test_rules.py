@@ -28,8 +28,10 @@ def test_rule_one_needs_the_same_middle_name_on_both():
     a, b = row("Graeme Richard HART", "Graeme", "Richard", "HART"), row("Graeme Richard HART", "Graeme", "Richard", "HART")
     assert rules.judge(a, b)["rule"] == rules.RULE_FULL and rules.judge(a, b)["grade"] == "confirmed"
     c = row("Graeme Eric HART", "Graeme", "Eric", "HART")
-    j = rules.judge(a, c)
-    assert (j["grade"], j["reason"]) == ("near", rules.NEAR_MIDDLE_DIFFERS)
+    j = rules.judge(a, c)        # 25 November 2026: two middle names that differ are two people, never a link
+    assert (j["rule"], j["grade"], j["reason"]) == (rules.RULE_MIDDLE_DIFFERS, "different", rules.DIFFERENT_MIDDLE)
+    e = row("Graeme R HART", "Graeme", "R", "HART")       # an initial is not a difference
+    assert (rules.judge(a, e)["grade"], rules.judge(a, e)["reason"]) == ("near", rules.NEAR_MIDDLE_AGREES)
     d = row("Graeme HART", "Graeme", "", "HART")
     assert rules.judge(a, d)["reason"] == rules.NEAR_ONE_MIDDLE
     assert rules.judge(d, row("Graeme HART", "Graeme", "", "HART"))["reason"] == rules.NEAR_NO_MIDDLE
@@ -380,3 +382,16 @@ def test_an_iwi_hapu_or_marae_is_a_body_whatever_its_name_s_words():
                           ("iwi/hapu/x", "Ngāti Example", None, None, None, None, None, "doc", False, None, None, None))
     assert rec[4] == "organisation" and rec[10] is None and rec[11] is None
     assert rows.row_record("house", "candidates", ("k", "Ngāti Example", None, None, None, None, None, "doc", False, None, None, None))[4] == "person"
+
+
+def test_middle_names_agree_by_initial_prefix_and_extra_names_in_any_order():
+    for a, b in (("A", "Alan"), ("Sam", "Samuel"), ("Alan", "Alan James"), ("A J", "Alan James"), ("James Alan", "Alan James"),
+                 ("Tē", "Te"), ("", "Alan")):
+        assert rules.middles_agree(a, b) and rules.middles_agree(b, a), (a, b)
+    for a, b in (("Eric", "Richard"), ("Mary", "Margaret"), ("Alan James", "Alan Peter")):
+        assert not rules.middles_agree(a, b), (a, b)
+
+
+def test_a_politician_with_a_different_middle_name_is_a_different_person_too():
+    a = dict(row("Graeme Richard HART", "Graeme", "Richard", "HART"), politician=True)
+    assert rules.judge(a, row("Graeme Eric HART", "Graeme", "Eric", "HART"))["grade"] == "different"

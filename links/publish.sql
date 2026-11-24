@@ -62,3 +62,7 @@ SELECT entity_id, kind, display_name, rows, registers, contested, politician, bu
 -- not an entity: it joins documents, never people or companies. One row per document of a case of two or more.
 CREATE OR REPLACE VIEW pub.court_case_documents AS
 SELECT case_id, document, kinds, citations, case_numbers, case_slugs, documents, built_at FROM links.cases;
+
+-- Two rows a rule finds are different people (links.different; 25 November 2026)
+CREATE OR REPLACE VIEW pub.links_different AS
+SELECT row_a, row_b, rule, evidence, reason, built_at FROM links.different;

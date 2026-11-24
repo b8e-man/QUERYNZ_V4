@@ -158,6 +158,7 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     out = {}
     work_tables(conn, s)
     conn.execute(f"DELETE FROM {s}.links")
+    conn.execute(f"DELETE FROM {s}.different")
     conn.execute(f"ALTER SEQUENCE {s}.links_link_id_seq RESTART WITH 1")
     hub_table(conn, s)
     # rule 1: the full name with a middle name
@@ -1046,34 +1047,49 @@ def near_links(conn, s: str, log=print, reader=None, comp: dict = None) -> int:
         cur.itersize = 20000
         cur.execute(f"""SELECT fl_key, array_agg(ref ORDER BY ref COLLATE "C"), array_agg(full_key ORDER BY ref COLLATE "C"), array_agg(has_middle ORDER BY ref COLLATE "C"),
                                array_agg(middle ORDER BY ref COLLATE "C"), array_agg(politician ORDER BY ref COLLATE "C"), array_agg(name_filed ORDER BY ref COLLATE "C"),
-                               array_agg(register ORDER BY ref COLLATE "C")
+                               array_agg(register ORDER BY ref COLLATE "C"), array_agg(view ORDER BY ref COLLATE "C")
                         FROM {s}.rows WHERE kind = 'person' AND fl_key IS NOT NULL AND view <> ALL(%s)
                         GROUP BY fl_key HAVING count(*) > 1""", (list(lrows.MEMBER_DAY_VIEWS),))
         with conn.cursor() as w:
-            batch = []
-            for fl, refs, fulls, mids, middles, pols, filed, regs in cur:
+            batch, apart = [], []
+            for fl, refs, fulls, mids, middles, pols, filed, regs, views in cur:
                 anchors: dict = {}
                 for i, r in enumerate(refs):
                     c = comp.get(r, r)
                     if c not in anchors:
                         anchors[c] = {"ref": r, "fl_key": fl, "full_key": fulls[i], "has_middle": mids[i], "middle": middles[i],
-                                      "politician": pols[i], "name_filed": filed[i], "register": regs[i]}
+                                      "politician": pols[i], "name_filed": filed[i], "register": regs[i], "view": views[i]}
                 if len(anchors) < 2:
                     continue
                 order = sorted(anchors)
-                head = anchors[order[0]]
-                for c in order[1:]:
+                for k, c in enumerate(order[1:], 1):
                     other = anchors[c]
-                    j = rules.judge(head, other, set(), set(), {})
+                    # the star's centre is the first anchor; one whose middle name differs from it (25 November 2026: two
+                    # people, written to links.different) is drawn instead to the first earlier anchor it agrees with
+                    head, j = anchors[order[0]], rules.judge(anchors[order[0]], other, set(), set(), {})
+                    if j["grade"] == "different":
+                        a, b = links.pair(head["ref"], other["ref"])
+                        j["evidence"]["registers"] = [head["register"], other["register"]]
+                        apart.append((a, b, rules.RULE_MIDDLE_DIFFERS, json.dumps(j["evidence"]), j["reason"]))
+                        head, j = next(((anchors[e], jj) for e in order[1:k]
+                                        for jj in (rules.judge(anchors[e], other, set(), set(), {}),) if jj["grade"] != "different"),
+                                       (None, None))
+                        if head is None:
+                            continue
+                    if j["grade"] == "confirmed":
+                        # the full name equal, yet the pair sits in two components: a model-read row's links are near only
+                        j["reason"] = MODEL_TIER if lrows.MODEL_VIEWS & {head["view"], other["view"]} else rules.NEAR_KEPT_APART
                     a, b = links.pair(head["ref"], other["ref"])
                     j["evidence"]["registers"] = [head["register"], other["register"]]
                     batch.append((a, b, rules.RULE_NAME_ONLY, json.dumps(j["evidence"]), "near", j["reason"]))
-                if len(batch) >= 5000:
+                if len(batch) >= 5000 or len(apart) >= 5000:
                     n += _insert_near(w, s, batch)
+                    _insert_different(w, s, apart)
                     conn.commit()
-                    batch = []
-            if batch:
+                    batch, apart = [], []
+            if batch or apart:
                 n += _insert_near(w, s, batch)
+                _insert_different(w, s, apart)
                 conn.commit()
     log(f"links.build: {rules.RULE_NAME_ONLY}: {n} ({time.monotonic() - t0:.0f} s)")
     return n
@@ -1081,6 +1097,12 @@ def near_links(conn, s: str, log=print, reader=None, comp: dict = None) -> int:
 
 def _insert_near(w, s: str, batch: list) -> int:
     w.executemany(f"INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason) VALUES (%s, %s, %s, %s::jsonb, %s, %s) "
+                  f"ON CONFLICT DO NOTHING", batch)
+    return len(batch)
+
+
+def _insert_different(w, s: str, batch: list) -> int:
+    w.executemany(f"INSERT INTO {s}.different (row_a, row_b, rule, evidence, reason) VALUES (%s, %s, %s, %s::jsonb, %s) "
                   f"ON CONFLICT DO NOTHING", batch)
     return len(batch)
 

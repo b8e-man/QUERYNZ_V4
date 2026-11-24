@@ -331,3 +331,18 @@ CREATE TABLE IF NOT EXISTS links.cases (
     PRIMARY KEY (document)
 );
 CREATE INDEX IF NOT EXISTS cases_case ON links.cases (case_id);
+
+-- Two rows a rule finds are different people (Arthur, 25 November 2026: "middle names differ" is evidence of two people,
+-- not a weak link). Rebuilt with the links; never a link, never followed by the groups. A person's decision that two
+-- rows are not the same is links.decisions, not this.
+CREATE TABLE IF NOT EXISTS links.different (
+    row_a        text NOT NULL,
+    row_b        text NOT NULL,
+    rule         text NOT NULL,            -- 'middle-names-differ@1'
+    evidence     jsonb NOT NULL,
+    reason       text NOT NULL,
+    built_at     timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT different_pair_order CHECK ((row_a COLLATE "C") < row_b),
+    PRIMARY KEY (row_a, row_b, rule)
+);
+CREATE INDEX IF NOT EXISTS different_row_b ON links.different (row_b);

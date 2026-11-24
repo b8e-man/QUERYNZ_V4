@@ -369,6 +369,20 @@ def check_model_tier(conn, s: str) -> list:
              "ok": confirmed == 0 and grouped == 0}]
 
 
+def check_reasons_and_different(conn, s: str) -> list:
+    """25 November 2026: every near link says why it is near (695,739 did not, the full-name pairs a model-read row kept
+    in two components); and no pair is both a link and a pair `links.different` says are two people."""
+    row = conn.execute(f"""
+        SELECT (SELECT count(*) FROM {s}.links WHERE grade = 'near' AND reason IS NULL),
+               (SELECT count(*) FROM {s}.different d JOIN {s}.links l ON l.row_a = d.row_a AND l.row_b = d.row_b
+                 WHERE l.rule = 'name-only@1'),
+               (SELECT count(*) FROM {s}.different)""").fetchone()
+    silent, both, apart = (int(x) for x in row)
+    return [{"check": "every near link carries a reason", "near_without_a_reason": silent, "ok": silent == 0},
+            {"check": "a pair whose middle names differ is not drawn as a name-only link", "different": apart,
+             "also_a_name_only_link": both, "ok": both == 0}]
+
+
 def check_numbers(conn, s: str) -> list:
     """3 November 2026, counted in SQL apart from the build: every `official-number@1` link a printed number made (its
     evidence names the view) joins a row that prints the number (`row_numbers`) to a body that holds it on `bodies`
@@ -462,6 +476,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_ruling_116(conn, s)
     out += check_entities(conn, s, pub)
     out += check_model_tier(conn, s)
+    out += check_reasons_and_different(conn, s)
     out += check_numbers(conn, s)
     out += check_identifier_links(conn, s)
     if pub == "pub":

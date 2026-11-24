@@ -36,7 +36,7 @@ def test_pair_orders_by_bytes():
 def test_every_pair_order_check_compares_bytes():
     sql = links.tables_sql()
     checks = re.findall(r"CHECK \(\(?row_a[^)]*\)?\s*<\s*row_b\)", sql)
-    assert len(checks) == 6                                     # three in CREATE TABLE, three in the migration
+    assert len(checks) == 7                                     # four in CREATE TABLE (links.different, 25 November 2026), three in the migration
     assert all('COLLATE "C"' in c for c in checks), checks
 
 
