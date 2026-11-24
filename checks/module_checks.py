@@ -33,7 +33,9 @@ PRODUCTS = {"board": ["python", "-m", "products.board", "check"],
 #: seconds (the slowest, gazette and the board, in 1.0 s); the allowance is
 #: a hundredfold, and a check past it is red and says so, never skipped
 DEFAULT_TIMEOUT_S = 120
-TIMEOUTS_S: dict = {}
+#: measured on node2, 25 November 2026, as the lanes grew: papers_past 364 s, parliament 333 s, hansard 90 s,
+#: ministers_diaries 60 s, beehive 45 s; each allowance is about two and a half times its measure
+TIMEOUTS_S: dict = {"papers_past": 900, "parliament": 900, "hansard": 300, "ministers_diaries": 180, "beehive": 180}
 _MAIN = re.compile(r"^def main\(", re.M)
 
 
