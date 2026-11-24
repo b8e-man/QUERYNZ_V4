@@ -3,6 +3,7 @@
   agent --config FILE     a box's role agent (run by qv4-roled, as root)
   voter [--state FILE]    the voter (run by qv4-voter on the third machine)
   status                  this box's agent: role, epoch, lease left, last lines
+  ask-voter               the voter's answer, read only: who holds the lease, the epoch, whether it is held
   switchover              move the primary role to the other box now (from the primary; checkpoint first)
   hold on|off             maintenance: the voter grants no new holder; this box's agent may stop without fencing
   keygen [FILE]           write a new QV4_VOTER_KEY into ~/.querynz/voter.env (never printed); copy the file
@@ -71,6 +72,14 @@ def main(argv: list[str]) -> int:
         r = daemon.control(key, "switchover", timeout=60)
         print(json.dumps(r) if r else "no answer from the agent on this box")
         return 0 if r and r.get("ok") else 1
+    if cmd == "ask-voter":
+        # read only: an op the voter does not act on, answered with who holds the lease, the epoch and the hold
+        c = conf("/etc/qv4-takeover/agent.conf")
+        w = wire.Wire("ctl", key, ("0.0.0.0", 0))
+        w.send((c["voter"], daemon.VOTER_PORT), {"op": "query", "box": "ctl"})
+        got = w.recv(3)
+        print(json.dumps({k: got[1].get(k) for k in ("holder", "epoch", "held", "ttl")}) if got else "no answer from the voter")
+        return 0 if got else 1
     if cmd == "hold":
         on = (rest[:1] or ["on"])[0] == "on"
         c = conf("/etc/qv4-takeover/agent.conf")
