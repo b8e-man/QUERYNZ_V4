@@ -419,7 +419,7 @@ LLOYD = "charities:charities/officers/1684473"
 
 
 def test_lloyd_budd_s_dossier_reads_as_facts_folded_by_what_the_rows_say():
-    """Ruling 117 (1) and (2), live: his three rows are two facts, the five celebrant lists one near entry,
+    """Ruling 117 (1) and (2), live: his five rows are three facts, the five celebrant lists one near entry,
     the candidacy another; no entry names a register, a view or a row count. Registers published since add near
     entries of the name (a land title, a Real Estate Authority decision, a minister's diary, 9 November 2026): each
     is near, never a fact, and each says what its row says, never the row's title ("name · key")."""
@@ -434,7 +434,10 @@ def test_lloyd_budd_s_dossier_reads_as_facts_folded_by_what_the_rows_say():
     assert "Trustee of Keystone New Zealand Property Education Trust since 11 March 2025" in says
     assert "Lloyd Budd: marriage celebrant, listed 2020 to 2025" in says
     assert any(s.startswith("Lloyd Sam BUDD: candidate, Whangārei, 2026") for s in says)
-    assert page.count('<li class="fact"') == 2 and page.count('<li class="fact near"') >= 2
+    # 24 November 2026: the links rebuild confirmed his role and holding in a second company through the company
+    # lookups (full-name@1, "Lloyd Sam BUDD"), one fact once its body is found by the entity's key
+    assert "Director and shareholder of WHAU VALLEY HOLDINGS LIMITED 11 July 2006 to 21 April 2008" in says
+    assert page.count('<li class="fact"') == 3 and page.count('<li class="fact near"') >= 2
     assert "five Gazette lists" in page and took < 2.0
     near_says = [unescape(re.sub(r"<[^>]+>", "", s)) for li in re.findall(r'<li class="fact near">(.*?)</li>', page, re.S)
                  for s in re.findall(r'<div class="say">(.*?)</div>', li)]
@@ -463,7 +466,8 @@ def test_lloyd_budd_s_entity_graph_is_one_drawing_from_every_row_and_in_both_sta
     seen = {}
     with db.read_connect() as conn:
         centres = sorted(f"{m['view']}:{m['key']}" for m in people.members_of(conn, [LLOYD])[LLOYD])
-        assert len(centres) == 3
+        assert len(centres) == 5          # his charity row, BUDD CONSULTANCY's director and shareholder rows, and
+                                          # the lookups' role and holding in WHAU VALLEY HOLDINGS (24 November 2026)
         for cl in ((), ("name",)):
             for c in centres:
                 t = time.time()

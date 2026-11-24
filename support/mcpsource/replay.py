@@ -17,8 +17,8 @@ from support import fetchgate as fg
 # the address as asked first, then the same address with its path's closing slash added or taken off (25 November
 # 2026: grants asked for `…-record-of-grants/` and the provider's copy holds `…-record-of-grants`, so 110 pages it
 # landed on 15 November were "not held" for ten days)
-NEWEST = ("SELECT capture_sha256 FROM {schema}.files WHERE url = ANY(%s) AND corpus = ANY(%s) "
-          "AND state IN ('landed', 'held') ORDER BY url = %s DESC, seq DESC LIMIT 1")
+NEWEST = ("SELECT capture_sha256 FROM {schema}.files WHERE url = %s AND corpus = ANY(%s) "
+          "AND state IN ('landed', 'held') ORDER BY seq DESC LIMIT 1")
 
 
 def spellings(url: str) -> list:
@@ -43,8 +43,11 @@ def holds(conn, corpus: str, schema: str = "mcpsource") -> bool:
 
 def newest(conn, url: str, corpora, schema: str = "mcpsource"):
     """The hash of the newest copy of `url` in `corpora`, or None."""
-    row = conn.execute(NEWEST.format(schema=schema), (spellings(url), list(corpora), url)).fetchone()
-    return row[0] if row else None
+    for u in spellings(url):
+        row = conn.execute(NEWEST.format(schema=schema), (u, list(corpora))).fetchone()
+        if row:
+            return row[0]
+    return None
 
 
 def opener(conn, corpora, schema: str = "mcpsource", read_bytes=None):

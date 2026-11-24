@@ -86,15 +86,21 @@ def _land(data, *, name, source, name_kind):
     return types.SimpleNamespace(sha256=hashlib.sha256(data).hexdigest()), True
 
 
-def _run(mod, pages, lists, ledger=None, **kw):
+def _run(mod, pages, lists, ledger=None, seeds=(), **kw):
     import tempfile
+    # the walk's seeded addresses (CM_SEEDS) are off in these properties, which count every request; their own test
+    # is test_the_lottery_records_index_is_asked_though_no_page_links_it
+    orig_seeds, mod.CM_SEEDS = getattr(mod, "CM_SEEDS", ()), seeds
     # each run its own gate ledger: a block holds the host (ruling 141), and the properties below run one after another
     mod.fg.LEDGER_DIR = ledger or tempfile.mkdtemp(prefix="grants-gate-")   # the root conftest's monkeypatch restores it
     t, clock = FakeTables(), Clock()
     fetch, asked = _site(pages)
     run = mod.Run(t, land_fn=_land, fetch=fetch, clock=clock.now, sleep=clock.sleep, now=lambda: NIGHT,
                   lists=lists, log=lambda *a: None, **kw)
-    return run.run(), t, asked, clock
+    try:
+        return run.run(), t, asked, clock
+    finally:
+        mod.CM_SEEDS = orig_seeds
 
 
 @pytest.fixture(autouse=True)
@@ -300,3 +306,11 @@ def test_an_address_the_copy_lacked_is_due_again_on_the_next_run_once():
         conn.execute(f"UPDATE {capture.table(schema, 'capture_frontier')} SET asked_at = %s + interval '1 second'",
                      (before,))
         assert t.frontier_next("h", 50, 30, before) == []                          # once a run, not in a loop
+
+
+def test_the_lottery_records_index_is_asked_though_no_page_links_it():
+    """25 November 2026: the copy's lottery-fund page has no link to lottery-fund-grants-made."""
+    seed = f"{CM}/lottery-fund/lottery-fund-grants-made"
+    out, t, asked, _ = _run(capture, {f"{CM}/": (200, b"<html>no links</html>", ""), seed: (200, _record("Seeded"), "")},
+                            ("lottery-page",), seeds=capture.CM_SEEDS)
+    assert seed in asked and out["records_of_grants"] == 1

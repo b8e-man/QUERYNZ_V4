@@ -115,6 +115,7 @@ FILE_LINK = re.compile(r'href="(https://catalogue\.data\.govt\.nz/dataset/[0-9a-
                        r'class-4-grants[^"]*\.csv)"', re.I)
 CM_HOST = "www.communitymatters.govt.nz"
 CM_HOME = f"https://{CM_HOST}/"
+CM_SEEDS = (f"https://{CM_HOST}/lottery-fund/lottery-fund-grants-made",)
 ABOUT = {
     "dia-copyright": ("dia", "https://www.dia.govt.nz/Copyright"),
     "dia-terms-of-use": ("dia", "https://www.dia.govt.nz/Terms-of-use"),
@@ -558,6 +559,9 @@ class Run:
     def lottery_pages(self):
         host = CM_HOST
         self.t.frontier_add(host, [canonical(CM_HOME)], 0)
+        # the records' own index, seeded: no page the walk reaches links it (25 November 2026: the copy's lottery-fund
+        # page has no link to it, so the Lottery's records of grants were never asked though the copy holds them)
+        self.t.frontier_add(host, [canonical(u) for u in CM_SEEDS], 1)
         while self.time_left():
             batch = self.t.frontier_next(host, 50, RECRAWL_DAYS, self.began_at if self.mcp else None)
             if not batch:

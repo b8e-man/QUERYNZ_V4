@@ -22,7 +22,7 @@ class Files:
 
     def execute(self, sql, params):
         url, corpora = params
-        held = self.corpus in corpora and url not in self.lacks
+        held = self.corpus in corpora and url.rstrip("/") not in {u.rstrip("/") for u in self.lacks}   # lacked either spelling
         return types.SimpleNamespace(fetchone=lambda: (url,) if held else None)
 
 

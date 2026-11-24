@@ -349,6 +349,9 @@ VIEWS: tuple[View, ...] = (
                 Join("Changes", "company_changes", "entity_key", order="seen_on")),
          parent=("Company", "companies", "entity_key"),
          note="the register's last answer for an entity a product looked up or watches; a sole trader's withheld name reads as the register gives it; no address of a person is shown"),
+    # the lookups' rows name their entity by `entity_key` ("companies/<nzbn>"), the lookup's own `key` is one answer of
+    # it ("companies/<nzbn>/answer/<id>"): matched to `key`, no relation found its body, and a role read "Director,
+    # 2006 to 2008" with no company (25 November 2026)
     View("company_lookup_roles", "companies", "person", ("full_name",),
          search=("full_name", "last_name"),
          fields=(("role", "role_type"), ("status", "role_status"), ("a body", "is_body"), ("body NZBN", "body_nzbn"),
@@ -357,7 +360,7 @@ VIEWS: tuple[View, ...] = (
          names=("full_name", "first_name", "middle_names", "last_name"), suppressed="suppressed",
          parent=("Entity", "company_lookups", "entity_key"),
          note="the register's own start and end dates; a role the monthly file stopped listing shows the end the interface gives it",
-         relations=(Relation("role", "entity_key", "company_lookups", label="role in"),)),
+         relations=(Relation("role", "entity_key", "company_lookups", to_column="entity_key", label="role in"),)),
     View("company_lookup_holdings", "companies", "person", ("name",),
          search=("name",), numbers=("holder_nzbn",),
          fields=(("holder type", "holder_type"), ("shares", "shares"), ("allocation", "allocation"),
@@ -365,7 +368,7 @@ VIEWS: tuple[View, ...] = (
          dates=(("started on", "started_on"), ("ended on", "ended_on")),
          names=("name",), suppressed="suppressed",
          parent=("Entity", "company_lookups", "entity_key"),
-         relations=(Relation("role", "entity_key", "company_lookups", label="holds shares in"),)),
+         relations=(Relation("role", "entity_key", "company_lookups", to_column="entity_key", label="holds shares in"),)),
     View("company_changes", "companies", "event", ("kind", "subject"),
          search=("subject",),
          fields=(("kind", "kind"), ("before", "before"), ("after", "after"), ("date basis", "date_basis"),

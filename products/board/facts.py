@@ -138,6 +138,10 @@ NUMBER_WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "ei
 CITE_AT = 6                 # documents named on a fact's citation line; the rest counted
 
 
+#: each view's place in the catalogue: the order a fact's or a card's words are said in
+_PLACE = {v.name: i for i, v in enumerate(cat.VIEWS)}
+
+
 def says_of(v: cat.View) -> Says | None:
     return SAYS.get(v.name)
 
@@ -247,7 +251,10 @@ def fold(x: dict, rows=None, apart: bool = False) -> list:
         f["rows"].append((ref, v, r))
     facts = list(out.values())
     for f in facts:
-        f["rows"].sort(key=lambda rv: (first_day(rv[1], rv[2]) or dt.date.max, rv[1].name, str(rv[2]["key"])))
+        # a tie on the day goes by the catalogue's order of the views (directors before shareholders, roles before
+        # holdings), not the views' names (25 November 2026: "Shareholder and Director of WHAU VALLEY HOLDINGS")
+        f["rows"].sort(key=lambda rv: (first_day(rv[1], rv[2]) or dt.date.max, _PLACE.get(rv[1].name, len(_PLACE)),
+                                       rv[1].name, str(rv[2]["key"])))
         for _, v, r in f["rows"]:
             s = says_of(v)
             n = noun_of(v, r, s) if s else ""
@@ -458,6 +465,10 @@ def what_it_is(pairs) -> str:
     [(view, row or None)] grouped by register in its order, each register's
     words joined by 'and', at most four registers, then 'and more'."""
     order = {r: i for i, (r, _) in enumerate(cat.REGISTERS)}
+    # within a register, the words in the catalogue's order of its views (directors before shareholders), never the
+    # order the rows arrive in (25 November 2026: a group's rows come by row key, and the company-lookup rows
+    # joined to Lloyd Budd's group sorted first, so he read 'shareholder and director')
+    pairs = sorted(pairs, key=lambda p: _PLACE.get(p[0].name, len(_PLACE)))
     by = {}
     for v, r in pairs:
         w = card_word(v, r)

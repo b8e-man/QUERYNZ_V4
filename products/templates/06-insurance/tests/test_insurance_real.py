@@ -65,6 +65,14 @@ def memo(ref: str) -> dict:
         assert len(re.findall(rf"^  (?:FIRED|CLEAR|BLOCKED)\s+\w+\s+{name}@", text, re.M)) == 1, name
     assert "could not run" not in text, "a rule broke on real rows"
     for name in SAFETY:
+        if name == "court-judgments" and flags[name]["status"] == "fired":
+            # a party row found fires (amber: the subject's; info: a namesake's or an officer's), and the flag never
+            # clears (template.toml: "a listing found fires, and none found is blocked"). 25 November 2026: with the
+            # links rebuilt, the company this test picks has a namesake's party row, so it fires info
+            assert flags[name]["severity"] in ("amber", "info") and (
+                "not a finding" in flags[name]["text"] or "nothing in a namesake's case is the subject's" in flags[name]["text"]
+                or "not the entity's" in flags[name]["text"]), flags[name]
+            continue
         assert flags[name]["status"] == "blocked", name
     assert flags["regulator-actions"]["status"] in ("clear", "fired"), "the Commission's and the FMA's listings are read"
     assert "THE SAFETY RECORD AND THE REGULATORS' LISTINGS" in text and "not held: Court judgments" in text
