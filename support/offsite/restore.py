@@ -258,6 +258,37 @@ def stop_server(run=subprocess.run) -> None:
     run(["systemctl", "--user", "stop", UNIT], capture_output=True)
 
 
+def clear_scratch(root: str, run=subprocess.run, kill=os.kill, log=print) -> None:
+    """Begin from nothing (24 November 2026): a failed rehearsal keeps its server and its half-restored folder for a
+    look, and one stopped by the worker never reaches its `finally`; the next rehearsal found the 19 November server
+    still on the folder, reused the half-restored data, and the two servers shut each other down. Stops the unit,
+    stops any server still named in the folder's postmaster.pid (only a postgres whose data folder is this one), and
+    removes the folder, the socket and the trees; the downloads in `work` are kept, by name, for reuse."""
+    import signal
+    stop_server(run=run)
+    pgdata = os.path.join(root, "pgdata")
+    try:
+        with open(os.path.join(pgdata, "postmaster.pid")) as f:
+            pid = int(f.readline().strip())
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            argv = f.read().split(b"\0")
+        if argv and argv[0].endswith(b"postgres") and os.path.realpath(pgdata).encode() in argv:
+            log(f"  stopping the scratch server left running (pid {pid})")
+            kill(pid, signal.SIGINT)                     # fast shutdown
+            for _ in range(60):
+                if not os.path.exists(f"/proc/{pid}"):
+                    break
+                time.sleep(1)
+            else:
+                kill(pid, signal.SIGQUIT)
+    except (OSError, ValueError):
+        pass
+    for sub in ("pgdata", "trees", "sock"):
+        path = os.path.join(root, sub)
+        if os.path.realpath(path).startswith(os.path.realpath(root) + os.sep):
+            shutil.rmtree(path, ignore_errors=True)
+
+
 def conninfo(root: str, database: str, port: int = PORT) -> str:
     return f"host={socket_dir(root)} port={port} user=restore dbname={database}"
 
@@ -469,6 +500,7 @@ def rehearse(source: str = "bucket", databases=None, trees=None, keep: bool = Fa
         locales = database_locales(man, wanted, live)    # a live read that fails is recorded like any failure
         rec["server_locale"] = locales[wanted[0]] if wanted else SERVER_LOCALE
         t = time.monotonic()
+        clear_scratch(root, run=run, log=log)
         start_server(root, rec["server_locale"], run=run)
         rec["server_s"] = round(time.monotonic() - t, 1)
         for database in wanted:

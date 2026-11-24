@@ -127,3 +127,23 @@ def test_a_manifest_without_the_locale_falls_back_to_the_live_server_and_records
     assert back["databases"]["querynz_v4"]["locale"] == {**NZ, "from": "live server"}
     assert rec["equal"] is True
     assert ["systemctl", "--user", "stop", R.UNIT] in run.calls      # the fake's, never the real unit
+
+
+def test_a_rehearsal_begins_from_nothing_and_stops_only_its_own_server(tmp_path, monkeypatch):
+    """24 November 2026: the 19 November rehearsal's server was still on the folder and the next run reused it."""
+    import os
+    root = tmp_path
+    pg = root / "pgdata"
+    pg.mkdir()
+    (pg / "PG_VERSION").write_text("18")
+    (root / "sock").mkdir()
+    (root / "work").mkdir()
+    (root / "work" / "kept.download").write_text("x")
+    (pg / "postmaster.pid").write_text(f"{os.getpid()}\n")       # a pid that is not a postgres: never signalled
+    calls, killed = [], []
+    R.clear_scratch(str(root), run=lambda cmd, **kw: calls.append(cmd), kill=lambda p, s: killed.append(p),
+                    log=lambda *a: None)
+    assert ["systemctl", "--user", "stop", R.UNIT] in calls
+    assert killed == []
+    assert not pg.exists() and not (root / "sock").exists()
+    assert (root / "work" / "kept.download").exists()

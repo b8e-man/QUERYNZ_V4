@@ -35,6 +35,7 @@ from support import db
 SEND, LOCAL, OUT = "send", "local", "out"
 FULL_WEEKDAY = 6          # Sunday (Monday is 0): the checkpoint lands before the working week
 REFRESH_DAYS = 28         # a frozen piece is sent again before the 45-day bucket rule removes it
+V4_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OLD_REPO = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"   # read only; never written; node1 reads node2's over NFS
 
 # database -> the login that reads it, and whether it is frozen. The old
@@ -54,6 +55,19 @@ OLD_DATABASES = {
 # `db.schema.table` patterns (fnmatch) -> (fate, why, the rebuild's path).
 # `missing_rebuilds()` checks every named rebuild is on disk.
 RULES = {
+    # Arthur, 24 November 2026 ("leave them out"): the links and LINZ tables are rebuilt, not copied; a third of the
+    # copy and most of the rehearsal's 12 hours. Kept: what cannot be rebuilt, named first because the first match wins
+    # (the links' decisions and the review's readings, scores, measurements and test pairs; the model checks and the
+    # sightings, read from documents at a cost; the LINZ capture's own ledger of pulls, pages and surveys).
+    **{f"querynz_v4.links.{t}": (SEND, "a decision, a reading or a costly read: not rebuilt", f"{V4_REPO}/links/tables.sql")
+       for t in ("decisions", "old_decisions", "readings", "scores", "measurements", "test_pairs", "model_name_checks",
+                 "sightings", "sightings_done")},
+    **{f"querynz_v4.linz.{t}": (SEND, "the capture's own ledger", f"{V4_REPO}/registers/linz/capture.py")
+       for t in ("pulls", "pages", "surveys", "loaded_pulls")},
+    "querynz_v4.links.*": (OUT, "the links, rebuilt by the links build (about 2.3 h)", f"{V4_REPO}/links/build_all.py"),
+    "querynz_v4.linz.*": (OUT, "the LINZ tables, reloaded from the captured pulls", f"{V4_REPO}/registers/linz/load.py"),
+    "querynz_v4.linz_private.*": (OUT, "the LINZ private tables, reloaded from the captured pulls",
+                                  f"{V4_REPO}/registers/linz/load.py"),
     "extractions.candidates.*": (OUT, "the candidate register, 120 GB",
         f"{OLD_REPO}/data-layer/candidate_register/candidate_register/cli.py"),
     "extractions.v3.extract_queue": (OUT, "a work queue (extract-queue refills it)", f"{OLD_REPO}/v3/cli.py"),
