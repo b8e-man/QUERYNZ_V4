@@ -1597,3 +1597,14 @@ with a challenge wall and can be reached only through the Parliamentary Counsel 
 withdrawn; no key is applied for and no other route is sought. Shelved, not refused: it reopens on
 Arthur's word. The disclosure statements on disclosure.legislation.govt.nz are a separate corpus
 (estate-disclosure_statements) and are not shelved.
+
+179. Arthur, 25 November, of the frozen site's OCR server (`querynz-vision-ocr`, GLM-OCR on :8032, 3.1 GiB
+on each card of both boxes beside Flash-Next): "this should always be removed when loading Flash next";
+then, as the rule: "only load the model a card needs to perform a task. when changing tasks, remove the not
+required model". A card holds only the model its current task needs; when the task changes, the model it no
+longer needs is unloaded. Applied first to the OCR server: node1's is never needed (the donations feed runs
+on node2 only, and node1's served no page in the 30 days to 25 November), so it comes off and node1's
+Flash-Next takes the room; node2's is loaded for the donations feed's run (03:32) and unloaded after it.
+The server is in the carve-out, so the session hook refuses a session that stops it: Arthur stops it, or a
+founding session takes it out of the carve-out's fence first (limits 22 and 24). Amends step 2.9's fixed
+reservations and ruling 121's "with card room left for it".
