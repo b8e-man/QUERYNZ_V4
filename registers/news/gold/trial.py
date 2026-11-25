@@ -418,7 +418,10 @@ def run_models(tranches: list, urls: list, model: str, name: str, per_server: in
         todo = [(t, i, _text(c, i)) for t in tranches for i in _ids(t)]
     todo = [x for j, x in enumerate(todo) if j % n == k and not (_dir(x[0], name) / f"{x[1]}.json").exists()]
     for t in tranches:
-        _dir(t, name).mkdir(parents=True, exist_ok=True)
+        try:
+            _dir(t, name).mkdir(parents=True, exist_ok=True)
+        except FileExistsError:   # node1 sees node2's disk over NFS: the other box made it a moment ago
+            pass
 
     def one(job):
         (t, i, text), url = job
