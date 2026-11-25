@@ -2,6 +2,8 @@
 
     python -m registers.news.gold.trial run [--tranche 1] [--run run2] [--url URL] [--model M] [--workers 4]
     python -m registers.news.gold.trial score [--tranche 1] [--run run2]
+    python -m registers.news.gold.trial models --urls U1,U2 --model M --run NAME [--tranches 2,...,7] [--per-server 8]
+                                               [--part k/n]   another model over the sample, the corpus read's passes
 
 Run 1 (tranche-N/ itself) was one call under json_object. Run 2 onward: the read under a JSON schema whose enums the
 server enforces, quotes in a second pass, and the checks after the read (`check`).
@@ -406,6 +408,43 @@ def run(tranche: int, url: str, model: str, workers: int, name: str = "") -> Non
             print(f"{i[:8]} {r['seconds']}s {'ok' if r['parsed'] else 'UNPARSED'}", flush=True)
 
 
+def run_models(tranches: list, urls: list, model: str, name: str, per_server: int = 8, part: str = "0/1") -> None:
+    """Another model over the sample (Arthur, 25 November 2026: "try qwen 3.6 35b a3b and compare it to Flash Next on
+    the sample"; "a separate instance of the model on each card and use 8 concurrency"): every article of TRANCHES
+    read in the four passes the corpus read uses (read, quotes, claims, tones), PER_SERVER at once on each of URLS, into
+    tranche-N/NAME/<id>.json. PART "k/n" takes every n-th article from the k-th, so each box can run its own half."""
+    k, n = (int(x) for x in part.split("/"))
+    with _conn() as c:
+        todo = [(t, i, _text(c, i)) for t in tranches for i in _ids(t)]
+    todo = [x for j, x in enumerate(todo) if j % n == k and not (_dir(x[0], name) / f"{x[1]}.json").exists()]
+    for t in tranches:
+        _dir(t, name).mkdir(parents=True, exist_ok=True)
+
+    def one(job):
+        (t, i, text), url = job
+        r = read_one(i, text, url, model)
+        got = r.get("parsed")
+        if isinstance(got, dict):
+            t0 = time.monotonic()
+            claims_pass(got, text, url, model)
+            tone_pass(got, text, url, model)
+            r["claims_tones_seconds"] = round(time.monotonic() - t0, 1)
+        return t, i, r
+
+    jobs = [(x, urls[j % len(urls)]) for j, x in enumerate(todo)]
+    with cf.ThreadPoolExecutor(per_server * len(urls)) as ex:
+        futs = {ex.submit(one, j): j for j in jobs}
+        for f in cf.as_completed(futs):
+            (t, i, _), _u = futs[f]
+            try:
+                t, i, r = f.result()
+            except Exception as exc:  # noqa: BLE001 — one article's failure is reported, the rest go on
+                print(f"{t} {i[:8]} failed: {type(exc).__name__}: {str(exc)[:160]}", flush=True)
+                continue
+            (_dir(t, name) / f"{i}.json").write_text(json.dumps(r, indent=1, ensure_ascii=False) + "\n")
+            print(f"{t} {i[:8]} {r['seconds']}+{r.get('claims_tones_seconds')}s {'ok' if r['parsed'] else 'UNPARSED'}", flush=True)
+
+
 # ── scoring ──
 
 def _n(s) -> str:
@@ -546,6 +585,10 @@ def main(argv=None) -> int:
     tranche = int(opt("--tranche", 1))
     if argv[:1] == ["run"]:
         run(tranche, opt("--url", URL), opt("--model", MODEL), int(opt("--workers", 4)), opt("--run", ""))
+        return 0
+    if argv[:1] == ["models"]:
+        run_models([int(x) for x in opt("--tranches", "2,3,4,5,6,7").split(",")], opt("--urls", URL).split(","),
+                   opt("--model", MODEL), opt("--run", "other"), int(opt("--per-server", 8)), opt("--part", "0/1"))
         return 0
     if argv[:1] == ["tones"]:
         tones_run(tranche, opt("--from", "run6"), opt("--run", "run7"), opt("--url", URL), opt("--model", MODEL),
