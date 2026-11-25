@@ -137,6 +137,8 @@ class Store:
         tmp = f"{p}.{os.getpid()}.tmp"     # 14 Nov 2026: two pieces of one document shared ".tmp" and one lost it
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(asdict(reading), f, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())    # 25 Nov 2026: a power cut left 11 readings renamed into place at 0 bytes
         os.replace(tmp, p)
         return p
 
