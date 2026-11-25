@@ -3192,6 +3192,10 @@
    "date": [
     "str"
    ],
+   "etag": [
+    "null",
+    "str"
+   ],
    "fetched_at": [
     "str"
    ],
@@ -3199,6 +3203,9 @@
     "str"
    ],
    "file_uri": [
+    "str"
+   ],
+   "final_address": [
     "str"
    ],
    "first_landed": [
@@ -3218,6 +3225,16 @@
    ],
    "last_landed": [
     "str"
+   ],
+   "last_modified": [
+    "null",
+    "str"
+   ],
+   "listed": [
+    "dict"
+   ],
+   "listed_on": [
+    "list"
    ],
    "names": [
     "list"
@@ -3253,11 +3270,37 @@
    ]
   },
   "items": {
+   "archive_replay_urls": {
+    "*": [
+     "str"
+    ]
+   },
    "capture": {
     "fetched_at": [
      "str"
     ],
     "sha256": [
+     "str"
+    ]
+   },
+   "listed": {
+    "section": [
+     "null",
+     "str"
+    ],
+    "context": [
+     "str"
+    ],
+    "date": [
+     "null",
+     "str"
+    ],
+    "title": [
+     "str"
+    ]
+   },
+   "listed_on": {
+    "*": [
      "str"
     ]
    },
@@ -3272,11 +3315,6 @@
     ],
     "via": [
      "list"
-    ]
-   },
-   "archive_replay_urls": {
-    "*": [
-     "str"
     ]
    }
   }
