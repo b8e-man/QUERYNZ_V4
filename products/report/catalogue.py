@@ -505,6 +505,7 @@ NOT_READ = {
     "elections": "an election: an event with no party to it",
     "electorates": "an electorate: a place",
     "entities": "the links lane's entities, read through the walk's groups",
+    "links_different": "pairs a links rule finds are two people (25 November 2026): the build never links them, so the walk's groups already honour it",
     "expense_release_totals": "a release's printed totals: a check on the release, not a person's figure",
     "gazette_notices": "every notice's heading; the people and bodies are in the Gazette's own tables",
     "grant_publishers": "the funders that publish grants; each grant names its funder",
