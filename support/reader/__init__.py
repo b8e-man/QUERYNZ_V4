@@ -117,6 +117,15 @@ class MissingReading(LookupError):
     session can ask for a re-read job."""
 
 
+def _present(path: str) -> bool:
+    """A reading is on disk: the file exists and is not empty. The 25 November 2026 power cut left readings renamed
+    into place at 0 bytes (written without fsync); an empty file is no reading, so its document waits to be read again."""
+    try:
+        return os.path.getsize(path) > 0
+    except OSError:
+        return False
+
+
 class Store:
     """Stored readings, one JSON file per key, under a folder keyed by the
     document's hash. The fast tier replays from here and never calls a
@@ -145,7 +154,7 @@ class Store:
     def _found(self, key: str) -> str:
         """The key a reading is stored under: `key` itself, else the same key under an earlier model
         (EARLIER_MODELS), else `key` (missing)."""
-        if os.path.exists(self._path(key)):
+        if _present(self._path(key)):
             return key
         parts = key.split("/")
         if len(parts) >= 5:
@@ -154,20 +163,22 @@ class Store:
             for m in models:
                 for h in hashes:
                     alt = "/".join(parts[:3] + [m, h] + parts[5:])
-                    if alt != key and os.path.exists(self._path(alt)):
+                    if alt != key and _present(self._path(alt)):
                         return alt
         return key
 
     def get(self, key: str) -> Reading:
         p = self._path(self._found(key))
         try:
+            if not _present(p):
+                raise FileNotFoundError(p)
             with open(p, encoding="utf-8") as f:
                 return Reading(**json.load(f))
         except OSError:
             raise MissingReading(f"no stored reading for {key}: ask for a re-read of document {key.split('/')[0]}") from None
 
     def has(self, key: str) -> bool:
-        return os.path.exists(self._path(self._found(key)))
+        return _present(self._path(self._found(key)))
 
 
 def replay_or_read(store: Store, key: str, read=None) -> Reading:

@@ -36,6 +36,21 @@ def test_store_put_get_and_replay_without_a_model(tmp_path):
     assert got == stamped and calls == []     # replayed, the reader never ran
 
 
+def test_an_empty_reading_file_is_no_reading(tmp_path):
+    """25 November 2026: a power cut left readings renamed into place at 0 bytes; the store says none is held, so the
+    load counts the document as waiting and its lane reads it again, instead of every load failing on it."""
+    store = rd.Store(str(tmp_path))
+    r = reading()
+    p = store.put(r)
+    open(p, "w").close()
+    assert not store.has(r.key)
+    with pytest.raises(rd.MissingReading):
+        store.get(r.key)
+    calls = []
+    rd.replay_or_read(store, r.key, read=lambda: calls.append(1) or reading())
+    assert calls == [1]
+
+
 def test_a_missing_reading_names_the_document(tmp_path):
     store = rd.Store(str(tmp_path))
     with pytest.raises(rd.MissingReading) as e:
