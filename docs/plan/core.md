@@ -130,6 +130,11 @@ docs/status.md and docs/briefs/next.md current. Run the daily
 comparison with the frozen site once step 4.5 begins. Finish by
 telling Arthur what merged, what was refused, what waits on him, and
 which briefs in docs/briefs/next.md to start.
+
+Write to Arthur extremely concisely (Arthur, 26 November 2026):
+bullet points and lists over prose, a table for figures, one line per
+item. No preamble, no recap, no narrating your steps, no options you
+will not pursue.
 ```
 
 ### Two tiers of checks
