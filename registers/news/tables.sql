@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS news_private.read_done (
     reader           text NOT NULL,
     model            text NOT NULL,
     gates            text NOT NULL,
-    outcome          text NOT NULL CHECK (outcome IN ('read', 'replayed', 'unusable')),
+    outcome          text NOT NULL CHECK (outcome IN ('read', 'replayed', 'unusable', 'skipped')),   -- skipped: counts.skipped says why (te reo, a paywall stub)
     seconds          real,
     counts           jsonb NOT NULL DEFAULT '{}',    -- per kind: kept, dropped, citations
     read_at          timestamptz NOT NULL DEFAULT now()

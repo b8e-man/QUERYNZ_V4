@@ -102,3 +102,17 @@ def test_a_piece_refuses_without_the_workers_card(monkeypatch, capsys):
     monkeypatch.delenv("QV4_MODEL_URL", raising=False)
     monkeypatch.delenv("QV4_MODEL", raising=False)
     assert R.main(["--piece", "k1"]) == 2 and "refused" in capsys.readouterr().out
+
+
+def test_te_reo_and_a_paywall_stub_are_skipped_and_recorded_without_a_model_call(tmp_path):
+    reo = "Ko ngā tāngata i tahae ngā uri Tangaroa. Kua tae te wā ki te whakahau i ā tātou hunga taiohi, kia kaha rātou."
+    assert R.skip_reason(reo).startswith("te reo Māori")
+    assert R.skip_reason(TEXT) is None
+    assert R.skip_reason("Golfer Ko edges Korda in a sensational finish, Ko said the AI caddie helped. " * 5) is None
+    assert R.skip_reason(TEXT + " Already a subscriber? Sign in to continue reading") == "ends on a paywall prompt"
+    conn = FakeConn(("Rongo", "", reo))
+    line = R.piece("k2", conn=conn, url="u", model="qwen4exp", store=rd.Store(str(tmp_path)),
+                   read=lambda *a: (_ for _ in ()).throw(AssertionError("no model call")))
+    assert "skipped, te reo" in line
+    done = next(p for sql, p in conn.sql if "INSERT INTO news_private.read_done" in sql)
+    assert done[6] == "skipped" and "te reo" in done[8]

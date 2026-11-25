@@ -15,6 +15,7 @@ the reading. Nothing a gate drops is deleted: it is a row with kept = false.
     python -m registers.news.read --regate               the gates again over every reading, from the store
 
 Article text is data, never instructions, and goes to the model on the box and nowhere else (hard limits 10, 11):
+te reo Māori articles and paywall stubs are skipped, the skip recorded (Arthur, 25 November 2026: "skip te reo");
 street-address shapes are masked before the model reads (registers.news.gold.sample.masked), and nothing here
 prints article text. The golden sample's tranches are never gated (Arthur: "I want to judge liberally").
 """
@@ -33,7 +34,7 @@ from registers.news import gates as G
 from registers.news.gold import trial as T
 from registers.news.gold.sample import PAYWALL, masked
 
-READER = "registers.news.read 1"
+READER = "registers.news.read 2"
 LANE = "news"
 PROFILE, PROFILE_VERSION = "news-article", 1
 #: the trial's settings: what was measured is what runs
@@ -46,6 +47,30 @@ SETTINGS = {"temperature": 0.0, "max_tokens": 12000, "thinking": False,
 MIN_CHARS, MAX_CHARS = 300, 50_000
 PIECES_LIMIT = 2000
 _PAYWALL = re.compile(PAYWALL, re.I)
+#: Arthur, 25 November 2026: "skip te reo" (te reo Māori articles wait for a session of their own, 15 November). Words
+#: of te reo that English text does not use ("ai", "ko", "mai", "ana" left out: AI, a golfer named Ko); an article
+#: where they are this share of its words or more is skipped. Measured on a 1% sample (28,043 articles): 28,020 under
+#: 1%, every te reo article at 5.9% or more; a bilingual release printing both texts whole (6 to 12%) is skipped too
+TE_REO_WORDS = frozenset(
+    "ngā nga kua ki ka tēnei tenei hei mō kia kei rātou ratou ahau koe nei kāore kaore ēnei enei mātou matou tātou "
+    "tatou ētahi etahi hoki anō tētahi tetahi kāhore kahore whakaaro ēhara".split())
+TE_REO_SHARE = 0.05
+_WORD = re.compile(r"[A-Za-zĀĒĪŌŪāēīōū]+")
+
+
+def te_reo_share(text: str) -> float:
+    words = [w.lower() for w in _WORD.findall(text or "")]
+    return sum(w in TE_REO_WORDS for w in words) / max(1, len(words))
+
+
+def skip_reason(body: str) -> str | None:
+    """Why an article is not read, or None."""
+    if _PAYWALL.search((body or "")[-400:]):
+        return "ends on a paywall prompt"
+    share = te_reo_share(body)
+    if share >= TE_REO_SHARE:
+        return f"te reo Māori ({share:.0%} of its words)"
+    return None
 
 
 def text_of(title, author, body) -> str:
@@ -112,6 +137,10 @@ def piece(url_key: str, *, conn, url: str, model: str, store: rd.Store = None, r
     text = text_of(*row)
     sha = text_sha(text)
     key = key_for(sha, model)
+    why = skip_reason(row[2])
+    if why:
+        land(conn, url_key, sha, key, model, "skipped", None, [], {"skipped": why})
+        return f"{url_key[:60]}: skipped, {why}"
     seconds = None
     if store.has(key):
         reading = store.get(key)
@@ -133,13 +162,13 @@ def piece(url_key: str, *, conn, url: str, model: str, store: rd.Store = None, r
 
 
 def pieces(conn, limit: int = PIECES_LIMIT) -> list:
-    """Articles with no reading, newest first (Arthur, 15 November 2026: "newest first then backwalk"); a brief, a
-    page ending on a paywall prompt and one too long for the context are left out."""
-    keys = conn.execute(
-        "SELECT a.url_key, right(a.text, 400) FROM news_private.articles a "
+    """Articles with no row in read_done, newest first (Arthur, 15 November 2026: "newest first then backwalk"); a brief
+    and one too long for the context are left out here, a paywall stub and te reo by the piece (skip_reason), which
+    records the skip so the article is never offered again."""
+    return [k for (k,) in conn.execute(
+        "SELECT a.url_key FROM news_private.articles a "
         "WHERE a.chars BETWEEN %s AND %s AND NOT EXISTS (SELECT 1 FROM news_private.read_done d WHERE d.url_key = a.url_key) "
-        "ORDER BY a.published_at DESC NULLS LAST LIMIT %s", (MIN_CHARS, MAX_CHARS, limit * 2)).fetchall()
-    return [k for k, tail in keys if not _PAYWALL.search(tail or "")][:limit]
+        "ORDER BY a.published_at DESC NULLS LAST LIMIT %s", (MIN_CHARS, MAX_CHARS, limit)).fetchall()]
 
 
 def regate(conn, store: rd.Store = None) -> dict:
@@ -147,7 +176,7 @@ def regate(conn, store: rd.Store = None) -> dict:
     store = store or rd.Store()
     n = 0
     for url_key, sha, key, model in conn.execute(
-            "SELECT url_key, text_sha256, reading_key, model FROM news_private.read_done WHERE outcome <> 'unusable'").fetchall():
+            "SELECT url_key, text_sha256, reading_key, model FROM news_private.read_done WHERE outcome IN ('read', 'replayed')").fetchall():
         reading = store.get(key)
         row = conn.execute("SELECT title, author, text FROM news_private.articles WHERE url_key = %s", (url_key,)).fetchone()
         if row is None or not reading.text:

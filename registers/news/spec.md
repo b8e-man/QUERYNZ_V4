@@ -50,7 +50,9 @@ to judge liberally, but let's apply these rules to the first read we do."
 - `registers.news.read`: one article a piece of `qv4-news-read` (text-reader profile), newest first, in the golden
   sample's four passes with the trial's prompts unchanged (registers.news.gold.trial: the read, quotes, claims, tones).
   The reading is stored ungated in the reader store by the hash of the masked text and replayed from there; a brief
-  (under 300 characters), a page ending on a paywall prompt and one over 50,000 characters are not read.
+  (under 300 characters) and one over 50,000 characters are not offered; a page ending on a paywall prompt and a te reo
+  Māori article (5% or more of its words te reo words only; Arthur, 25 November 2026: "skip te reo") are skipped by the
+  piece, the skip a row of `read_done` (outcome skipped) so it is never offered again.
 - `registers.news.gates`: one gate per kind, no model call; every item lands in `news_private.read_items` kept or not,
   with the rule. Quotes: the speaker named within 250 characters and not a document (a document's words are a
   citation). Roles: a title word, no "of" or possessive, no leading descriptor. Claims: the claimant and a verb of

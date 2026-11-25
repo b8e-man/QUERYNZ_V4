@@ -2045,7 +2045,7 @@ at_utc = "11:50"
 nice = 15
 
 [jobs.qv4-news-read]
-description = "The first read of the news corpus (Arthur, 25 November 2026): one piece per article (key url_key), newest first, through the text-reader profile in the golden sample's four passes (read, quotes, claims, tones); the reading stored ungated by the text's hash, then the gates (registers.news.gates) judge each quote, role, claim and tone into news_private.read_items, kept or not, with the rule. Keys from python -m registers.news.read --pieces (2,000 a row). Queued by hand on Arthur's word; nothing schedules it."
+description = "The first read of the news corpus (Arthur, 25 November 2026): one piece per article (key url_key), newest first, through the text-reader profile in the golden sample's four passes (read, quotes, claims, tones); the reading stored ungated by the text's hash, then the gates (registers.news.gates) judge each quote, role, claim and tone into news_private.read_items, kept or not, with the rule. Te reo Māori articles and paywall stubs are skipped and recorded (Arthur: "skip te reo"). Keys from python -m registers.news.read --pieces (2,000 a row); the other box joins a row when it is free, 8 streams each. Queued by hand on Arthur's word; nothing schedules it."
 needs = "model-profile"
 profile = "text-reader"
 memory_gb = 0.5

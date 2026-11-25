@@ -307,8 +307,8 @@
    "registers/news/gold/sample.py",
    "registers/news/read.py"
   ],
-  "reader": "registers.news.read 1",
-  "sha256": "c1e1d251b78c6539b3930bcf63b4d85c55b28fde45b5c6f64f137959178fc491"
+  "reader": "registers.news.read 2",
+  "sha256": "a862bee3da41504715f704e2069df44855ef29ca9f3885bbc8b12219bc429519"
  },
  "registers/openlaw/read.py": {
   "files": [
