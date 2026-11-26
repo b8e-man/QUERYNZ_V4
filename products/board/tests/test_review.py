@@ -63,3 +63,22 @@ def test_every_other_set_waiting_is_tracked_with_the_open_set_s_elements(tmp_pat
     assert '<a href="/review?set=s-2">Another set</a>' in html and "1 of 2 answered" in html and "about it" in html
     assert 'style="width:50%"' in html and "Job title <b>0</b> left of 1" in html and "Who said it <b>1</b> left of 1" in html
     assert "Sets waiting" in review.tracker(review.sets()), "with none open, every set is tracked"
+
+
+LIST = {"title": "Name forms, list 1", "mode": "list", "about": "",
+        "questions": [{"id": "f1", "kind": "form", "label": "Name form", "form": "of the", "filed_as": "person", "rows": 5,
+                       "hits": 8465976, "lanes": {"hansard": 5000000, "courts": 3465976},
+                       "filed": [{"register": "courts", "view": "court_judgment_parties", "name": "of an application <of the"}],
+                       "choices": [{"key": "junk", "label": "Junk"}, {"key": "kind", "label": "Wrong kind"},
+                                   {"key": "keep", "label": "Keep"}, {"key": "look", "label": "Closer look"}]},
+                      {"id": "f2", "kind": "form", "label": "Name form", "form": "callaghan innovation", "filed_as": "person",
+                       "rows": 44, "hits": 4689, "lanes": {}, "filed": [], "choices": []}]}
+
+
+def test_a_list_set_shows_every_row_the_open_first_each_with_its_keys():
+    html = review.render_set("name-forms-1", LIST, {"f1": {"choice": "junk", "note": ""}})
+    assert 'id="rl-list" data-set="name-forms-1"' in html and '<b id="rl-left">1</b> left' in html
+    assert html.index('data-q="f2"') < html.index('data-q="f1"'), "the rows not judged come first"
+    assert 'class="rl-row rl-junk" tabindex="0" data-q="f1" data-was="junk"' in html
+    assert "found 8,465,976 times (hansard 5,000,000, courts 3,465,976)" in html and "&lt;of the" in html
+    assert '<button data-choice="junk" data-k="j"><kbd>J</kbd>Junk</button>' in html and "1 of 2 answered" in html

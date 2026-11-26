@@ -25,9 +25,10 @@ FILES = {
     "chat.js": JS,                      # the board's: the chat pane's thread and question box (ruling 122)
     "table.js": JS,                     # the board's: a register table's row height and column widths (ruling 117 (3))
     "tabs.js": JS,                      # the board's: each tab comes back to the address it was last on (Arthur, 9 November 2026)
-    "connections.js": JS,
+    "connections.js": JS,               # the board's: the report tab's connections pane sends its form on a change (ruling 159)
     "paper.js": JS,                     # the board's: the paper tab sets a story with no picture as type (26 November 2026)
-    "review.js": JS,                    # the board's: the review tab's keys (Arthur, 15 November 2026)               # the board's: the report tab's connections pane sends its form on a change (ruling 159)
+    "review.js": JS,                    # the board's: the review tab's keys (Arthur, 15 November 2026)
+    "reviewlist.js": JS,                # the board's: a list set judged row by row, no page load (Arthur, 27 November 2026)
     "LICENSE.cytoscape": TEXT,
     "LICENSE.cytoscape-cola": TEXT,
     "LICENSE.webcola": TEXT,

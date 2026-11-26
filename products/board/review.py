@@ -37,6 +37,19 @@ CSS = """
 .rv-top h2{font-size:15px;margin:0;font-weight:600}
 .rv-bar{height:6px;background:#232833;border-radius:3px;overflow:hidden;margin:.25rem 0 .75rem}
 .rv-bar i{display:block;height:100%;background:#5aa9ff}
+.rl-row{border:1px solid #2a303a;border-radius:6px;padding:.4rem .7rem;margin:.35rem 0;outline:none}
+.rl-row:focus{border-color:#5aa9ff;background:#141b26}
+.rl-form{font-size:17px;font-weight:600}
+.rl-facts,.rl-filed{font-size:12px;color:#aab1bc}
+.rl-choices{display:flex;gap:.4rem;margin-top:.3rem}
+.rl-choices button{font-size:12px;padding:.15rem .5rem}
+.rl-row.rl-junk{opacity:.45}
+.rl-row.rl-junk .rl-form{text-decoration:line-through}
+.rl-row.rl-look{border-color:#d9a54a}
+.rl-row.rl-kind{border-color:#a97ad9}
+.rl-row.rl-keep{border-color:#4cc38a}
+.rl-row.rl-sending{opacity:.7}
+.rl-row.rl-failed{border-color:#e07a5f}
 .rv-others{margin-top:2.5rem;border-top:1px solid #3a404c;padding-top:.5rem}
 .rv-others h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#aab1bc;margin:.5rem 0}
 .rv-track{margin:.4rem 0 1.2rem}
@@ -162,8 +175,38 @@ def _done(name: str, d: dict, done: dict) -> str:
             f'<p class="rv-help">Any question can be answered again from the counts above; the newest answer counts.</p></div>')
 
 
+#: a list set's key for each choice (links.forms_review: junk, wrong kind, keep, closer look)
+LIST_KEYS = {"junk": "j", "kind": "w", "keep": "k", "look": "l"}
+
+
+def render_list(name: str, d: dict, done: dict) -> str:
+    """A list set (Arthur, 27 November 2026: "a scrollable list where I identify names that need a closer look ... I
+    need to be able to rapidly discard these"): every row at once, those not judged first, each judged where it
+    stands (static/reviewlist.js); a row judged is marked by its answer and can be judged again."""
+    qs = d["questions"]
+    open_, judged = [q for q in qs if q["id"] not in done], [q for q in qs if q["id"] in done]
+
+    def row(q):
+        was = (done.get(q["id"]) or {}).get("choice", "")
+        lanes = ", ".join(f"{k} {v:,}" for k, v in sorted((q.get("lanes") or {}).items(), key=lambda kv: -kv[1]))
+        filed = "; ".join(f'{x["name"]} ({x["register"]}, {x["view"]})' for x in q.get("filed") or [])
+        buttons = "".join(f'<button data-choice="{esc(c["key"])}" data-k="{esc(LIST_KEYS.get(c["key"], ""))}">'
+                          f'<kbd>{esc(LIST_KEYS.get(c["key"], "").upper())}</kbd>{esc(c["label"])}</button>' for c in q["choices"])
+        was_attr = f' data-was="{esc(was)}"' if was else ""
+        return (f'<div class="rl-row{" rl-" + esc(was) if was else ""}" tabindex="0" data-q="{esc(q["id"])}"{was_attr}>'
+                f'<div class="rl-form">{esc(q.get("form") or "")}</div>'
+                f'<div class="rl-facts">{esc(q.get("filed_as") or "")} · filed in {q.get("rows", 0):,} rows · found {q.get("hits", 0):,} times'
+                f'{" (" + esc(lanes) + ")" if lanes else ""}</div>'
+                f'<div class="rl-filed">{esc(filed) or "no filing row found"}</div><div class="rl-choices">{buttons}</div></div>')
+    return (f'<div class="rv-list" id="rl-list" data-set="{esc(name)}"><p class="rv-help"><b id="rl-left">{len(open_)}</b> left to judge. '
+            f'J junk · W wrong kind · K keep · L closer look, on the row in focus; ↑ ↓ move. Judged rows are below.</p>'
+            + "".join(row(q) for q in open_ + judged) + "</div>")
+
+
 def render_set(name: str, d: dict, done: dict, qid: str = "", after: str = "") -> str:
     qs = d["questions"]
+    if d.get("mode") == "list":
+        return _head(name, d, done) + render_list(name, d, done)
     q = next((x for x in qs if x["id"] == qid), None) if qid else next_open(qs, done, after)
     top = _head(name, d, done)
     if q is None:
@@ -237,7 +280,8 @@ def tracker(names: list, current: str = "") -> str:
 def render(qs: dict) -> str:
     one = lambda k: (qs.get(k) or [""])[0].strip()[:100]
     from products.board import assets
-    script = f'<script src="{esc(assets.url("review.js"))}" defer></script>'
+    script = (f'<script src="{esc(assets.url("review.js"))}" defer></script>'
+              f'<script src="{esc(assets.url("reviewlist.js"))}" defer></script>')
     name = one("set")
     names = sets()
     if name and name not in names:
