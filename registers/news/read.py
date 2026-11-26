@@ -23,6 +23,7 @@ prints article text. The golden sample's tranches are never gated (Arthur: "I wa
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -36,7 +37,7 @@ from registers.news import gates as G
 from registers.news.gold import trial as T
 from registers.news.gold.sample import PAYWALL, masked
 
-READER = "registers.news.read 4"
+READER = "registers.news.read 5"
 LANE = "news"
 PROFILE = "news-article"
 #: the document profile's version from the ledger (support/profiles/profiles.jsonl), registered 26 November 2026; it was
@@ -131,11 +132,24 @@ def land(conn, url_key: str, sha: str, key: str, model: str, outcome: str, secon
             (url_key, sha, key, READER, model, G.GATES, outcome, seconds, json.dumps(counts)))
 
 
-def piece(url_key: str, *, conn, url: str, model: str, store: rd.Store = None, read=read_text) -> str:
+@contextlib.contextmanager
+def _held(conn, connect):
+    """The caller's connection, or one opened by `connect` for this step alone and closed after it."""
+    if conn is not None:
+        yield conn
+    else:
+        with connect() as c:
+            yield c
+
+
+def piece(url_key: str, *, conn=None, connect=None, url: str, model: str, store: rd.Store = None, read=read_text) -> str:
     """One article: replayed from the store when its text was read before, else read; gated; landed. Returns the
-    line the job prints (counts only)."""
+    line the job prints (counts only). Given `connect` rather than `conn`, a connection is open only to read the
+    article and to land it, never across the model's call (26 November 2026: 32 pieces each holding the owner login
+    through a 38-second read filled its 40 connections, and the tests and other jobs were refused)."""
     store = store or rd.Store()
-    row = conn.execute("SELECT title, author, text FROM news_private.articles WHERE url_key = %s", (url_key,)).fetchone()
+    with _held(conn, connect) as c:
+        row = c.execute("SELECT title, author, text FROM news_private.articles WHERE url_key = %s", (url_key,)).fetchone()
     if row is None:
         return f"{url_key[:60]}: no such article"
     text = text_of(*row)
@@ -143,7 +157,8 @@ def piece(url_key: str, *, conn, url: str, model: str, store: rd.Store = None, r
     key = key_for(sha, model)
     why = skip_reason(row[2])
     if why:
-        land(conn, url_key, sha, key, model, "skipped", None, [], {"skipped": why})
+        with _held(conn, connect) as c:
+            land(c, url_key, sha, key, model, "skipped", None, [], {"skipped": why})
         return f"{url_key[:60]}: skipped, {why}"
     seconds = None
     if store.has(key):
@@ -157,10 +172,12 @@ def piece(url_key: str, *, conn, url: str, model: str, store: rd.Store = None, r
                              text=json.dumps(got, ensure_ascii=False) if got is not None else "",
                              checks={"usable": got is not None}, made_at=time.strftime("%Y-%m-%dT%H:%M:%S%z")))
     if got is None:
-        land(conn, url_key, sha, key, served, "unusable", seconds, [], {})
+        with _held(conn, connect) as c:
+            land(c, url_key, sha, key, served, "unusable", seconds, [], {})
         return f"{url_key[:60]}: unusable ({outcome})"
     rows, counts = items(got, text)
-    land(conn, url_key, sha, key, served, outcome, seconds, rows, counts)
+    with _held(conn, connect) as c:
+        land(c, url_key, sha, key, served, outcome, seconds, rows, counts)
     kept = sum(c["kept"] for c in counts.values())
     return f"{url_key[:60]}: {outcome} in {seconds or 0}s, {kept} of {len(rows)} items kept"
 
@@ -208,8 +225,7 @@ def main(argv=None) -> int:
         if not url or not model:
             print("refused: no QV4_MODEL_URL and QV4_MODEL; run as a piece of qv4-news-read on the worker's card")
             return 2
-        with db.connect() as c:
-            print(piece(argv[1], conn=c, url=url, model=model))
+        print(piece(argv[1], connect=db.connect, url=url, model=model))
         return 0
     print(__doc__)
     return 2

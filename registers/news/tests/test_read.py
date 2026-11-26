@@ -125,3 +125,26 @@ def test_the_news_read_runs_on_the_model_profile_its_document_profile_names():
     assert p is not None and R.PROFILE_VERSION == profiles.reading_version("news-article")
     assert reg.load()["qv4-news-read"].profile == p["config"]["model_profile"] == "news-reader"
     assert p["config"]["passes"] == R.SETTINGS["passes"] and p["config"]["gates"] == R.G.GATES
+
+
+def test_a_piece_given_connect_holds_no_connection_across_the_model_call(tmp_path):
+    """26 November 2026: 32 pieces each holding the owner login through the read filled its 40 connections."""
+    open_now, opened = [0], []
+    conn = FakeConn(("Rumour", "A Writer", TEXT))
+
+    @contextlib.contextmanager
+    def connect():
+        open_now[0] += 1
+        opened.append(1)
+        try:
+            yield conn
+        finally:
+            open_now[0] -= 1
+
+    def fake_read(text, url, model):
+        assert open_now[0] == 0, "a connection is open while the model reads"
+        return ({"entities": ENTS, "roles": [], "quotes": [], "claims": [], "sentiment": []}, "qwen38-27b", 1.0)
+
+    line = R.piece("k1", connect=connect, url="u", model="qwen38-27b", store=rd.Store(str(tmp_path)), read=fake_read)
+    assert "read" in line and len(opened) == 2 and open_now[0] == 0
+    assert any("INSERT INTO news_private.read_items" in sql or "news_private" in sql for sql, _ in conn.sql)

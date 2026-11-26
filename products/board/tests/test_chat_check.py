@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def test_the_unit_names_the_chat_address_and_model():
     unit = open(os.path.join(HERE, "units", "qv4-board.service"), encoding="utf-8").read()
     env = dict(re.findall(r"(QV4_CHAT_\w+)=(\S+)", unit))
-    assert env == {"QV4_CHAT_URL": "http://127.0.0.1:8060/v1/chat/completions", "QV4_CHAT_MODEL": "qwen4exp"}
+    assert env == {"QV4_CHAT_URL": "http://127.0.0.1:8060/v1/chat/completions", "QV4_CHAT_MODEL": "qwen4exp", "QV4_CHAT_OFF": "1"}
     assert chat.LANE == "board-chat"
 
 
