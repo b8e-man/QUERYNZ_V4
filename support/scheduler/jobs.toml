@@ -1619,7 +1619,30 @@ query_timeout_s = 600
 class = "whenever"
 priority = 16
 command = ["python", "-m", "links.sightings", "forms"]
-then = ["qv4-sightings-beehive", "qv4-sightings-hansard", "qv4-sightings-parliament", "qv4-sightings-courts"]
+then = ["qv4-sightings-beehive", "qv4-sightings-hansard", "qv4-sightings-parliament", "qv4-sightings-courts", "qv4-sightings-news"]
+nice = 10
+
+[jobs.qv4-sightings-news]
+description = "The name pass over the read news articles not yet scanned under the current forms (links.sightings, lane news; curation step 1, Arthur, 26 November 2026), then the ties of the articles' names to the register entities (links.news)."
+needs = "processor"
+memory_gb = 2.0   # the forms held once, as the courts pass; 2,000 articles in 6.9 s measured 27 November 2026
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 7
+command = ["python", "-m", "links.sightings", "scan", "--lane", "news"]
+then = ["qv4-links-news"]
+nice = 10
+
+[jobs.qv4-links-news]
+description = "Article to record (curation step 2): every read article's people and organisations, keyed as the registers' rows are, tied to the register entities of the same key and kind (links.news_entities, links.news_ties): one group tied, several possible. Wiped and built whole: 33,272 readings in 23 s, 27 November 2026. After the news name pass and after each links build (the groups change)."
+needs = "processor"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 8
+command = ["python", "-m", "links.news", "build"]
 nice = 10
 
 [jobs.qv4-sightings-courts]
@@ -2076,6 +2099,7 @@ pieces_command = ["python", "-m", "registers.news.read", "--pieces", "--limit", 
 pieces = true
 can_share = true
 concurrency = 16   # the news-reader profile's 16 streams (8 a card)
+then = ["qv4-sightings-news"]   # curation step 1 (26 November 2026): each row's read articles through the name pass, then the ties
 until_empty = true   # Arthur, 26 November 2026: "keep working through rows of articles. we dont want to fire each row manually": the next row of 8,000 is queued the moment one finishes; a row with nothing unread ends the chain, and each news load queues it again
 
 [jobs.qv4-news-sites]

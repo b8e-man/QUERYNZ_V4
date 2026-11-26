@@ -44,7 +44,7 @@ from links.rows import MODEL_VIEWS
 SCHEMA = "links"
 MIN_CHARS = 6
 MAX_WORDS = 6
-LANES = ("beehive", "hansard", "parliament-wayback", "parliament-questions", "courts")
+LANES = ("beehive", "hansard", "parliament-wayback", "parliament-questions", "courts", "news")
 
 DDL = """
 CREATE TABLE IF NOT EXISTS links.name_forms (
@@ -237,6 +237,7 @@ def documents(conn, lane: str) -> list:
         "parliament-wayback": "SELECT document FROM pub.parliament_wayback_pages WHERE document IS NOT NULL AND coalesce(text, '') <> '' ORDER BY dated DESC NULLS LAST",
         "parliament-questions": "SELECT document FROM pub.parliament_written_questions WHERE document IS NOT NULL ORDER BY question_released_on DESC NULLS LAST",
         "courts": "SELECT document FROM pub.court_documents WHERE document IS NOT NULL AND coalesce(outcome, '') NOT LIKE 'caught%%' ORDER BY dated DESC NULLS LAST",
+        "news": "SELECT document FROM pub.news_read_text ORDER BY dated DESC NULLS LAST",
     }[lane]
     seen, out = set(), []
     for (d,) in conn.execute(q).fetchall():
@@ -255,6 +256,7 @@ DATED = {
     "parliament-questions": "SELECT document, min(question_released_on) AS dated FROM pub.parliament_written_questions "
                             "WHERE document IS NOT NULL GROUP BY 1",
     "courts": "SELECT document, min(dated) AS dated FROM pub.court_documents WHERE document IS NOT NULL GROUP BY 1",
+    "news": "SELECT document, min(dated) AS dated FROM pub.news_read_text GROUP BY 1",
 }
 
 
@@ -304,6 +306,10 @@ def text_of(conn, lane: str, sha: str) -> str:
         import html
         t = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", data.decode("utf-8", "replace"))
         return html.unescape(re.sub(r"(?s)<[^>]+>", " ", t))
+    if lane == "news":
+        # the text as the streamed pass scans it (its headline first), so a sighting's offsets hold
+        row = conn.execute("SELECT concat_ws(E'\\n\\n', title, text) FROM pub.news_read_text WHERE document = %s LIMIT 1", (sha,)).fetchone()
+        return (row[0] if row else "") or ""
     raise ValueError(lane)
 
 
@@ -315,6 +321,8 @@ STREAMED = {
                           "FROM pub.parliament_wayback_pages WHERE document IS NOT NULL AND coalesce(text, '') <> ''",
     "parliament-questions": "SELECT document, concat_ws(E'\\n\\n', title, question_text, reply_text), question_released_on "
                             "FROM pub.parliament_written_questions WHERE document IS NOT NULL",
+    # the read articles (curation step 1, 26 November 2026), the newest read first, so a run reaches the new ones
+    "news": "SELECT document, concat_ws(E'\\n\\n', title, text), dated FROM pub.news_read_text ORDER BY read_at DESC",
 }
 
 

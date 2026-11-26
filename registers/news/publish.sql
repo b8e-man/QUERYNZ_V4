@@ -17,3 +17,11 @@ FROM news_private.read_done d JOIN news_private.articles a USING (url_key);
 -- shows them beside the stored reading (26 November 2026: "an inspector pane that shows all the extracted data held").
 CREATE OR REPLACE VIEW pub.news_read_items AS
 SELECT url_key, kind, n, item, kept, citation, rule FROM news_private.read_items;
+-- The read articles' text, for the links lane's name pass (curation step 1, Arthur, 26 November 2026: "add that",
+-- the name pass on every type it lacks; rules match read articles only). `document` is the sha256 of the text as held,
+-- the key a sighting carries; `url_key` joins it back to the article and its reading.
+CREATE OR REPLACE VIEW pub.news_read_text AS
+SELECT encode(sha256(convert_to(a.text, 'UTF8')), 'hex') AS document, a.url_key, a.host, a.title, a.text,
+       a.published_at::date AS dated, d.read_at
+FROM news_private.read_done d JOIN news_private.articles a USING (url_key)
+WHERE d.outcome IN ('read', 'replayed') AND coalesce(a.text, '') <> '';
