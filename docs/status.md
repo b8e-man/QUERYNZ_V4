@@ -48,14 +48,12 @@ take every job (ruling 145); jobs run from the release copy
   Commission's over-$20,000 list was re-captured on 18 Nov with a new
   hash the frozen listing lacks, so its 305 rows are left out and the
   commission gate is red. Waits on Arthur.
-- The full tier: 3 speed tests over the Beehive group miss by 2-15%
-  on a loaded box (was 26 failures); a quiet re-run owed.
 - Insolvency capture held after four nights of transport errors (card).
+- Board chat shelved (Arthur, 26 Nov); it would have to follow the
+  box's standing model.
 
 ## Waits on Arthur
 
-- node2's database standby, lost since 7 Nov: the rebuild script
-  (root) in querynzv4-work/handover/.
 - The rebuilt site's pin (above). The Insolvency Register API
   subscription and the PPSR account (8.4); letters (Dunedin, TPK,
   Police); rulings 69, 75; the 15 unsplittable courts documents.

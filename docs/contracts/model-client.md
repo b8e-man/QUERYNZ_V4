@@ -20,5 +20,5 @@
    a short answer (fewer vectors than texts) is an error, never a gap.
 4. **After step 2, every call goes through the scheduler,** which places it
    on a model profile; the client is what the scheduler's workers use.
-5. **The review agent's web search** (track C) is not a model call and has
-   its own limits (hard limits 12 and 26).
+5. (The review agent's web search, track C: withdrawn with the agent,
+   26 November 2026, ruling 180.)

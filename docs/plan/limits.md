@@ -21,7 +21,7 @@ These are never traded for convenience, speed or a passing test. If a step in th
 
 10. **No text leaves the boxes for a cloud model** (old ruling 172). Every model used by a job, for reading, embedding, review or answering questions, runs on the boxes.
 11. **A session is the one exception that already exists, whatever its weight.** You read code, and samples of data, in order to build, to check, and to answer Arthur's questions. Keep it to samples. Never pass a register or the corpus through a session in bulk. Never print a person's home address or a suppressed name into a session, a card, a lesson or a log. The exact wording of this limit is in the decision queue.
-12. **A web search by the review agent carries a name and a public role at most.** Never an address, and never anything from the sealed store.
+12. Withdrawn by Arthur, 26 November 2026 (ruling 180: the review agent removed). The number is kept so the other limits keep theirs.
 13. **Nothing built here is opened to strangers or sold** until Arthur says so. Every product's surface listens on the local network only. Legal work comes after the build and before selling (ruling 2).
 14. **No new connection about a named person goes on the public site** without Arthur's decision at that time.
 
@@ -53,5 +53,5 @@ These are never traded for convenience, speed or a passing test. If a step in th
 
 24. **The safety hook and the scope hook stay on** in every session.
 25. **A graphics card holds one model profile at a time.** Jobs that share that profile may share its slots. Every swap is recorded.
-26. **The review agent may search the web only for evidence that two rows are different people.** It never confirms a link from the web, because web presence favours the prominent.
+26. Withdrawn by Arthur, 26 November 2026 (ruling 180: the review agent removed). The number is kept so the other limits keep theirs.
 

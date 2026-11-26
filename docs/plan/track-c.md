@@ -1,5 +1,7 @@
 ### Track C: the review agent
 
+**Withdrawn 26 November 2026 (ruling 180):** Arthur had the review agent removed from the estate. Kept as the record of what it was.
+
 **Starts** with the links in step 4. **Model:** Fable.
 
 - **Its job:** read each watched link's evidence and split the link if it cannot trust it. Arthur is not in this loop.

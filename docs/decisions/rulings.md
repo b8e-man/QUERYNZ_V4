@@ -1616,4 +1616,4 @@ queued its job, and its one consumer was a line in `links.measure`. Removed: the
 `links.scores` (3 scores), dropped outright on his word (model output, regenerable). Kept: `links.test_pairs`
 (the rules' error rate in `links.measure` reads them) and the model profile `review` (`qv4-questions` answers
 through it). The queue entry on the agent's pass mark is withdrawn. Hard limits 12 and 26 name the review
-agent; they now bind nothing until something like it returns, and their wording is Arthur's.
+agent; Arthur withdrew both the same day ("withdraw"), their numbers kept like limit 8's.
