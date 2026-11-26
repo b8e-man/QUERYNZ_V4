@@ -36,6 +36,7 @@ Routes:
   GET  /papers-past/text?k=<article id>&q=   one article's text as the archive's store holds it
   GET  /subject-report?q=&ref=&template=&since=&c.…   the subject report tab (Arthur, 9 November 2026): the report's search,
                     rows and memo drawn in the board's page (subject_report.py), its links kept in the tab
+  GET  /news?q=&sort=&dir=&all=&page=   the news tab (Arthur, 26 November 2026, news.py): the read news articles
   GET  /review?set=&q=&after=   the review tab (Arthur, 15 November 2026, review.py): one question of a set a session
                     wrote, the sentence that answers it marked, the article behind a fold
   POST /review/answer   one answer added to board.answers, then the next question
@@ -63,7 +64,7 @@ from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
 from products.board import chat, collapse, db, document, dossier, graph, lights, lineage, links_view, near, panes, people, search, state, uses
-from products.board import papers_past, review, subject_report
+from products.board import news, papers_past, review, subject_report
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -463,6 +464,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_html("<p>not here</p>", 404)
                     return
                 self.send_html(render_papers_past(q, papers_past.offset_of(qs), key, papers_past.asked_of(qs)))
+                return
+            if url.path == news.PATH:        # the news tab (Arthur, 26 November 2026)
+                with RENDER_LOCK, db.read_connect() as conn:
+                    self.send_html(news.render(conn, qs))
                 return
             if url.path == review.PATH:      # the review tab (Arthur, 15 November 2026)
                 self.send_html(review.render(qs))

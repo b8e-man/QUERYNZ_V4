@@ -1860,7 +1860,8 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
         return f'<a class="{"on" if tab == name else ""}" data-tab="{esc(name)}" href="{esc(to)}">{esc(label)}</a>'
     tabs = ('<nav class="tabs">' + " ".join((tab_a("search", "search", href(q, [] if tab != "search" else path, boxes)),
                                               tab_a("uses", "use cases", "/uses"), tab_a("papers past", "papers past", "/papers-past"), tab_a("sources", "sources", "/sources"),
-                                              tab_a("subject report", "subject report", SUBJECT_REPORT_PATH), tab_a("review", "review", "/review")))
+                                              tab_a("subject report", "subject report", SUBJECT_REPORT_PATH), tab_a("review", "review", "/review"),
+                                              tab_a("news", "news", "/news")))
             + f'</nav><script src="{esc(assets.url("tabs.js"))}" defer></script>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body class=\"chat-on\"><header><h1>QueryNZ board</h1>{tabs}"

@@ -52,8 +52,10 @@ def is_stub(text: str) -> bool:
 
 
 def create(conn) -> None:
-    with open(os.path.join(HERE, "tables.sql"), encoding="utf-8") as f:
-        conn.execute(f.read())
+    """The lane's tables, then its one published view (publish.sql: pub.news_read, the board's news tab)."""
+    for name in ("tables.sql", "publish.sql"):
+        with open(os.path.join(HERE, name), encoding="utf-8") as f:
+            conn.execute(f.read())
 
 
 # ── the old estate's copy ──

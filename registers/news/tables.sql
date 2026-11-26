@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS news_private.articles (
     fetched_at      timestamptz
 );
 CREATE INDEX IF NOT EXISTS articles_host ON news_private.articles (host, published_at);
+CREATE INDEX IF NOT EXISTS articles_published ON news_private.articles (published_at);   -- the board's news tab sorts by it
 
 -- every provider page read, and what became of it (never wiped)
 CREATE TABLE IF NOT EXISTS news_private.provider_read (
@@ -174,6 +175,7 @@ CREATE TABLE IF NOT EXISTS news_private.read_done (
     counts           jsonb NOT NULL DEFAULT '{}',    -- per kind: kept, dropped, citations
     read_at          timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS read_done_read_at ON news_private.read_done (read_at);   -- the board's news tab sorts by it
 
 -- every gated item of a reading, kept or not, with the rule that decided it (rewritten from the store at will)
 CREATE TABLE IF NOT EXISTS news_private.read_items (
