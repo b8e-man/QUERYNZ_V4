@@ -37,6 +37,10 @@ CSS = """
 .rv-top h2{font-size:15px;margin:0;font-weight:600}
 .rv-bar{height:6px;background:#232833;border-radius:3px;overflow:hidden;margin:.25rem 0 .75rem}
 .rv-bar i{display:block;height:100%;background:#5aa9ff}
+.rv-others{margin-top:2.5rem;border-top:1px solid #3a404c;padding-top:.5rem}
+.rv-others h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#aab1bc;margin:.5rem 0}
+.rv-track{margin:.4rem 0 1.2rem}
+.rv-track h2 a{color:inherit}
 .rv-kinds{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1rem}
 .rv-kinds a{font-size:12px;padding:.1rem .55rem;border:1px solid #3a404c;border-radius:999px;text-decoration:none;color:#aab1bc}
 .rv-kinds a.on{border-color:#5aa9ff;color:#e8eaed}
@@ -161,10 +165,7 @@ def _done(name: str, d: dict, done: dict) -> str:
 def render_set(name: str, d: dict, done: dict, qid: str = "", after: str = "") -> str:
     qs = d["questions"]
     q = next((x for x in qs if x["id"] == qid), None) if qid else next_open(qs, done, after)
-    n_done = sum(1 for x in qs if x["id"] in done)
-    pct = 100 * n_done // max(len(qs), 1)
-    top = (f'<div class="rv-top"><h2>{esc(d.get("title") or name)}</h2><span class="meta">{n_done} of {len(qs)} answered</span>'
-           f'<span class="meta">{esc(d.get("about") or "")}</span></div><div class="rv-bar"><i style="width:{pct}%"></i></div>')
+    top = _head(name, d, done)
     if q is None:
         return top + _kinds(name, qs, done, "") + _done(name, d, done)
     art = (d.get("articles") or {}).get(q.get("article")) or {}
@@ -202,6 +203,37 @@ def render_set(name: str, d: dict, done: dict, qid: str = "", after: str = "") -
     return top + _kinds(name, qs, done, q["kind"]) + card
 
 
+def _head(name: str, d: dict, done: dict, link: bool = False) -> str:
+    """A set's title, its count answered, what it is about and its bar: the same at the top of the open set and in the
+    tracker of the others."""
+    qs = d["questions"]
+    n_done = sum(1 for x in qs if x["id"] in done)
+    pct = 100 * n_done // max(len(qs), 1)
+    title = esc(d.get("title") or name)
+    if link:
+        title = f'<a href="{esc(href(name))}">{title}</a>'
+    return (f'<div class="rv-top"><h2>{title}</h2><span class="meta">{n_done} of {len(qs)} answered</span>'
+            f'<span class="meta">{esc(d.get("about") or "")}</span></div><div class="rv-bar"><i style="width:{pct}%"></i></div>')
+
+
+def tracker(names: list, current: str = "") -> str:
+    """Every other set waiting (Arthur, 27 November 2026: "for different review batches concurrently outstanding,
+    create another section on the review page that tracks them with all the same elements extant for the current
+    batch"): its title, count, what it is about, bar and kinds, each a way into it."""
+    out = []
+    for n in names:
+        if n == current:
+            continue
+        d = load(n)
+        if d is None or not d.get("questions"):
+            continue
+        done = state.answers(n)
+        out.append(f'<div class="rv-track">{_head(n, d, done, link=True)}{_kinds(n, d["questions"], done, "")}</div>')
+    if not out:
+        return ""
+    return f'<div class="rv-others"><h3>{"Other sets waiting" if current else "Sets waiting"}</h3>{"".join(out)}</div>'
+
+
 def render(qs: dict) -> str:
     one = lambda k: (qs.get(k) or [""])[0].strip()[:100]
     from products.board import assets
@@ -213,17 +245,14 @@ def render(qs: dict) -> str:
     if not name and len(names) == 1:
         name = names[0]
     if not name:
-        body = ("<div class=\"rv-card\"><div class=\"rv-kind\">Review</div>"
-                + ("<p class=\"rv-ask\">Nothing waiting for review.</p>" if not names else
-                   "<p class=\"rv-ask\">Sets waiting for you</p><ul>" + "".join(
-                       f'<li><a href="{esc(href(n))}">{esc((load(n) or {}).get("title") or n)}</a></li>' for n in names) + "</ul>")
-                + "</div>")
+        body = ('<div class="rv-card"><div class="rv-kind">Review</div><p class="rv-ask">Nothing waiting for review.</p></div>'
+                if not names else tracker(names))
     else:
         d = load(name)
         if d is None:
             body = '<div class="rv-card"><p class="rv-ask">No such set.</p></div>'
         else:
-            body = render_set(name, d, state.answers(name), one("q"), one("after"))
+            body = render_set(name, d, state.answers(name), one("q"), one("after")) + tracker(names, name)
     return panes.page("", [], [f'<style>{CSS}</style><section class="review">{body}</section>{script}'], tab=TAB)
 
 

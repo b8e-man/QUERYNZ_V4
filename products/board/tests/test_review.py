@@ -51,3 +51,15 @@ def test_take_refuses_an_unknown_choice_and_adds_a_known_one(tmp_path, monkeypat
 def test_a_bad_set_name_reads_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(review, "DIR", tmp_path)
     assert review.load("../etc/passwd") is None and review.load("") is None
+
+
+def test_every_other_set_waiting_is_tracked_with_the_open_set_s_elements(tmp_path, monkeypatch):
+    (tmp_path / "s-1.json").write_text(json.dumps(SET))
+    (tmp_path / "s-2.json").write_text(json.dumps({**SET, "title": "Another set", "about": "about it"}))
+    monkeypatch.setattr(review, "DIR", tmp_path)
+    monkeypatch.setattr(review.state, "answers", lambda n: {"q1": {"choice": "yes", "note": ""}} if n == "s-2" else {})
+    html = review.tracker(review.sets(), "s-1")
+    assert "Other sets waiting" in html and "A set" not in html, "the open set is not tracked twice"
+    assert '<a href="/review?set=s-2">Another set</a>' in html and "1 of 2 answered" in html and "about it" in html
+    assert 'style="width:50%"' in html and "Job title <b>0</b> left of 1" in html and "Who said it <b>1</b> left of 1" in html
+    assert "Sets waiting" in review.tracker(review.sets()), "with none open, every set is tracked"
