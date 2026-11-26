@@ -55,6 +55,12 @@ minutes and GETS. but we might want to specifically exclude auckland city counci
 15. Every document type gets a reading profile, so every relation works on every type; read documents only, as for news.
 16. The name pass is added to every type it lacks: news, council minutes, the Gazette, GETS (today it runs on Beehive,
     Hansard, Parliament and the courts only, links.sightings.LANES).
+17. An entity's subjects come from both the documents that name it (the most frequent first) and what its register
+    says it does (an industry code); it starts with as many as make sense.
+18. Profiles are made as each type is reached.
+19. The words: a **type** is the kind of document, one per register or lane (Hansard, council minutes, GETS, the
+    Gazette, court decisions, news articles); a **source** is who published it within its type (Auckland Council, RNZ);
+    a news article's news / opinion / feature / media release is its **form** (proposed, so "type" means one thing).
 
 ## Steps, as designed
 
@@ -73,7 +79,6 @@ minutes and GETS. but we might want to specifically exclude auckland city counci
 
 ## Still to design
 
-- **An entity's subjects:** where a feed's subjects come from (the subjects of the documents that name the entity,
-  the most frequent first; what its register says it does, an industry code; or both), and how many it starts with.
-- **Sources per type:** the name of a source in each type (a council, a news site, a ministry), so it can be excluded.
-- **Profiles owed:** which types have none yet, and their order.
+- **Sources per type:** the name of a source in each type, so it can be excluded (a council's minutes by the council,
+  a news article by its site, a Gazette notice by the agency that gave it).
+- **Form:** confirm the word, and whether forms are narrowed like types and sources.
