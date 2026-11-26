@@ -98,7 +98,10 @@ def test_from_the_new_company_the_people_are_listed_and_the_signature_blocks(pai
     m = memo(f"companies:{pair[2]}")
     for name in ("phoenix-signature", "repeat-failure", "other-current-companies", "prohibition", "bankruptcy"):
         f = m["flags"][name]   # from a company the officers the walk followed are read (2 November 2026): a clear says how many
-        assert "start a report from each person" not in f["text"] and "officer" in f["text"], (name, f["text"][:200])
+        assert "start a report from each person" not in f["text"], (name, f["text"][:200])
+        # a clear or a block says how many officers the walk followed; a fired flag names them instead, each with its
+        # role (26 November 2026: phoenix-signature fired on the live pair, "Kerry PAYNE (DIRECTOR of …")
+        assert "officer" in f["text"] or (f["status"] == "fired" and "DIRECTOR" in f["text"]), (name, f["text"][:200])
         assert f["status"] != "clear" or "officer(s) the walk followed one step" in f["text"], name
     assert m["flags"]["phoenix-signature"]["status"] in ("blocked", "fired"), "the signature never clears while past roles are not held"
 

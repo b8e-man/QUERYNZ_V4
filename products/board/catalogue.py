@@ -138,6 +138,7 @@ RULE_WORDS = {
     "owner-full-name": "a land title's registered proprietor and another row of the same first, middle and last name",   # 4 Nov
     "licence-number": "two rows of the Real Estate Authority's decisions printing one licence number",                 # 3 Nov
     "lbp-number": "a Building Practitioners Board decision printing a licensed practitioner's licence number",          # 9 Nov
+    "shared-associate": "one name sitting beside the same second name on two or more companies, charities, societies or partnerships",   # 25 Nov
 }
 
 
