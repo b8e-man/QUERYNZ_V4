@@ -5,11 +5,20 @@ Arthur, 26 November 2026: "i want to create a curation feature. let's do some pl
 
 ## What it is
 
-- **Curated:** news articles first (other documents later), filtered by their relation to an entity.
-- **Produces:** a personal feed (the board's paper, showing only what the rules let in).
-- **Curated by:** rules Arthur writes, on a form on the board.
-- **An entity is a register record** (a company, person, charity or body), not a name as written.
-- **Or a subject:** a rule takes a record or a subject, to include or mute.
+Arthur, 26 November 2026: "What we really want is to be able to select an entity and create a feed with relevant news
+about them. We want it to start broad and be able to narrow it down. we will use it to filter all documents and be
+able to exclude documents based on source and type. for example, we might want to include hansard reports and council
+minutes and GETS. but we might want to specifically exclude auckland city council minutes".
+
+- **A feed is made from an entity:** Arthur selects a register record (a company, person, charity or body) and a feed
+  is created for it. Many feeds, one per entity or purpose ("we will be spawning multiple feeds").
+- **It starts broad and is narrowed:** at first everything related to the entity; then narrowed by relation, subject,
+  document type and source.
+- **It filters all documents**, not news only: news, Hansard, council minutes, GETS (tenders), the Gazette and the rest.
+- **Narrowing by type and by source:** include or exclude a document type (Hansard, council minutes, GETS), and within
+  a type a source (Auckland Council's minutes, one news site).
+- **A media monitoring feed:** newest first.
+- **Subjects** narrow (or widen, see below) a feed too: a subject is typed freely or picked from those the readings hold.
 
 ## Relations a rule can ask for
 
@@ -32,6 +41,13 @@ Arthur, 26 November 2026: "i want to create a curation feature. let's do some pl
    using real Seoul crowd crush footage" lacks the crowd crush.
 6. A specific subject the text does not name outright is kept, marked inferred, with the article's own words beside it.
 7. Re-reading the articles already read: decided later.
+8. A subject is typed freely or picked from the subjects the readings hold, both; a typed subject catches its other
+   forms ("3D printing" catches "3D-printed").
+9. One subject, several signifiers: "Itaewon disaster" and "Seoul crowd crush" are one subject with two names; a subject
+   is kept with its signifiers.
+10. Newest first: "this is a media monitoring feed". Every item carries its own date.
+11. Many feeds, each made from an entity (decision 1 above stands: a possible match is kept out).
+12. Every document type, not news first; narrowed by type and by source.
 
 ## Steps, as designed
 
@@ -50,8 +66,12 @@ Arthur, 26 November 2026: "i want to create a curation feature. let's do some pl
 
 ## Still to design
 
-- Subjects as rules: how a subject is chosen (free text, or from the subjects the readings hold), and whether "3D
-  printing" also catches "3D-printed".
-- How a subject is matched across articles (the same event named differently by two sites).
-- How the feed orders stories (newest first, or by how strongly they match).
-- Several feeds, or one.
+- **Does "broad" include subjects?** A Fonterra feed at first: only documents relating to Fonterra (named, a role,
+  central, connected), or also documents on Fonterra's subjects that never name it (dairy prices).
+- **Register rows as items:** a GETS tender award, a Gazette notice or a director's appointment is a register row, not
+  a document; it is an item in the feed by its link to the record.
+- **Relations per type:** "in a role" and "central" need a reading; a type with no reader gives "named in it" and
+  "connected" only. Decision 2 (read articles only) was for news; which types it binds.
+- **Sources per type:** the name of a source in each type (a council, a news site, a ministry), so it can be excluded.
+- **Name sightings per type:** the name pass covers Beehive, Hansard, Parliament and the courts today; council
+  minutes, the Gazette, GETS and news need adding or a join through the links tables.
