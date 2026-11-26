@@ -102,9 +102,9 @@ class InspConn:
             return type("C", (), {"fetchall": lambda _s: rows})()
         if "WHERE url_key = %s" in sql:
             cols = ["url_key", "url", "host", "title", "author", "published_at", "read_at", "outcome", "model", "reader",
-                    "gates", "seconds", "reading_key", "skipped_why"]
+                    "gates", "seconds", "reading_key", "skipped_why", "capture_sha256"]
             row = ("rnz.co.nz/a", "https://www.rnz.co.nz/a", "rnz.co.nz", "Fonterra says", "A Writer", T, T, "read",
-                   "qwen38-27b", "registers.news.read 5", "registers.news.gates 2", 36.2, "k/1", None)
+                   "qwen38-27b", "registers.news.read 5", "registers.news.gates 2", 36.2, "k/1", None, "ab" * 32)
             return type("C", (), {"description": [Col(c) for c in cols], "fetchone": lambda _s: row})()
         return Conn([ROW]).execute(sql, params)
 
@@ -118,6 +118,7 @@ def test_a_headline_opens_the_inspector_with_every_section_names_for_numbers_and
         assert f"<h3>{sec}</h3>" in pane, sec
     assert "Richard Allen (person)" in pane and "Fonterra (organisation)" in pane, "entity numbers written as names"
     assert "forms in the article" in pane, "the entities table names its columns"
+    assert '<p class="link"><a href="https://www.rnz.co.nz/a"' in pane and f'href="/doc/{"ab" * 32}"' in pane
     assert "<q>we do not &lt;comment&gt;</q>" in pane
     assert "[kept: a speaker named and the words in the text]" in pane and "[dropped: the words are not in the text]" in pane
     assert "serving a7a2b6080e776d68" in pane and "36 s" in pane

@@ -51,6 +51,8 @@ CSS = """
 .nw-insp h2{font-size:16px;margin:.1rem 0 .4rem;font-weight:600;line-height:1.3}
 .nw-insp h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#aab1bc;margin:1rem 0 .35rem;font-weight:600}
 .nw-insp .meta{color:#aab1bc;margin:.1rem 0}
+.nw-insp .link{margin:.1rem 0 .3rem;word-break:break-all}
+.nw-insp .link a{color:#8cb8ff}
 .nw-insp .close{float:right;color:#aab1bc;text-decoration:none;font-size:18px}
 .nw-insp ol,.nw-insp ul{margin:.2rem 0;padding-left:1.3rem}
 .nw-insp li{margin:.35rem 0;line-height:1.45}
@@ -192,7 +194,7 @@ def section(name: str, value, ents: dict, gates: dict) -> str:
 def inspector(conn, url_key: str, a: dict = None, store=None) -> str:
     """The pane for one article: its record, then every section of its stored reading, the gates beside each item."""
     cur = conn.execute("SELECT url_key, url, host, title, author, published_at, read_at, outcome, model, reader, gates, "
-                       "seconds, reading_key, skipped_why FROM pub.news_read WHERE url_key = %s", (url_key,))
+                       "seconds, reading_key, skipped_why, capture_sha256 FROM pub.news_read WHERE url_key = %s", (url_key,))
     cols = [c.name for c in cur.description]
     row = cur.fetchone()
     close = f'<a class="close" href="{esc(href({**a, "open": ""}))}" title="close">×</a>' if a else ""
@@ -204,6 +206,9 @@ def inspector(conn, url_key: str, a: dict = None, store=None) -> str:
         "SELECT kind, n, kept, citation, rule FROM pub.news_read_items WHERE url_key = %s", (url_key,)).fetchall()}
     head = (f'{close}<h2>{esc(r["title"] or r["url_key"])}<a class="out" href="{esc(r["url"])}" target="_blank" '
             f'rel="noopener noreferrer" title="the article\'s own page">↗</a></h2>'
+            f'<p class="link"><a href="{esc(r["url"])}" target="_blank" rel="noopener noreferrer">{esc(r["url"])}</a>'
+            + (f' · <a href="/doc/{esc(r["capture_sha256"])}" target="_blank">our captured copy</a>' if r.get("capture_sha256") else "")
+            + '</p>'
             f'<p class="meta">{esc(r["host"])}{" · " + esc(r["author"]) if r["author"] else ""} · published '
             f'{esc(_when(r["published_at"]))} · read {esc(_when(r["read_at"]))}</p>'
             f'<p class="meta">{esc(r["outcome"])}{": " + esc(r["skipped_why"]) if r["skipped_why"] else ""} · {esc(r["model"])}'
