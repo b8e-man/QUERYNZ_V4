@@ -2118,6 +2118,7 @@ can_share = true
 concurrency = 16
 at_utc = "13:00"   # 02:00 NZDT: node1 stands the 27B through the night; a row of 8,000 a night, about five nights
 then = ["qv4-links-news"]
+enabled = false   # 27 November 2026: held. Arthur judged trial s1 15 of 22 wrong (too specific, compound, place-bound); the re-read waits for the revised prompt (s2) to pass his review
 
 [jobs.qv4-news-sites]
 description = "The old news copy one line a site, for the board's Sources tab (Arthur, 14 November 2026: a light for every source, news by site): old_incoming_news_private.articles grouped by its address's host, counts and dates only (never text or an address), written to <live>/checks/news-sites.json, which the source lights read. The owner login, read-only transaction (the read login has no grant on a _private schema). Daily at 06:00 NZDT, after the night's copy; about six seconds over 2.8 million rows."
