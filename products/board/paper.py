@@ -4,9 +4,9 @@ clicking the item opens the link to the original").
 
     GET /paper                     the front page: the newest articles the news read has finished, in sections by the
                                    first theme the reader gave each (registers.news.read: article.themes)
-    GET /paper?desk=&site=&name=   only the stories with that tag (Arthur, 26 November 2026: "let's put a few tags on
-                                   them so we can navigate easier"): a story's tags are its desk, its site and up to
-                                   three people, organisations or places its reading names; a desk or a name is
+    GET /paper?desk=&site=&name=&subject=   only the stories with that tag (Arthur, 26 November 2026: "let's put a few tags on
+                                   them so we can navigate easier"): a story's tags are its desk, its site, two of its
+                                   subjects and up to three people, organisations or places its reading names; a desk or a name is
                                    looked for among the newest WINDOW stories, a site among all
     GET /paper/picture?k=<url_key> the story's lead picture: a redirect to the address the publisher's page names
                                    (og:image, twitter:image), which the browser then loads from the publisher; 404 when
@@ -28,7 +28,7 @@ import re
 import threading
 import urllib.parse
 
-from products.board import panes
+from products.board import panes, subjects
 from products.board.panes import esc
 
 TAB = "paper"
@@ -74,6 +74,7 @@ CSS = """
 .pp-tags a:hover{background:#3a362f}
 .pp-tags a.desk{border-color:#8a7a52}
 .pp-tags a.site{color:#aaa497}
+.pp-tags a.subj{border-color:#4f6a8a;color:#b9cde6}
 .pp-nav{display:flex;flex-wrap:wrap;justify-content:center;gap:.2rem 1rem;font-family:system-ui,sans-serif;font-size:12px;
   text-transform:uppercase;letter-spacing:.1em;padding:.3rem 0 .5rem;border-bottom:1px solid #5d594f}
 .pp-nav a{color:#d9c9a3;text-decoration:none}
@@ -182,14 +183,16 @@ def blurb(opening: str, title: str, words: int = 42) -> str:
     return cut[:end + 1] if end > len(cut) // 2 else cut.rstrip(",;:") + "…"
 
 
-def tags_of(store, reading_key: str) -> tuple[list, list]:
-    """(themes, names): the reader's themes, and the people, organisations and places it named, the most often
-    named first (by the forms the article used), each once."""
+def tags_of(store, reading_key: str) -> tuple[list, list, list]:
+    """(broad subjects, names, subjects): the reader's broad subjects (for the desk); the people, organisations and
+    places it named, the most often named first (by the forms the article used), each once; and the subjects to tag,
+    the specific first, then the broad from the most specific (IPTC labels are written broad to specific)."""
     try:
         got = json.loads(store.get(reading_key).text or "null") or {}
     except Exception:
-        return [], []
-    th = [str(x) for x in ((got.get("article") or {}).get("themes") or []) if x]
+        return [], [], []
+    th = subjects.broad(got)
+    subj = [x["name"] for x in subjects.specific(got)] + list(reversed(th))
     ents = got.get("entities") if isinstance(got.get("entities"), dict) else {}
     seen, names = set(), []
     for _, e in sorted(ents.items(), key=lambda kv: (-len((kv[1] or {}).get("forms") or []), kv[0])):
@@ -198,13 +201,18 @@ def tags_of(store, reading_key: str) -> tuple[list, list]:
         if n and e.get("kind") in TAG_KINDS and n.lower() not in seen:
             seen.add(n.lower())
             names.append(n)
-    return th, names
+    seen, tags = set(), []
+    for n in subj:
+        if n.lower() not in seen:
+            seen.add(n.lower())
+            tags.append(n)
+    return th, names, tags
 
 
 def args(qs: dict) -> dict:
     def one(k):
         return ((qs.get(k) or [""])[0] or "").strip()[:200]
-    return {"desk": one("desk"), "site": one("site").lower(), "name": one("name")}
+    return {"desk": one("desk"), "site": one("site").lower(), "name": one("name"), "subject": one("subject")}
 
 
 def href(**f) -> str:
@@ -214,26 +222,28 @@ def href(**f) -> str:
 
 def stories(conn, store=None, a: dict = None) -> list[dict]:
     """The stories the page shows: the newest, or the newest with the tag asked for; each with its desk and names."""
-    a = a or {"desk": "", "site": "", "name": ""}
+    a = a or {"desk": "", "site": "", "name": "", "subject": ""}
     where, params = "", []
     if a["site"]:
         where, params = " AND host = %s", [a["site"]]
     cur = conn.execute("SELECT url_key, url, host, title, author, published_at, reading_key, capture_sha256, opening, "
                        "quotes_kept, roles_kept FROM pub.news_read WHERE outcome IN ('read', 'replayed') AND title IS NOT NULL "
                        f"AND published_at <= now() + interval '1 day'{where} ORDER BY published_at DESC NULLS LAST LIMIT %s",
-                       params + [WINDOW if (a["desk"] or a["name"]) else STORIES])
+                       params + [WINDOW if (a["desk"] or a["name"] or a["subject"]) else STORIES])
     cols = [c.name for c in cur.description]
     rows = [dict(zip(cols, r)) for r in cur.fetchall()]
     if store is None:
         from support import reader as rd
         store = rd.Store()
     for r in rows:
-        r["themes"], r["names"] = tags_of(store, r["reading_key"])
+        r["themes"], r["names"], r["subjects"] = tags_of(store, r["reading_key"])
         r["desk"] = desk(r["themes"])
     if a["desk"]:
         rows = [r for r in rows if r["desk"] == a["desk"]]
     if a["name"]:
         rows = [r for r in rows if a["name"].lower() in (n.lower() for n in r["names"])]
+    if a["subject"]:
+        rows = [r for r in rows if a["subject"].lower() in (n.lower() for n in r["subjects"])]
     rows = rows[:STORIES]
     with _LOCK:
         for r in rows:
@@ -281,6 +291,7 @@ def story(r: dict, cls: str = "") -> str:
            f'alt="" loading="lazy" referrerpolicy="no-referrer"></div>')
     d = r.get("desk") or desk(r.get("themes") or [])
     tags = [f'<a class="desk" href="{esc(href(desk=d))}">{esc(d)}</a>', f'<a class="site" href="{esc(href(site=r["host"]))}">{esc(r["host"])}</a>']
+    tags += [f'<a class="subj" href="{esc(href(subject=n))}">{esc(n)}</a>' for n in (r.get("subjects") or [])[:2]]
     tags += [f'<a href="{esc(href(name=n))}">{esc(n)}</a>' for n in (r.get("names") or [])[:3]]
     return (f'<article class="pp-story {cls}"><a class="go" href="{esc(r["url"])}" target="_blank" rel="noopener noreferrer">{pic}'
             f'<h3>{esc(r["title"])}</h3><p>{esc(blurb(r.get("opening") or "", r["title"]))}</p></a>'
@@ -305,11 +316,11 @@ def render(conn, store=None, now=None, qs: dict = None) -> str:
     today = (now or dt.datetime.now()).strftime("%A %-d %B %Y")
     mast = (f'<div class="pp-mast"><h1>The Daily Register</h1><div class="line"><span>{esc(today)}</span>'
             f'<span>the newest {len(rows)} articles read</span><span>QueryNZ</span></div></div>')
-    asked = [(k, v) for k, v in (("desk", a["desk"]), ("site", a["site"]), ("name", a["name"])) if v]
+    asked = [(k, v) for k, v in (("desk", a["desk"]), ("site", a["site"]), ("name", a["name"]), ("subject", a["subject"])) if v]
     filt = ""
     if asked:
         say = " and ".join(f"{k} <b>{esc(v)}</b>" for k, v in asked)
-        scope = "" if a["site"] and not (a["desk"] or a["name"]) else f" among the newest {WINDOW}"
+        scope = "" if a["site"] and not (a["desk"] or a["name"] or a["subject"]) else f" among the newest {WINDOW}"
         filt = f'<p class="pp-filter">{len(rows)} stories, {say}{scope} · <a href="{PATH}">all stories</a></p>'
     if error:
         body = f'<p class="why">the paper could not be set: {esc(error)}</p>'

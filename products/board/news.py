@@ -21,7 +21,7 @@ import urllib.parse
 
 import json
 
-from products.board import panes
+from products.board import panes, subjects
 from products.board.panes import esc
 
 TAB = "news"
@@ -52,6 +52,10 @@ CSS = """
 .nw-insp h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#aab1bc;margin:1rem 0 .35rem;font-weight:600}
 .nw-insp .meta{color:#aab1bc;margin:.1rem 0}
 .nw-insp .link{margin:.1rem 0 .3rem;word-break:break-all}
+.nw-insp .subjs{display:flex;flex-wrap:wrap;gap:.3rem;margin:.4rem 0}
+.nw-insp .subj{font-size:12px;padding:.1rem .5rem;border-radius:10px;background:#24364f;color:#e8eaed}
+.nw-insp .subj.broad{background:none;border:1px solid #3a404c;color:#aab1bc}
+.nw-insp .subj.inf{font-style:italic;background:#2f2a40}
 .nw-insp .link a{color:#8cb8ff}
 .nw-insp .close{float:right;color:#aab1bc;text-decoration:none;font-size:18px}
 .nw-insp ol,.nw-insp ul{margin:.2rem 0;padding-left:1.3rem}
@@ -129,9 +133,11 @@ def table(a: dict, rows: list) -> str:
 
 
 #: the reading's sections in the order the pane shows them; any other a later reader adds follows, by name
-SECTIONS = ("article", "authors", "entities", "roles", "relations", "descriptors", "quotes", "events", "numbers",
+SECTIONS = ("article", "subjects", "authors", "entities", "roles", "relations", "descriptors", "quotes", "events", "numbers",
             "sentiment", "traps", "checks", "quotes_first_pass", "sentiment_dropped")
-LABELS = {"sentiment": "tones", "sentiment_dropped": "tones the reader dropped", "quotes_first_pass": "quotes, the first pass"}
+#: a field's name as the pane says it: the readings' "themes" are the broad subjects (Arthur, 26 November 2026)
+KEYS = {"themes": "broad subjects"}
+LABELS = {"subjects": "subjects", "sentiment": "tones", "sentiment_dropped": "tones the reader dropped", "quotes_first_pass": "quotes, the first pass"}
 #: the reading's section a gated kind is, and the gated kind a section's items carry (read_items.kind)
 GATED = {"quotes": "quotes", "roles": "roles", "sentiment": "sentiment", "claims": "claims"}
 WHO = ("who", "of", "speaker", "about", "target", "subject", "object", "a", "b", "to", "from", "by")
@@ -154,7 +160,7 @@ def _fields(ents: dict, d: dict, skip=("text",)) -> str:
             continue
         val = _name(ents, v) if k in WHO else (", ".join(map(str, v)) if isinstance(v, list) else
                                                json.dumps(v, ensure_ascii=False) if isinstance(v, dict) else str(v))
-        out.append(f'<span class="k">{esc(k)}:</span> {esc(val)}')
+        out.append(f'<span class="k">{esc(KEYS.get(k, k))}:</span> {esc(val)}')
     return " · ".join(out)
 
 
@@ -231,7 +237,12 @@ def inspector(conn, url_key: str, a: dict = None, store=None) -> str:
     names = [k for k in SECTIONS if k in got] + sorted(k for k in got if k not in SECTIONS)
     body = "".join(section(k, got[k], ents, gates) for k in names)
     raw = f'<details><summary>the reading as stored</summary><pre>{esc(json.dumps(got, ensure_ascii=False, indent=1))}</pre></details>'
-    return f'<aside class="nw-insp">{head}{stamp}{body}<h3>raw</h3>{raw}</aside>'
+    sp = subjects.specific(got)
+    chips = "".join(f'<span class="subj{" inf" if x["inferred"] else ""}" title="{esc((x["kind"] + ": " if x["kind"] else "") + (x["words"] or ""))}">'
+                    f'{esc(x["name"])}</span>' for x in sp)
+    chips += "".join(f'<span class="subj broad">{esc(n)}</span>' for n in subjects.broad(got))
+    subj = f'<p class="subjs">{chips}</p>' if chips else '<p class="meta">no subjects</p>'
+    return f'<aside class="nw-insp">{head}{subj}{stamp}{body}<h3>raw</h3>{raw}</aside>'
 
 
 

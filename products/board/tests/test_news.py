@@ -71,6 +71,8 @@ def test_the_live_view_reads_as_the_board_reads_it():
 
 
 READING = {"article": {"type": "news", "themes": ["dairy"]}, "authors": [],
+           "subjects": [{"name": "3D printing", "kind": "technology", "words": "3D-printed", "inferred": False},
+                        {"name": "Itaewon crowd crush", "kind": "event", "words": "the Seoul crush", "inferred": True}],
            "entities": {"e1": {"name": "Richard Allen", "kind": "person", "forms": ["Richard Allen", "Allen"]},
                         "e2": {"name": "Fonterra", "kind": "organisation", "forms": ["Fonterra"]}},
            "roles": [{"who": "e1", "role": "chief executive", "of": "e2"}],
@@ -123,6 +125,10 @@ def test_a_headline_opens_the_inspector_with_every_section_names_for_numbers_and
     assert "[kept: a speaker named and the words in the text]" in pane and "[dropped: the words are not in the text]" in pane
     assert "serving a7a2b6080e776d68" in pane and "36 s" in pane
     assert pane.index("<h3>quotes") < pane.index("<h3>later_section"), "the known sections first, a new one after"
+    assert '<span class="subj" title="technology: 3D-printed">3D printing</span>' in pane
+    assert '<span class="subj inf"' in pane and '<span class="subj broad">dairy</span>' in pane
+    assert "broad subjects:</span> dairy" in pane and "themes:" not in pane, "the word is subjects"
+    assert pane.index('class="subjs"') < pane.index("<h3>article"), "the subjects under the headline"
 
 
 def test_a_reading_missing_from_the_store_is_said():

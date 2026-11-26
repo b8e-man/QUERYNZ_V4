@@ -105,6 +105,9 @@ def test_a_story_carries_its_desk_site_and_names_and_a_tag_shows_only_those_stor
     assert '<a href="/paper?name=Miles+Hurrell">Miles Hurrell</a><a href="/paper?name=Fonterra">Fonterra</a>' in html, \
         "the most often named first; a sum of money is not a tag"
     assert "$40m</a>" not in html and '<nav class="pp-nav">' in html
+    assert '<a class="subj" href="/paper?subject=business+and+finance">business and finance</a>' in html
+    subj = paper.render(Conn(20), Store(), qs={"subject": ["Crime and law"]})
+    assert subj.count('class="pp-story') == 4, "a subject tag shows only the stories with that subject"
     one = paper.render(Conn(20), Store(), qs={"name": ["miles hurrell"]})
     assert one.count('class="pp-story') == 10 and "10 stories, name <b>miles hurrell</b> among the newest 800" in one
     assert "<h2>front page</h2>" not in one
