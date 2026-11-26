@@ -68,3 +68,70 @@ def test_the_live_view_reads_as_the_board_reads_it():
         searched = news.render(conn, {"q": ["the"]})
     assert "the list could not be read" not in html and "the list could not be read" not in searched
     assert "<table" in html
+
+
+READING = {"article": {"type": "news", "themes": ["dairy"]}, "authors": [],
+           "entities": {"e1": {"name": "Richard Allen", "kind": "person", "forms": ["Richard Allen", "Allen"]},
+                        "e2": {"name": "Fonterra", "kind": "organisation", "forms": ["Fonterra"]}},
+           "roles": [{"who": "e1", "role": "chief executive", "of": "e2"}],
+           "quotes": [{"text": "we do not <comment>", "speaker": "e1", "form": "direct"}, {"text": "dropped one", "speaker": "e1"}],
+           "events": [], "numbers": [{"text": "40-tonne", "measures": "weight"}], "sentiment": [], "later_section": [1]}
+
+
+class Store:
+    def __init__(self, reading=None):
+        self.reading = reading
+
+    def get(self, key):
+        from support import reader as rd
+        if self.reading is None:
+            raise rd.MissingReading(f"no stored reading for {key}")
+        return rd.Reading(document="a" * 64, page=1, reader="registers.news.read 5", model="qwen38-27b", settings={},
+                          profile="news-article", profile_version=1, read_from="text",
+                          text=__import__("json").dumps(self.reading), serving="a7a2b6080e776d68", commit="511a2627aa")
+
+
+class InspConn:
+    def __init__(self):
+        self.calls = 0
+
+    def execute(self, sql, params=None):
+        if "FROM pub.news_read_items" in sql:
+            rows = [("quotes", 0, True, False, "a speaker named and the words in the text"),
+                    ("quotes", 1, False, False, "the words are not in the text"), ("roles", 0, True, False, "kept")]
+            return type("C", (), {"fetchall": lambda _s: rows})()
+        if "WHERE url_key = %s" in sql:
+            cols = ["url_key", "url", "host", "title", "author", "published_at", "read_at", "outcome", "model", "reader",
+                    "gates", "seconds", "reading_key", "skipped_why"]
+            row = ("rnz.co.nz/a", "https://www.rnz.co.nz/a", "rnz.co.nz", "Fonterra says", "A Writer", T, T, "read",
+                   "qwen38-27b", "registers.news.read 5", "registers.news.gates 2", 36.2, "k/1", None)
+            return type("C", (), {"description": [Col(c) for c in cols], "fetchone": lambda _s: row})()
+        return Conn([ROW]).execute(sql, params)
+
+
+def test_a_headline_opens_the_inspector_with_every_section_names_for_numbers_and_the_gates():
+    html = news.render(InspConn(), {"open": ["rnz.co.nz/a"]}, store=Store(READING))
+    assert 'class="nw-split open"' in html and 'class="nw-insp"' in html
+    assert "/news?sort=read&amp;dir=desc&amp;open=rnz.co.nz%2Fa" in html, "the headline in the list opens its inspector"
+    pane = html[html.index('class="nw-insp"'):]
+    for sec in ("article", "entities (2)", "roles (1)", "quotes (2)", "numbers (1)", "later_section (1)", "raw"):
+        assert f"<h3>{sec}</h3>" in pane, sec
+    assert "Richard Allen (person)" in pane and "Fonterra (organisation)" in pane, "entity numbers written as names"
+    assert "<q>we do not &lt;comment&gt;</q>" in pane
+    assert "[kept: a speaker named and the words in the text]" in pane and "[dropped: the words are not in the text]" in pane
+    assert "serving a7a2b6080e776d68" in pane and "36 s" in pane
+    assert pane.index("<h3>quotes") < pane.index("<h3>later_section"), "the known sections first, a new one after"
+
+
+def test_a_reading_missing_from_the_store_is_said():
+    pane = news.inspector(InspConn(), "rnz.co.nz/a", news.args({}), Store(None))
+    assert "the stored reading could not be opened: MissingReading" in pane and "Fonterra says" in pane
+
+
+def test_the_live_inspector_opens_a_real_reading():
+    from products.board import db
+    with db.read_connect() as conn:
+        key = conn.execute("SELECT url_key FROM pub.news_read WHERE outcome = 'read' ORDER BY read_at DESC LIMIT 1").fetchone()[0]
+        html = news.render(conn, {"open": [key]})
+    pane = html[html.index('class="nw-insp"'):]
+    assert "could not be" not in pane and "<h3>entities" in pane and "<h3>quotes" in pane

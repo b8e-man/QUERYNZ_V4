@@ -5,9 +5,14 @@
 -- ruling 88, through its capture).
 CREATE OR REPLACE VIEW pub.news_read AS
 SELECT d.url_key, a.url, a.host, a.title, a.author, a.published_at, d.read_at, d.outcome, d.model, d.reader,
-       d.gates, d.seconds, a.capture_sha256,
+       d.gates, d.seconds, a.capture_sha256, d.reading_key,
        coalesce((d.counts->'quotes'->>'kept')::int, 0) AS quotes_kept,
        coalesce((d.counts->'roles'->>'kept')::int, 0) AS roles_kept,
        coalesce((d.counts->'sentiment'->>'kept')::int, 0) AS tones_kept,
        d.counts->>'skipped' AS skipped_why
 FROM news_private.read_done d JOIN news_private.articles a USING (url_key);
+
+-- Every gated item of an article's reading, kept or not, with the rule that decided it: the board's news inspector
+-- shows them beside the stored reading (26 November 2026: "an inspector pane that shows all the extracted data held").
+CREATE OR REPLACE VIEW pub.news_read_items AS
+SELECT url_key, kind, n, item, kept, citation, rule FROM news_private.read_items;

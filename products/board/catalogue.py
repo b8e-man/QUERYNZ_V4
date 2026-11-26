@@ -1808,7 +1808,7 @@ LINKS_PUBLISHED = LINKS_PUBLISHED | {"court_company_numbers", "court_case_docume
 #: 25 November 2026: the pairs a links rule finds are two people (middle-names-differ@1), the links lane's own record
 LINKS_PUBLISHED = LINKS_PUBLISHED | {"links_different"}
 #: 26 November 2026: the news read's finished articles, read by the news tab (news.py), not a search pane
-LINKS_PUBLISHED = LINKS_PUBLISHED | {"news_read"}
+LINKS_PUBLISHED = LINKS_PUBLISHED | {"news_read", "news_read_items"}
 
 
 #: ruling 92 (2): shown columns holding another view's key that no parent tuple or Relation names, as data:
