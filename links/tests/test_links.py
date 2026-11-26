@@ -215,3 +215,23 @@ def test_two_people_sitting_together_on_two_bodies_are_joined_and_a_different_mi
             assert n == len(got)
         finally:
             raw.rollback()
+
+
+KEPT_LOGGED = {"decisions", "old_decisions", "measurements", "test_pairs", "model_name_checks", "sightings", "sightings_done"}
+
+
+def test_every_links_table_is_unlogged_or_named_as_kept():
+    """Arthur, 26 November 2026: "stop the regenerable links tables writing WAL now". A table a build wipes and refills
+    is in the UNLOGGED list; one no build makes again is kept logged. A new table has to be put in one or the other."""
+    import pathlib
+    here = pathlib.Path(links.__file__).resolve().parent
+    made = set()
+    for f in here.glob("*.py"):
+        made |= set(re.findall(r"CREATE TABLE IF NOT EXISTS (?:links|\{s\}|\{p\})\.(\w+)", f.read_text(encoding="utf-8")))
+    made |= set(re.findall(r"CREATE TABLE IF NOT EXISTS links\.(\w+)", links.tables_sql()))
+    made -= {"identifier_links"}   # links.identifiers makes it in a lane's private schema, not in links
+    block = links.tables_sql().split("THE REGENERABLE TABLES WRITE NO WAL")[1]
+    unlogged = set(re.findall(r"'links\.(\w+)'", block))
+    assert not (unlogged & KEPT_LOGGED)
+    assert made - unlogged - KEPT_LOGGED == set(), "a links table neither unlogged nor named as kept"
+    assert unlogged <= made, unlogged - made

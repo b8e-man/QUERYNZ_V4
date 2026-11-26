@@ -300,3 +300,22 @@ CREATE TABLE IF NOT EXISTS links.different (
     PRIMARY KEY (row_a, row_b, rule)
 );
 CREATE INDEX IF NOT EXISTS different_row_b ON links.different (row_b);
+
+-- THE REGENERABLE TABLES WRITE NO WAL (Arthur, 26 November 2026: "stop the regenerable links tables writing WAL
+-- now"; WAL ran 157 GB a day against a budget of 64, the build rewriting tens of millions of rows a day). Every
+-- table a build wipes and refills is UNLOGGED: its writes skip the WAL, the standby holds it empty, and after a
+-- crash or a takeover it is empty until the next build (07:45, or queued by hand). Kept logged, because no build
+-- makes them again: decisions, old_decisions, measurements, test_pairs, model_name_checks, sightings,
+-- sightings_done. A table not made yet (build.py and sightings.py make four of these) is set when it exists.
+DO $$
+DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['links.links', 'links.rows', 'links.rows_catch', 'links.entities', 'links.groups',
+                             'links.bodies', 'links.row_regions', 'links.name_at_address', 'links.name_forms',
+                             'links.org_names', 'links.entity_addresses', 'links.different', 'links.watch',
+                             'links.name_counts', 'links.address_counts', 'links.row_numbers', 'links.cases'] LOOP
+        IF to_regclass(t) IS NOT NULL AND (SELECT relpersistence FROM pg_class WHERE oid = to_regclass(t)) = 'p' THEN
+            EXECUTE format('ALTER TABLE %s SET UNLOGGED', t);
+        END IF;
+    END LOOP;
+END $$;
