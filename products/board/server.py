@@ -469,7 +469,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if url.path == paper.PATH:       # the paper tab (Arthur, 26 November 2026)
                 with RENDER_LOCK, db.read_connect() as conn:
-                    self.send_html(paper.render(conn), policy=paper.POLICY)
+                    self.send_html(paper.render(conn, qs=qs), policy=paper.POLICY)
                 return
             if url.path == paper.PICTURE:    # a story's picture: a redirect to the publisher's, found once (no lock held)
                 where = paper.picture((qs.get("k") or [""])[0][:600])

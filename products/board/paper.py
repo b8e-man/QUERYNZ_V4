@@ -4,6 +4,10 @@ clicking the item opens the link to the original").
 
     GET /paper                     the front page: the newest articles the news read has finished, in sections by the
                                    first theme the reader gave each (registers.news.read: article.themes)
+    GET /paper?desk=&site=&name=   only the stories with that tag (Arthur, 26 November 2026: "let's put a few tags on
+                                   them so we can navigate easier"): a story's tags are its desk, its site and up to
+                                   three people, organisations or places its reading names; a desk or a name is
+                                   looked for among the newest WINDOW stories, a site among all
     GET /paper/picture?k=<url_key> the story's lead picture: a redirect to the address the publisher's page names
                                    (og:image, twitter:image), which the browser then loads from the publisher; 404 when
                                    there is none
@@ -31,6 +35,8 @@ TAB = "paper"
 PATH = "/paper"
 PICTURE = "/paper/picture"
 STORIES = 120
+WINDOW = 800
+TAG_KINDS = ("person", "organisation", "place")
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 PICTURES = os.path.join(LIVE, "board", "news-pictures.jsonl")
 #: what the paper page lets the browser load: the board's own files and the publishers' pictures (https)
@@ -50,7 +56,6 @@ CSS = """
 .pp-sec h2{font-size:13px;text-transform:uppercase;letter-spacing:.14em;margin:0 0 .6rem;color:#d9c9a3}
 .pp-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:1.1rem 1.4rem}
 .pp-story{grid-column:span 4;display:block;color:inherit;text-decoration:none}
-.pp-story:hover h3{text-decoration:underline}
 .pp-story.lead{grid-column:span 8;grid-row:span 2}
 .pp-story.wide{grid-column:span 6}
 .pp-story .pic{aspect-ratio:16/9;background:#24221e;overflow:hidden;margin-bottom:.45rem;border-radius:2px}
@@ -62,6 +67,20 @@ CSS = """
 .pp-story p{font-size:15px;line-height:1.45;margin:0 0 .3rem;color:#cfcabd}
 .pp-story.lead p{font-size:17px}
 .pp-story .by{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#9c968a;font-family:system-ui,sans-serif}
+.pp-story a.go{color:inherit;text-decoration:none;display:block}
+.pp-story a.go:hover h3{text-decoration:underline}
+.pp-tags{margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.3rem;font-family:system-ui,sans-serif}
+.pp-tags a{font-size:11px;padding:.1rem .45rem;border:1px solid #5d594f;border-radius:10px;color:#d9c9a3;text-decoration:none}
+.pp-tags a:hover{background:#3a362f}
+.pp-tags a.desk{border-color:#8a7a52}
+.pp-tags a.site{color:#aaa497}
+.pp-nav{display:flex;flex-wrap:wrap;justify-content:center;gap:.2rem 1rem;font-family:system-ui,sans-serif;font-size:12px;
+  text-transform:uppercase;letter-spacing:.1em;padding:.3rem 0 .5rem;border-bottom:1px solid #5d594f}
+.pp-nav a{color:#d9c9a3;text-decoration:none}
+.pp-nav a.on{color:#fff;border-bottom:2px solid #d9c9a3}
+.pp-nav .n{color:#8a8578;margin-left:.2rem}
+.pp-filter{font-family:system-ui,sans-serif;font-size:13px;margin:.8rem 0;color:#cfcabd}
+.pp-filter a{color:#d9c9a3}
 @media (max-width:900px){.pp-story,.pp-story.lead,.pp-story.wide{grid-column:span 12}}
 """
 
@@ -163,26 +182,59 @@ def blurb(opening: str, title: str, words: int = 42) -> str:
     return cut[:end + 1] if end > len(cut) // 2 else cut.rstrip(",;:") + "…"
 
 
-def themes_of(store, reading_key: str) -> list:
+def tags_of(store, reading_key: str) -> tuple[list, list]:
+    """(themes, names): the reader's themes, and the people, organisations and places it named, the most often
+    named first (by the forms the article used), each once."""
     try:
-        got = json.loads(store.get(reading_key).text or "null")
-        th = ((got or {}).get("article") or {}).get("themes") or []
-        return [str(x) for x in th if x]
+        got = json.loads(store.get(reading_key).text or "null") or {}
     except Exception:
-        return []
+        return [], []
+    th = [str(x) for x in ((got.get("article") or {}).get("themes") or []) if x]
+    ents = got.get("entities") if isinstance(got.get("entities"), dict) else {}
+    seen, names = set(), []
+    for _, e in sorted(ents.items(), key=lambda kv: (-len((kv[1] or {}).get("forms") or []), kv[0])):
+        e = e or {}
+        n = (e.get("name") or "").strip()
+        if n and e.get("kind") in TAG_KINDS and n.lower() not in seen:
+            seen.add(n.lower())
+            names.append(n)
+    return th, names
 
 
-def stories(conn, store=None) -> list[dict]:
+def args(qs: dict) -> dict:
+    def one(k):
+        return ((qs.get(k) or [""])[0] or "").strip()[:200]
+    return {"desk": one("desk"), "site": one("site").lower(), "name": one("name")}
+
+
+def href(**f) -> str:
+    keep = {k: v for k, v in f.items() if v}
+    return PATH + ("?" + urllib.parse.urlencode(keep) if keep else "")
+
+
+def stories(conn, store=None, a: dict = None) -> list[dict]:
+    """The stories the page shows: the newest, or the newest with the tag asked for; each with its desk and names."""
+    a = a or {"desk": "", "site": "", "name": ""}
+    where, params = "", []
+    if a["site"]:
+        where, params = " AND host = %s", [a["site"]]
     cur = conn.execute("SELECT url_key, url, host, title, author, published_at, reading_key, capture_sha256, opening, "
                        "quotes_kept, roles_kept FROM pub.news_read WHERE outcome IN ('read', 'replayed') AND title IS NOT NULL "
-                       "AND published_at <= now() + interval '1 day' ORDER BY published_at DESC NULLS LAST LIMIT %s", (STORIES,))
+                       f"AND published_at <= now() + interval '1 day'{where} ORDER BY published_at DESC NULLS LAST LIMIT %s",
+                       params + [WINDOW if (a["desk"] or a["name"]) else STORIES])
     cols = [c.name for c in cur.description]
     rows = [dict(zip(cols, r)) for r in cur.fetchall()]
     if store is None:
         from support import reader as rd
         store = rd.Store()
     for r in rows:
-        r["themes"] = themes_of(store, r["reading_key"])
+        r["themes"], r["names"] = tags_of(store, r["reading_key"])
+        r["desk"] = desk(r["themes"])
+    if a["desk"]:
+        rows = [r for r in rows if r["desk"] == a["desk"]]
+    if a["name"]:
+        rows = [r for r in rows if a["name"].lower() in (n.lower() for n in r["names"])]
+    rows = rows[:STORIES]
     with _LOCK:
         for r in rows:
             _SHOWN[r["url_key"]] = (r["url"], r["capture_sha256"] or "")
@@ -217,42 +269,61 @@ def sections(rows: list) -> list[tuple[str, list]]:
     front, rest = rows[:6], rows[6:]
     by: dict[str, list] = {}
     for r in rest:
-        by.setdefault(desk(r["themes"]), []).append(r)
+        by.setdefault(r.get("desk") or desk(r["themes"]), []).append(r)
     order = [(n, by[n]) for n, _ in DESKS if n in by] + ([(MORE, by[MORE])] if MORE in by else [])
     return [("front page", front)] + order
 
 
 def story(r: dict, cls: str = "") -> str:
     when = r["published_at"].strftime("%-d %b %H:%M") if r.get("published_at") else ""
-    by = " · ".join(x for x in (r["host"], r.get("author") or "", when) if x)
+    by = " · ".join(x for x in (r.get("author") or "", when) if x)
     pic = (f'<div class="pic" data-site="{esc(r["host"])}"><img src="{esc(PICTURE + "?" + urllib.parse.urlencode({"k": r["url_key"]}))}" '
            f'alt="" loading="lazy" referrerpolicy="no-referrer"></div>')
-    return (f'<a class="pp-story {cls}" href="{esc(r["url"])}" target="_blank" rel="noopener noreferrer">{pic}'
-            f'<h3>{esc(r["title"])}</h3><p>{esc(blurb(r.get("opening") or "", r["title"]))}</p><div class="by">{esc(by)}</div></a>')
+    d = r.get("desk") or desk(r.get("themes") or [])
+    tags = [f'<a class="desk" href="{esc(href(desk=d))}">{esc(d)}</a>', f'<a class="site" href="{esc(href(site=r["host"]))}">{esc(r["host"])}</a>']
+    tags += [f'<a href="{esc(href(name=n))}">{esc(n)}</a>' for n in (r.get("names") or [])[:3]]
+    return (f'<article class="pp-story {cls}"><a class="go" href="{esc(r["url"])}" target="_blank" rel="noopener noreferrer">{pic}'
+            f'<h3>{esc(r["title"])}</h3><p>{esc(blurb(r.get("opening") or "", r["title"]))}</p></a>'
+            f'<div class="by">{esc(by)}</div><div class="pp-tags">{"".join(tags)}</div></article>')
 
 
-def render(conn, store=None, now=None) -> str:
+def nav(a: dict) -> str:
+    on = a["desk"] if not (a["site"] or a["name"]) else None
+    links = [f'<a class="{"on" if not any(a.values()) else ""}" href="{PATH}">everything</a>']
+    links += [f'<a class="{"on" if on == n else ""}" href="{esc(href(desk=n))}">{esc(n)}</a>' for n, _ in DESKS + ((MORE, ()),)]
+    return f'<nav class="pp-nav">{"".join(links)}</nav>'
+
+
+def render(conn, store=None, now=None, qs: dict = None) -> str:
     from products.board import assets
+    a = args(qs or {})
     try:
-        rows = stories(conn, store)
+        rows = stories(conn, store, a)
         error = ""
     except Exception as e:
         rows, error = [], f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
     today = (now or dt.datetime.now()).strftime("%A %-d %B %Y")
     mast = (f'<div class="pp-mast"><h1>The Daily Register</h1><div class="line"><span>{esc(today)}</span>'
             f'<span>the newest {len(rows)} articles read</span><span>QueryNZ</span></div></div>')
+    asked = [(k, v) for k, v in (("desk", a["desk"]), ("site", a["site"]), ("name", a["name"])) if v]
+    filt = ""
+    if asked:
+        say = " and ".join(f"{k} <b>{esc(v)}</b>" for k, v in asked)
+        scope = "" if a["site"] and not (a["desk"] or a["name"]) else f" among the newest {WINDOW}"
+        filt = f'<p class="pp-filter">{len(rows)} stories, {say}{scope} · <a href="{PATH}">all stories</a></p>'
     if error:
         body = f'<p class="why">the paper could not be set: {esc(error)}</p>'
     elif not rows:
-        body = '<p class="why">no article read yet</p>'
+        body = '<p class="why">no read article has that tag</p>' if asked else '<p class="why">no article read yet</p>'
     else:
+        groups = [(asked[0][1], rows)] if asked else sections(rows)
         out = []
-        for name, items in sections(rows):
+        for name, items in groups:
             cards = []
             for i, r in enumerate(items):
-                cls = "lead" if i == 0 else ("wide" if name == "front page" and i < 3 else "")
+                cls = "lead" if i == 0 else ("wide" if (name == "front page" or asked) and i < 3 else "")
                 cards.append(story(r, cls))
             out.append(f'<section class="pp-sec"><h2>{esc(name)}</h2><div class="pp-grid">{"".join(cards)}</div></section>')
         body = "".join(out)
     script = f'<script src="{esc(assets.url("paper.js"))}" defer></script>'
-    return panes.page("", [], [f'<style>{CSS}</style><div class="paper">{mast}{body}</div>{script}'], tab=TAB)
+    return panes.page("", [], [f'<style>{CSS}</style><div class="paper">{mast}{nav(a)}{filt}{body}</div>{script}'], tab=TAB)

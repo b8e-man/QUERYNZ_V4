@@ -33,7 +33,10 @@ class Store:
     def get(self, key):
         i = int(key.split("/")[1])
         th = [["business and finance"], ["crime and law"], ["Rugby union"], [], ["something odd"]][i % 5]
-        return type("R", (), {"text": json.dumps({"article": {"themes": th}})})()
+        ents = {"e1": {"name": "Fonterra", "kind": "organisation", "forms": ["Fonterra"]},
+                "e2": {"name": "Miles Hurrell", "kind": "person", "forms": ["Miles Hurrell", "Hurrell"]},
+                "e3": {"name": "$40m", "kind": "money", "forms": ["$40m"]}} if i % 2 == 0 else {}
+        return type("R", (), {"text": json.dumps({"article": {"themes": th}, "entities": ents})})()
 
 
 @pytest.fixture(autouse=True)
@@ -95,8 +98,33 @@ def test_our_captured_copy_is_read_before_the_site():
     assert got == "https://x.nz/p.png"
 
 
+def test_a_story_carries_its_desk_site_and_names_and_a_tag_shows_only_those_stories():
+    html = paper.render(Conn(20), Store())
+    assert '<a class="desk" href="/paper?desk=business">business</a>' in html
+    assert '<a class="site" href="/paper?site=rnz.co.nz">rnz.co.nz</a>' in html
+    assert '<a href="/paper?name=Miles+Hurrell">Miles Hurrell</a><a href="/paper?name=Fonterra">Fonterra</a>' in html, \
+        "the most often named first; a sum of money is not a tag"
+    assert "$40m</a>" not in html and '<nav class="pp-nav">' in html
+    one = paper.render(Conn(20), Store(), qs={"name": ["miles hurrell"]})
+    assert one.count('class="pp-story') == 10 and "10 stories, name <b>miles hurrell</b> among the newest 800" in one
+    assert "<h2>front page</h2>" not in one
+    sport = paper.render(Conn(20), Store(), qs={"desk": ["sport"]})
+    assert sport.count('class="pp-story') == 4 and '<a class="on" href="/paper?desk=sport">' in sport
+
+
+def test_a_site_is_asked_of_the_database():
+    c = Conn(3)
+    seen = []
+    ex = c.execute
+    c.execute = lambda sql, params=None: (seen.append((sql, params)), ex(sql, params))[1]
+    paper.render(c, Store(), qs={"site": ["RNZ.co.nz"]})
+    assert "AND host = %s" in seen[0][0] and seen[0][1] == ["rnz.co.nz", paper.STORIES]
+
+
 def test_the_live_paper_sets():
     from products.board import db
     with db.read_connect() as conn:
         html = paper.render(conn)
+        biz = paper.render(conn, qs={"desk": ["business"]})
     assert "could not be set" not in html and html.count('class="pp-story') > 10
+    assert "could not be set" not in biz and 'class="pp-tags"' in html
