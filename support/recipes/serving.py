@@ -134,6 +134,8 @@ def unit_record(name: str, unit_dir: str = None, box: str = None, instance: str 
     for l in lines:
         if l.startswith("EnvironmentFile="):
             env.update(_env_file(l[len("EnvironmentFile="):].lstrip("-").replace("%H", box)))
+    # only the variables the unit's lines name: a box's environment file may carry another server's too
+    used = {m.group(1) for l in lines for m in re.finditer(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", l)}
     filled = []
     for l in lines:
         if l.startswith("Environment="):
@@ -147,7 +149,7 @@ def unit_record(name: str, unit_dir: str = None, box: str = None, instance: str 
                    else m.group(0), l)
         filled.append(l)
     return {"unit": name if instance is None else name.replace("@.", f"@{instance}."), "lines": filled,
-            "env": {k: v for k, v in sorted(env.items()) if _fillable(k)}}
+            "env": {k: v for k, v in sorted(env.items()) if _fillable(k) and k in used}}
 
 
 _SECRET = re.compile(r"KEY|TOKEN|PASSWORD|SECRET|PASS\b", re.I)

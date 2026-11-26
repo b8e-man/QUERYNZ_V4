@@ -128,3 +128,13 @@ def test_the_manager_says_unmeasured_and_asks_again(tmp_path, monkeypatch):
     monkeypatch.setattr(serving, "LEDGER", str(tmp_path / "s.jsonl"))
     good = m.serving_for(W, Prof, 8060)
     assert good == serving.serving_id({"kind": "standing", "p": 1}) and m.serving_for(W, Prof, 8060) == good
+
+
+def test_a_variable_the_unit_does_not_name_is_no_part_of_its_serving(tmp_path):
+    """26 November 2026: node2's environment file carries Flash-Next's variables too, and the 27B read as another
+    serving on node2 than on node1."""
+    d = units(tmp_path)
+    (tmp_path / "env").write_text("QV4_W=/m/w.rad\nQV4_OTHER_SERVER=/m/flash.rad\n")
+    (d / "qv4-x-card@.service").write_text(CARD.replace("[Service]\n", f"[Service]\nEnvironmentFile={tmp_path}/env\n"))
+    rec = serving.unit_record("qv4-x-card@.service", str(d), box="node2", instance="0")
+    assert rec["env"] == {"QV4_W": "/m/w.rad"}

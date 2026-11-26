@@ -17,6 +17,9 @@ from support.scheduler import cards, runs
 @pytest.fixture(autouse=True, scope="session")
 def _never_the_real_ledger(tmp_path_factory) -> None:
     runs.LEDGER = tmp_path_factory.mktemp("scheduler-runs") / "job-runs.jsonl"
+    # 26 November 2026: the fake loads of the card tests wrote 30 servings into the live servings ledger
+    from support.recipes import serving
+    serving.LEDGER = str(tmp_path_factory.mktemp("servings") / "servings.jsonl")
 
 
 @pytest.fixture(autouse=True)
