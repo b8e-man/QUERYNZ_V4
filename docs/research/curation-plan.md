@@ -60,7 +60,8 @@ minutes and GETS. but we might want to specifically exclude auckland city counci
 18. Profiles are made as each type is reached.
 19. The words: a **type** is the kind of document, one per register or lane (Hansard, council minutes, GETS, the
     Gazette, court decisions, news articles); a **source** is who published it within its type (Auckland Council, RNZ);
-    a news article's news / opinion / feature / media release is its **form** (proposed, so "type" means one thing).
+    a news article's news / opinion / feature / media release is its **form** (Arthur: "yes").
+20. A feed narrows by form as it does by type and source.
 
 ## Steps, as designed
 
@@ -80,5 +81,4 @@ minutes and GETS. but we might want to specifically exclude auckland city counci
 ## Still to design
 
 - **Sources per type:** the name of a source in each type, so it can be excluded (a council's minutes by the council,
-  a news article by its site, a Gazette notice by the agency that gave it).
-- **Form:** confirm the word, and whether forms are narrowed like types and sources.
+  a news article by its site, a Gazette notice by the agency that gave it). Settled per type as each is reached.
