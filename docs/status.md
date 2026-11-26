@@ -28,6 +28,8 @@ take every job (ruling 145); jobs run from the release copy
   on node2 22:00-05:45 (shift_tick). The news read (news-article v1,
   gates 2) runs row after row (until_empty). Every reading carries its
   serving id (support/recipes). Review agent removed (ruling 180).
+- 26-27 Nov: board tabs news, paper, feeds (curation: research/
+  curation-plan.md, overnight-2026-11-26.md).
 
 ## Running
 
@@ -49,11 +51,11 @@ take every job (ruling 145); jobs run from the release copy
   hash the frozen listing lacks, so its 305 rows are left out and the
   commission gate is red. Waits on Arthur.
 - Insolvency capture held after four nights of transport errors (card).
-- Board chat shelved (Arthur, 26 Nov); it would have to follow the
-  box's standing model.
+- Board chat shelved (Arthur, 26 Nov).
 
 ## Waits on Arthur
 
+- Curation: subjects trial (review tab), junk name forms, office rule.
 - The rebuilt site's pin (above). The Insolvency Register API
   subscription and the PPSR account (8.4); letters (Dunedin, TPK,
   Police); rulings 69, 75; the 15 unsplittable courts documents.

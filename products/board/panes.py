@@ -1861,7 +1861,7 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
     tabs = ('<nav class="tabs">' + " ".join((tab_a("search", "search", href(q, [] if tab != "search" else path, boxes)),
                                               tab_a("uses", "use cases", "/uses"), tab_a("papers past", "papers past", "/papers-past"), tab_a("sources", "sources", "/sources"),
                                               tab_a("subject report", "subject report", SUBJECT_REPORT_PATH), tab_a("review", "review", "/review"),
-                                              tab_a("news", "news", "/news"), tab_a("paper", "paper", "/paper")))
+                                              tab_a("news", "news", "/news"), tab_a("paper", "paper", "/paper"), tab_a("feeds", "feeds", "/feeds")))
             + f'</nav><script src="{esc(assets.url("tabs.js"))}" defer></script>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body class=\"chat-on\"><header><h1>QueryNZ board</h1>{tabs}"

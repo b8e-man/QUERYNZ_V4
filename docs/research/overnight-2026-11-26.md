@@ -23,3 +23,20 @@ docs/research/curation-plan.md. One line a close, the time first.
   31,639 possible. Job qv4-links-news after the news pass. Found: many MPs are possible, not tied (Shane Jones, David
   Seymour, Chris Hipkins: a second small group of the same name, a LINZ owner or a split candidate return); an
   organisation matched by name alone can be a namesake ("White House" to The White House Incorporated).
+- 05:45 **3 to 6: the feeds tab.** `products/board/feeds.py`, /feeds: find an entity the read news ties to, make a
+  feed (broad: every relation, its subjects, every type, source and form), narrow it in the panel beside the
+  stories (relations; subjects on or off, another name for a subject, a typed subject that catches its other forms;
+  types, the six not joined yet shown off; sources; forms; withdraw). Newest first; each story says why it is there
+  (named, central, in a role, connected: who and how, subject: which). Possible ties kept out and listed under the
+  stories (decision 1). Feeds are lines in `<live>/board/feeds.jsonl`, the newest a feed's own, nothing erased.
+  Connected (6): one step through the NZBN in a director's, shareholder's or officer's row key (companies,
+  societies); charities' officer rows carry no charity number, so charities are not connected yet. Suggested
+  subjects: in 5% of the entity's own articles and 8 times as often as in the read news; one that would bring in more
+  than three times the feed's own articles starts unticked. Fonterra: dairy, dairy industry, commodities, banking,
+  trade on, agriculture off; 1,023 stories matched, 0.5 s. Chlöe Swarbrick: polling; 679 matched.
+- 05:55 **Measured, not applied: a political office settles a possible tie.** Of 30,458 possible people in the read
+  articles, 3,618 have exactly one politician among their candidates, and in 2,197 of those the article's own roles
+  give them a political office (minister, MP, leader, spokesperson, whip, Speaker, mayor, councillor): Simeon Brown
+  229, Marama Davidson 224, Simon Watts 182, Barbara Edmonds 146, Todd McClay 142, Mark Mitchell 98. It would be a
+  new links rule (method: twenty pairs, Arthur rules). Shane Jones and David Seymour are not settled by it: more than
+  one of their candidates is a politician (split groups of one MP).
