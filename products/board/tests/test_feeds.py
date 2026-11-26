@@ -56,3 +56,30 @@ def test_the_live_feed_of_a_company_is_set_newest_first(tmp_path):
     assert "the feed could not be read" not in html and 'class="fd-story' in html and "narrow" in html
     dates = [r["published_at"] for r in rows if r["published_at"]]
     assert dates == sorted(dates, reverse=True), "newest first"
+
+
+def _submit(html: str) -> dict:
+    """The form a browser sends from the controls as shown: every hidden and text field, every checked box."""
+    import html as H
+    import re
+    out: dict = {}
+    for tag in re.findall(r"<input\b[^>]*>", html):
+        a = dict((k, H.unescape(v)) for k, v in re.findall(r'(\w+)="([^"]*)"', tag))
+        if "disabled" in tag or "name" not in a:
+            continue
+        if a.get("type") == "checkbox" and " checked" not in tag:
+            continue
+        out.setdefault(a["name"], []).append(a.get("value", ""))
+    return {k: v for k, v in out.items() if v != [""]}
+
+
+def test_the_controls_sent_unchanged_leave_the_feed_as_it_was(tmp_path):
+    p = str(tmp_path / "feeds.jsonl")
+    f = {**F, "subjects": F["subjects"] + [{"name": "agriculture", "signifiers": ["agriculture"], "on": False}],
+         "sources_out": ["stuff.co.nz"], "forms_out": ["opinion"]}
+    feeds.save(f, p)
+    html = feeds.controls(f, {"sources": {"rnz.co.nz": 4}, "forms": {"news": 3}})
+    feeds.take(_submit(html), p)
+    got = feeds.feeds(p)["ab12"]
+    for k in ("name", "relations", "subjects_on", "subjects", "types_out", "sources_out", "forms_out", "withdrawn"):
+        assert got[k] == f[k], k
