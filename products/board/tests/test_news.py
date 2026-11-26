@@ -117,6 +117,7 @@ def test_a_headline_opens_the_inspector_with_every_section_names_for_numbers_and
     for sec in ("article", "entities (2)", "roles (1)", "quotes (2)", "numbers (1)", "later_section (1)", "raw"):
         assert f"<h3>{sec}</h3>" in pane, sec
     assert "Richard Allen (person)" in pane and "Fonterra (organisation)" in pane, "entity numbers written as names"
+    assert "forms in the article" in pane, "the entities table names its columns"
     assert "<q>we do not &lt;comment&gt;</q>" in pane
     assert "[kept: a speaker named and the words in the text]" in pane and "[dropped: the words are not in the text]" in pane
     assert "serving a7a2b6080e776d68" in pane and "36 s" in pane

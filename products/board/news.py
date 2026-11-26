@@ -172,7 +172,8 @@ def section(name: str, value, ents: dict, gates: dict) -> str:
     if name == "entities" and isinstance(value, dict):
         rows = "".join(f'<tr><td class="k">{esc(k)}</td><td>{esc((e or {}).get("name"))}</td><td class="k">{esc((e or {}).get("kind"))}</td>'
                        f'<td>{esc(", ".join((e or {}).get("forms") or []))}</td></tr>' for k, e in value.items())
-        return f'<h3>{esc(label)} ({len(value)})</h3><table>{rows}</table>'
+        head = '<tr><td class="k">number</td><td class="k">name</td><td class="k">kind</td><td class="k">forms in the article</td></tr>'
+        return f'<h3>{esc(label)} ({len(value)})</h3><table>{head}{rows}</table>'
     if isinstance(value, dict):
         return f'<h3>{esc(label)}</h3><p>{_fields(ents, value, skip=())}</p>'
     kind = GATED.get(name)
