@@ -51,6 +51,9 @@ LANE = "board-chat"
 ROUNDS = 6                  # model calls a question, at most; the last is asked to answer with no tool
 CALL_S = 60.0               # one model call's time limit
 NOT_RUNNING = "the chat model is not running"
+#: Arthur, 26 November 2026: "shut off the board chat for now" (the 27B stands on :8060 by day and Flash-Next by night
+#: on node2 only, and the chat named one model). Set in qv4-board.service; the pane answers NOT_RUNNING and asks nothing
+OFF = (os.environ.get("QV4_CHAT_OFF") or "").lower() in ("1", "on", "true", "yes")
 NOT_A_ROW = "not a row"
 THREAD_TURNS = 12           # the newest messages of the thread passed to the model
 TURN_CHARS = 4000           # one message of the thread, cut to this
@@ -408,6 +411,8 @@ def ask(thread: list, connect=None, url: str = None, model: str = None, post=Non
     the thread's last question, its tools run on `connect()` (the product
     reader). With the model down: ok false and NOT_RUNNING."""
     t0 = time.monotonic()
+    if OFF:
+        return {"ok": False, "answer": NOT_RUNNING, "rounds": 0, "tools": [], "seconds": 0.0, "off": True}
     url, model = url or URL, model or MODEL
     messages = [{"role": "system", "content": SYSTEM}] + thread
     used = []

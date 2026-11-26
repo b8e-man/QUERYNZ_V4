@@ -222,3 +222,12 @@ def test_the_loop_ends_early_when_the_prompt_is_large(tmp_path, monkeypatch):
     got = chat.ask([{"role": "user", "content": "q"}], connect=Conn, url="http://127.0.0.1:9/x", model="m", post=post,
                    ledger=str(tmp_path / "l"))
     assert got["answer"] == "done" and len(bodies) < chat.ROUNDS and "tools" not in bodies[-1]
+
+
+def test_the_chat_switched_off_asks_nothing_and_says_not_running(monkeypatch):
+    from products.board import chat
+    monkeypatch.setattr(chat, "OFF", True)
+    def boom(*a, **k):
+        raise AssertionError("the model was asked")
+    r = chat.ask([{"role": "user", "content": "who?"}], post=boom, connect=boom)
+    assert r["ok"] is False and r["answer"] == chat.NOT_RUNNING and r["off"] is True
