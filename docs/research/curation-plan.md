@@ -48,6 +48,13 @@ minutes and GETS. but we might want to specifically exclude auckland city counci
 10. Newest first: "this is a media monitoring feed". Every item carries its own date.
 11. Many feeds, each made from an entity (decision 1 above stands: a possible match is kept out).
 12. Every document type, not news first; narrowed by type and by source.
+13. Broad includes subjects: a feed starts with the documents on its entity's subjects that never name it (a
+    Fonterra feed carries dairy prices).
+14. Register rows are items beside documents, by their link to the record (a GETS award, a Gazette notice, an
+    appointment).
+15. Every document type gets a reading profile, so every relation works on every type; read documents only, as for news.
+16. The name pass is added to every type it lacks: news, council minutes, the Gazette, GETS (today it runs on Beehive,
+    Hansard, Parliament and the courts only, links.sightings.LANES).
 
 ## Steps, as designed
 
@@ -66,12 +73,7 @@ minutes and GETS. but we might want to specifically exclude auckland city counci
 
 ## Still to design
 
-- **Does "broad" include subjects?** A Fonterra feed at first: only documents relating to Fonterra (named, a role,
-  central, connected), or also documents on Fonterra's subjects that never name it (dairy prices).
-- **Register rows as items:** a GETS tender award, a Gazette notice or a director's appointment is a register row, not
-  a document; it is an item in the feed by its link to the record.
-- **Relations per type:** "in a role" and "central" need a reading; a type with no reader gives "named in it" and
-  "connected" only. Decision 2 (read articles only) was for news; which types it binds.
+- **An entity's subjects:** where a feed's subjects come from (the subjects of the documents that name the entity,
+  the most frequent first; what its register says it does, an industry code; or both), and how many it starts with.
 - **Sources per type:** the name of a source in each type (a council, a news site, a ministry), so it can be excluded.
-- **Name sightings per type:** the name pass covers Beehive, Hansard, Parliament and the courts today; council
-  minutes, the Gazette, GETS and news need adding or a join through the links tables.
+- **Profiles owed:** which types have none yet, and their order.
