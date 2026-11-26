@@ -38,7 +38,7 @@ TABLES_SQL = os.path.join(HERE, "tables.sql")
 PUBLISH_SQL = os.path.join(HERE, "publish.sql")
 GRADES = ("confirmed", "near", "related")   # related (ruling 106): a relation between two entities, never an identity
 VERDICTS = ("same", "not the same", "contested")
-MAKERS = re.compile(r"^(review-agent@\d+|correction:\S+|suppression:\S+|old-estate:\S+|person:\S+)$")
+MAKERS = re.compile(r"^(correction:\S+|suppression:\S+|old-estate:\S+|person:\S+)$")
 SCHEMA = "links"
 
 #: the two trust settings and their defaults (design: "Two settings are ruled from measurement")
@@ -46,7 +46,6 @@ SETTINGS = {
     "chain": "follow",            # follow | one-step: how far a chain of confirmed links is trusted
     "contested_group": "whole",   # whole: a group the watch flags is contested as a whole
     "steps": "near",              # near: a multi-step connection through more than one person is near
-    "review_applies": "off",      # off | on: whether the review agent's splits become decisions (track C; off until it passes and Arthur rules)
 }
 
 #: the name bands, by how many director rows carry the first-and-last name (measurement 1)
@@ -131,7 +130,7 @@ def check_decision(verdict: str, made_by: str, made_on: dict) -> list:
     if verdict not in VERDICTS:
         out.append(f"verdict must be one of {VERDICTS}")
     if not MAKERS.match(made_by or ""):
-        out.append("made_by names who or what made it: review-agent@N, correction:ID, suppression:ID, old-estate:ID or person:NAME")
+        out.append("made_by names who or what made it: correction:ID, suppression:ID, old-estate:ID or person:NAME")
     if not isinstance(made_on, dict) or not made_on:
         out.append("made_on carries the evidence")
     return out

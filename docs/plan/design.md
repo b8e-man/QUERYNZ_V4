@@ -34,7 +34,7 @@ There is no stored person. There are three tables, and a person is what you get 
 | Table | What it holds | Who writes it |
 | --- | --- | --- |
 | Links | A pair of rows that join, the rule that joined them, the evidence, and a grade: confirmed or near | The joining rules, on every rebuild |
-| Decisions | A remembered ruling on a pair, one of three: "the same", "not the same", or "contested" (the link drops to near). Each records who or what made it and on what evidence. Only ever added to | The review agent, corrections, suppressions; the old estate's judgments, copied across |
+| Decisions | A remembered ruling on a pair, one of three: "the same", "not the same", or "contested" (the link drops to near). Each records who or what made it and on what evidence. Only ever added to | Corrections, suppressions; the old estate's judgments, copied across |
 | Groups | Rows gathered into people by following confirmed links, minus the decisions. Rebuilt whenever either table changes; never edited | Nobody: it is computed |
 
 Organisations need none of this where a register gives them an official number. The number is the link.
@@ -52,7 +52,7 @@ Organisations need none of this where a register gives them an official number. 
 **How a link is unmade**
 
 - **Every confirmed link is watched** for signs it covers two people: appointments in different regions at once, a very common full name, a bankruptcy on one row while the other keeps appointing, donor rows from far-apart addresses in one year.
-- **A review agent reads the evidence and splits the link if it cannot trust it.** Splitting is the safe direction.
+- **A link the watch doubts is split by a decision** (a correction or a person's ruling). Splitting is the safe direction. (The review agent that once read the evidence was removed on 26 November 2026, ruling 180.)
 - **A split is a decision added, then a rebuild.** Nothing is deleted and nobody edits a group by hand.
 
 **Two settings are ruled from measurement, and each has a default until then.** Build both as settings, not as code.
@@ -129,7 +129,6 @@ Without checks a wrong answer looks the same as a right one.
 | A register | Row counts against the source's own totals; sums against official figures where they exist; freshness; every row has a citation |
 | A reading | The catch log. Each document that could not be read is named, with the stage it stopped at |
 | The links | Error rate measured by how common the name is, on test pairs the registers themselves supply |
-| The review agent | Scored on those same test pairs before it may split anything on its own |
 | A product | Tested when built. What fails becomes a card and a line on its known-limits page |
 | Follow the Money | Compared figure by figure with the frozen site. Every difference is explained by a card |
 
@@ -142,7 +141,7 @@ Three kinds of module, with imports running one way, held by one test.
 | `keys/` | The one reading of names, addresses and official numbers. Pure functions, no database | Nothing |
 | `support/` | The scheduler, the document reader, the model client, the fetch gate, the landing wrapper, the document profiles, the release pipeline, the installer | `keys` |
 | `registers/<lane>/` | One lane each: capture, reading, its tables, its outside check, its catch log, its short spec | `keys`, `support` |
-| `links/` | The joining rules, the three tables, the watch, the review agent | `keys`, `support`, published register tables |
+| `links/` | The joining rules, the three tables, the watch | `keys`, `support`, published register tables |
 | `products/<shape>/` and `products/templates/` | The four shapes and one template per use case | `support`, published tables |
 | `checks/` | The checks board and the comparison with the frozen site | `support`, published tables |
 | `cards/`, `lessons/`, `docs/` | One file per card and per lesson; the plan, the decisions, the status file | Not code |

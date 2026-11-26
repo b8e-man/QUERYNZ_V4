@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS links.decisions (
     row_a        text NOT NULL,
     row_b        text NOT NULL,
     verdict      text NOT NULL CHECK (verdict IN ('same', 'not the same', 'contested')),
-    made_by      text NOT NULL,            -- 'review-agent@2', 'correction:<id>', 'suppression:<id>', 'old-estate:<ledger id>', or a person
+    made_by      text NOT NULL,            -- 'correction:<id>', 'suppression:<id>', 'old-estate:<ledger id>', or a person
     made_on      jsonb NOT NULL,           -- the evidence the decision rested on
     made_at      timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT decisions_pair_order CHECK ((row_a COLLATE "C") < row_b)
@@ -245,52 +245,6 @@ CREATE TABLE IF NOT EXISTS links.measurements (
     name         text NOT NULL,
     figures      jsonb NOT NULL,
     PRIMARY KEY (measured_at, name)
-);
-
--- The review agent's readings of confirmed links: an agent's judgment, recorded, not applied until track C passes it.
-CREATE TABLE IF NOT EXISTS links.readings (
-    reading_id   bigserial PRIMARY KEY,
-    link_id      bigint NOT NULL,
-    row_a        text NOT NULL, row_b text NOT NULL,
-    agent        text NOT NULL,            -- 'review-agent@1 (<model>)' or 'session:<name>'
-    verdict      text NOT NULL CHECK (verdict IN ('no reason to doubt', 'contested', 'not the same')),
-    reasoning    text,
-    web_searched boolean NOT NULL DEFAULT false,
-    read_at      timestamptz NOT NULL DEFAULT now(),
-    run_id       text,                     -- the scoring or review run this reading belongs to
-    pair_id      bigint,                   -- a test pair's id when the reading scores the agent (links.test_pairs); NULL for a watched link
-    kind         text,                     -- the test pair's kind, and its truth and band, copied so a score needs no join
-    truth        text,
-    band         text,
-    screen       text,                     -- what the screen said before the model was asked, or 'model' when it decided nothing
-    evidence     jsonb,                    -- what the reader was shown (registered offices and roles; never a home address)
-    citations    jsonb,                    -- the web pages the verdict cites, each fetched in this run; [] when none
-    model        text,                     -- the served model, read back
-    seconds      real
-);
--- columns added since the table first shipped (track C; card the-links-tables-do-not-migrate-an-existing-column)
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'run_id' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN run_id text; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'pair_id' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN pair_id bigint; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'kind' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN kind text; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'truth' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN truth text; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'band' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN band text; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'screen' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN screen text; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'evidence' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN evidence jsonb; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'citations' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN citations jsonb; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'model' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN model text; END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'links.readings'::regclass AND attname = 'seconds' AND NOT attisdropped) THEN ALTER TABLE links.readings ADD COLUMN seconds real; END IF; END $$;
-CREATE INDEX IF NOT EXISTS readings_run ON links.readings (run_id);
-CREATE INDEX IF NOT EXISTS readings_link ON links.readings (link_id);
-
--- The scores of the review agent on the test pairs (track C), one row per scoring run: the figures the pass mark reads.
-CREATE TABLE IF NOT EXISTS links.scores (
-    run_id       text PRIMARY KEY,
-    agent        text NOT NULL,            -- 'review-agent@N'
-    fingerprint  text NOT NULL,            -- a hash of everything that decides a verdict; a changed judgment is a new measurement
-    model        text,
-    scored_at    timestamptz NOT NULL DEFAULT now(),
-    figures      jsonb NOT NULL,           -- by truth and band: pairs, wrongly split, caught; the pass mark and whether it passed
-    passed       boolean NOT NULL
 );
 
 -- One row per entity (ruling 123, 30 October 2026): a group of `links.groups`, or a row of `links.rows` in no group (a

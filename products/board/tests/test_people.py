@@ -50,7 +50,7 @@ def reads(monkeypatch):
     monkeypatch.setattr(people, "resolve_refs", lambda conn, refs, m=None: {
         far: (cat.BY_NAME["directors"], {"key": "c/8/director/f", "full_name": "Joseph Hart"})} if far in refs else {})
     monkeypatch.setattr(people, "decisions_of", lambda conn, refs: [
-        {"row_a": ref("directors", D3), "row_b": far, "verdict": "not the same", "made_by": "review-agent@2", "made_at": None}])
+        {"row_a": ref("directors", D3), "row_b": far, "verdict": "not the same", "made_by": "correction:c1", "made_at": None}])
     return grp
 
 
@@ -154,13 +154,13 @@ def test_the_entity_pane_lists_the_rows_the_rules_with_evidence_and_the_near_wit
            "links": [{"row_a": a, "row_b": b, "rule": "full-name@1", "grade": "confirmed", "reason": None,
                       "evidence": {"as_filed": ["JANE MARY HART", "Jane Mary Hart"], "middle": "mary"}}],
            "near": [{"mine": a, "row_a": a, "row_b": far, "rule": "name-only@1", "reason": "no middle name to compare"}],
-           "decisions": [{"row_a": a, "row_b": far, "verdict": "not the same", "made_by": "review-agent@2", "made_at": None}],
+           "decisions": [{"row_a": a, "row_b": far, "verdict": "not the same", "made_by": "correction:c1", "made_at": None}],
            "far": {far: (v, {"key": "c/8/director/f", "full_name": "Joseph Hart"})}}
     html = panes.entity_pane(ent, "hart", ["entity:" + a])
     assert "<h2>Jane Mary Hart</h2>" in html and "not a link" in html and "2 rows, 1 register" in html and "contested" in html
     assert html.count('class="row"') >= 5                               # two rows, the pair's two ends, the near row
     assert "same first, middle and last name" in html and "as filed: JANE MARY HART, Jane Mary Hart" in html
-    assert "no middle name to compare" in html and "Joseph Hart" in html and "not the same by review-agent@2" in html
+    assert "no middle name to compare" in html and "Joseph Hart" in html and "not the same by correction:c1" in html
     assert "and 2 more near links" in html
     assert "no group has that id" in panes.entity_pane(None, "hart", [])
 

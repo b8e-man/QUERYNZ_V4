@@ -14,7 +14,7 @@ to rule and evidence; the hand-set weights are not taken.
    rebuild. The pair is stored smaller key first, once.
 3. **Decisions** (`links.decisions`): a remembered ruling on a pair, one of
    `same`, `not the same`, `contested` (the link drops to near). Each says
-   who or what made it (`review-agent@N`, `correction:ID`, `suppression:ID`,
+   who or what made it (`correction:ID`, `suppression:ID`,
    `old-estate:ID`, `person:NAME`) and on what evidence. **Only ever added
    to**: a trigger refuses UPDATE and DELETE.
 4. **Groups** (`links.groups`): rows gathered into people by following
@@ -27,7 +27,7 @@ to rule and evidence; the hand-set weights are not taken.
 6. **Two settings, defaults until Arthur rules from measurement:** `chain`
    (follow chains of confirmed links) and `steps` (a connection through
    more than one person is near, never confirmed). Settings, not code.
-7. **The rules** (what confirms, what is near, the watch, the review agent)
+7. **The rules** (what confirms, what is near, the watch)
    are step 4.2 and track C; they read this contract and change it only by
    ruling. Organisations with an official number need none of this: the
    number is the link.

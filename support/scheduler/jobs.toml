@@ -367,19 +367,6 @@ at_utc = "18:45"   # 07:45 NZDT, after the night's loads (courts 04:40, sanction
 nice = 10
 then = ["qv4-sightings-forms", "qv4-scan-rerun"]   # the forms follow pub.names (31 October 23:55); the stale scans re-run on the new links (2 November 2026: the procurement read-back red)
 
-[jobs.qv4-links-review]
-description = "Track C: the review agent reads test pairs (mode score) or watched confirmed links (mode watched, the default) through the review profile and records its verdicts in links.readings; applies nothing while the switch is off."
-needs = "model-profile"
-profile = "review"
-memory_gb = 0.5
-deadline_s = 7200
-query_timeout_s = 120
-class = "whenever"
-priority = 60
-command = ["python", "-m", "links.review", "--job"]
-can_share = true
-
-# ── step 4.4, the Follow the Money version folder (site-1); the job's class is due, daily at 08:00 NZDT ──
 [jobs.qv4-site-build]
 description = "Step 4.4: build the Follow the Money version folder from the pub views and the template, pinned to the newest frozen release listing; the gates run; nothing is deployed and nothing flipped. Daily after the frozen release's listing is written (the watcher lists it at the board's run), so the comparison in checks/ reads the two sides from the same inputs."
 needs = "processor"

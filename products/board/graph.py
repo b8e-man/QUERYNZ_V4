@@ -989,7 +989,7 @@ def line_title(g: dict, ln: dict) -> str:
 
 
 def decision_text(d: dict) -> str:
-    """A pub.decisions row on a line's pair: "decision: not the same, by review-agent@2 (A and B)"."""
+    """A pub.decisions row on a line's pair: "decision: not the same, by correction:c1 (A and B)"."""
     return f"decision: {d['verdict']}, by {d['made_by']}" + (f" ({d['rows'][0]} and {d['rows'][1]})" if d.get("rows") else "")
 
 

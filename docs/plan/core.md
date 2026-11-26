@@ -26,7 +26,7 @@ Arthur owns the project and is its builder. His own words: "I never review apart
 | Anything reversible inside the new repository and its scratch data | Deleting anything that cannot be regenerated |
 | Installing, enabling, stopping and placing the new estate's scheduled jobs on both boxes | Any change to the old estate beyond the three this plan names: stopping old jobs outside the carve-out, the freeze commits, and rotating credentials under track H |
 | Raising, closing and dropping cards | An emergency fix to the frozen repository |
-| Splitting a doubtful link (through the review agent) | Hardware, credentials, privileged setup, letters to outside bodies |
+| Splitting a doubtful link (a decision on the watch's evidence) | Hardware, credentials, privileged setup, letters to outside bodies |
 | Going ahead on the stated default when a queued decision has one | The rules that confirm a link between two person rows |
 
 **When a decision is Arthur's and he has not answered:** every decision in the queue carries a default. Build on the default, build so the choice is a setting and not a rewrite, and say in your end-of-session note that you did. Only a decision marked "no default" stops the work it blocks.

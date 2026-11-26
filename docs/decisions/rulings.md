@@ -1608,3 +1608,12 @@ Flash-Next takes the room; node2's is loaded for the donations feed's run (03:32
 The server is in the carve-out, so the session hook refuses a session that stops it: Arthur stops it, or a
 founding session takes it out of the carve-out's fence first (limits 22 and 24). Amends step 2.9's fixed
 reservations and ruling 121's "with card room left for it".
+
+180. Arthur, 26 November, of the review agent (track C, `links/review.py`): "entirely remove the reviewer
+from the estate". It had never applied a verdict (`review_applies` off; no decision made by it), nothing
+queued its job, and its one consumer was a line in `links.measure`. Removed: the module, its tests, the job
+`qv4-links-review`, the switch, the check on it, and the tables `links.readings` (1,938 readings) and
+`links.scores` (3 scores), dropped outright on his word (model output, regenerable). Kept: `links.test_pairs`
+(the rules' error rate in `links.measure` reads them) and the model profile `review` (`qv4-questions` answers
+through it). The queue entry on the agent's pass mark is withdrawn. Hard limits 12 and 26 name the review
+agent; they now bind nothing until something like it returns, and their wording is Arthur's.

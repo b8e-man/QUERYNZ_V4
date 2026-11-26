@@ -22,10 +22,10 @@ def test_pair_is_ordered_and_never_self():
 
 
 def test_a_decision_says_who_made_it_and_on_what():
-    assert links.check_decision("same", "review-agent@2", {"rule": "full-name@1"}) == []
+    assert links.check_decision("same", "correction:c1", {"rule": "full-name@1"}) == []
     assert links.check_decision("maybe", "", {}) == [
         "verdict must be one of ('same', 'not the same', 'contested')",
-        "made_by names who or what made it: review-agent@N, correction:ID, suppression:ID, old-estate:ID or person:NAME",
+        "made_by names who or what made it: correction:ID, suppression:ID, old-estate:ID or person:NAME",
         "made_on carries the evidence"]
     assert links.check_decision("contested", "old-estate:verdict-991", {"watch": "two regions"}) == []
 
@@ -57,8 +57,7 @@ def test_every_column_added_after_a_table_first_shipped_has_its_alter_line():
     """CREATE TABLE IF NOT EXISTS leaves an existing table as it was (card
     the-links-tables-do-not-migrate-an-existing-column)."""
     sql = links.tables_sql()
-    for table, cols in (("old_decisions", ("source", "verdict", "mapped_how")), ("rows", ("part_of",)), ("links", ("relation",)),
-                        ("readings", ("run_id", "pair_id", "kind", "truth", "band", "screen", "evidence", "citations", "model", "seconds"))):
+    for table, cols in (("old_decisions", ("source", "verdict", "mapped_how")), ("rows", ("part_of",)), ("links", ("relation",))):
         for col in cols:
             # added only where missing (24 November 2026: the unguarded form locked the table on every run)
             assert f"attname = '{col}' AND NOT attisdropped) THEN ALTER TABLE links.{table} ADD COLUMN {col} " in sql, (table, col)

@@ -121,7 +121,7 @@ def test_refs_round_trip_and_the_ddl_targets_a_schema():
     assert links.split_ref(links.ref("companies", "companies/1/director/ab")) == ("companies", "companies/1/director/ab")
     ddl = links.ddl("scratch_links")
     assert "scratch_links.rows" in ddl and "links." not in ddl.replace("scratch_links.", "")
-    for t in ("rows", "entity_addresses", "org_names", "watch", "test_pairs", "measurements", "readings"):
+    for t in ("rows", "entity_addresses", "org_names", "watch", "test_pairs", "measurements"):
         assert re.search(rf"CREATE TABLE IF NOT EXISTS links\.{t}\b", links.tables_sql()), t
     pub = links.publish_sql()
     for v in ("pub.links", "pub.groups", "pub.decisions", "pub.names", "pub.old_decisions"):

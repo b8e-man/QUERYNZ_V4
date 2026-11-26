@@ -1,9 +1,10 @@
 # The fetch gate has no search route
 kind: finding
-state: open
+state: closed
 use-case: -
 session: review
 opened: 2026-10-20
+closed: 2026-11-26
 
 Track C's review agent may search the web only for evidence that two rows
 are different people, with a name and a public role at most (hard limits
@@ -20,3 +21,5 @@ ledger so hard limit 12 can be audited. Until then no reading searches;
 `links/review.py` carries `web_query()` and `cite_check()` (tested) and
 `search()` raises naming this card. The agent's measured figures are from
 the registers alone.
+
+**Closed 26 November 2026 (ruling 180):** the review agent, the one reader that searched, is removed from the estate.

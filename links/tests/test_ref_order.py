@@ -40,7 +40,7 @@ def test_every_pair_order_check_compares_bytes():
     assert all('COLLATE "C"' in c for c in checks), checks
 
 
-@pytest.mark.parametrize("name", ["build.py", "pairs.py", "measure.py", "check.py", "rows.py", "old.py", "review.py"])
+@pytest.mark.parametrize("name", ["build.py", "pairs.py", "measure.py", "check.py", "rows.py", "old.py"])
 def test_every_least_greatest_and_smallest_ref_in_the_lane_s_sql_is_in_the_lane_s_order(name):
     """A ref compared in SQL without COLLATE "C" is compared by the locale: a static audit, so a new rule cannot bring it back."""
     code = _code(name)

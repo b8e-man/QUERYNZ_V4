@@ -1,9 +1,10 @@
 # The review agent's splits are ruled on after the build
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: founding
 opened: 2026-10-21
+closed: 2026-11-26
 
 Ruling 69 (21 October): "we will review at the end. Keep as a card for
 after the build." The review agent (track C) scores pairs and records its
@@ -17,3 +18,5 @@ again on them; the first application to the watch-flagged links only, the
 groups rebuilt once, the contested count compared before and after.
 
 Owner: links, at the end of the plan's build, on Arthur's word then.
+
+**Closed 26 November 2026 (ruling 180):** the review agent is removed from the estate (Arthur: "entirely remove the reviewer").

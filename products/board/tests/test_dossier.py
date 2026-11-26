@@ -55,7 +55,7 @@ def reads(monkeypatch):
            "near": [{"row_a": ROWS[0][0], "row_b": "house:c9", "mine": ROWS[0][0], "rule": "name-only@1", "reason": "the two rows share a name"},
                     {"row_a": ROWS[0][0], "row_b": "companies:c/7/director/s", "mine": ROWS[0][0], "rule": "name-only@1", "reason": "same"}],
            "near_total": 2, "related": [], "names": NAMES,
-           "decisions": [{"row_a": ROWS[0][0], "row_b": "house:c9", "verdict": "not the same", "made_by": "review-agent@2", "made_at": None},
+           "decisions": [{"row_a": ROWS[0][0], "row_b": "house:c9", "verdict": "not the same", "made_by": "correction:c1", "made_at": None},
                          {"row_a": ROWS[0][0], "row_b": "companies:c/7/director/s", "verdict": "not the same", "made_by": "r", "made_at": None}]}
     monkeypatch.setattr(people, "entity", lambda conn, gid: ent if gid == ROWS[1][0] else None)
     monkeypatch.setattr(people, "resolve_refs", lambda conn, refs, members=None: {r: x for r, x in

@@ -6,8 +6,7 @@ recorded in `links.measurements`. None had ever been run.
 1. How often a full name repeats, by how common the name is.
 2. Addresses shared by many companies.
 3. The error rate of the two confirming rules on the test pairs (links.pairs),
-   by name band; and, beside it, the review agent's reading of 100 confirmed
-   links (links.readings), reported as an agent's judgment.
+   by name band.
 4. How often each rule can fire at all, per register.
 5. Company names to official numbers: the share of organisation donors that
    match exactly one company alive on the donation date; and, beside them,
@@ -200,9 +199,6 @@ def m3_rule_error(conn, s: str) -> dict:
                                             "pairs_with_identical_full_name_and_middle": identical_full,
                                             "error_rate_direct": round(err_direct, 4), "error_rate_as_built": round(err_group, 4),
                                             **(wrongly if kind in COMPANY_KINDS else {})})
-    r = conn.execute(f"""SELECT agent, verdict, count(*), bool_or(web_searched) FROM {s}.readings GROUP BY 1, 2 ORDER BY 1, 2""").fetchall()
-    out["agent_reading_of_confirmed_links"] = {"note": "an agent's judgment of the evidence, not a measurement against a known answer",
-                                               "verdicts": [{"agent": a, "verdict": v, "links": int(n), "web_searched": bool(w)} for a, v, n, w in r]}
     return out
 
 

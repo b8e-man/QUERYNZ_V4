@@ -57,10 +57,10 @@ OLD_DATABASES = {
 RULES = {
     # Arthur, 24 November 2026 ("leave them out"): the links and LINZ tables are rebuilt, not copied; a third of the
     # copy and most of the rehearsal's 12 hours. Kept: what cannot be rebuilt, named first because the first match wins
-    # (the links' decisions and the review's readings, scores, measurements and test pairs; the model checks and the
+    # (the links' decisions, measurements and test pairs; the model checks and the
     # sightings, read from documents at a cost; the LINZ capture's own ledger of pulls, pages and surveys).
     **{f"querynz_v4.links.{t}": (SEND, "a decision, a reading or a costly read: not rebuilt", f"{V4_REPO}/links/tables.sql")
-       for t in ("decisions", "old_decisions", "readings", "scores", "measurements", "test_pairs", "model_name_checks",
+       for t in ("decisions", "old_decisions", "measurements", "test_pairs", "model_name_checks",
                  "sightings", "sightings_done")},
     **{f"querynz_v4.linz.{t}": (SEND, "the capture's own ledger", f"{V4_REPO}/registers/linz/capture.py")
        for t in ("pulls", "pages", "surveys", "loaded_pulls")},

@@ -17,10 +17,8 @@
    each view counted again equals what the last gather read, and the
    catch log reconciles (read = written + set aside); ruling 114's eight
    people views among them.
-5. No reading of the review agent has become a decision while the apply
-   switch (`links.SETTINGS["review_applies"]`) is off, and every decision
-   the agent made names a passing score of the judgment that made it
-   (track C: until it passes, verdicts are recorded and never applied).
+5. (Withdrawn 26 November 2026 with the review agent: Arthur, "entirely
+   remove the reviewer from the estate".)
 6. The three rules of ruling 106, each counted again in SQL apart from the
    Python that made them: every `organisation-sole-company@1` link is a
    donation row and the only company of its name key, live in the year;
@@ -143,19 +141,6 @@ def check_rows_current(conn, s: str) -> list:
                     "written": written, "set_aside": aside, "held": held,
                     "ok": now == read and held == written and read == written + aside})
     return out
-
-
-def check_review_switch(conn, s: str, applies: bool = None) -> list:
-    """A reading never becomes a decision while the switch is off; and each
-    decision the agent made rests on a score that passed."""
-    from links import review
-    applies = review.applies() if applies is None else applies
-    made = conn.execute(f"SELECT count(*) FROM {s}.decisions WHERE made_by LIKE 'review-agent@%%'").fetchone()[0]
-    unscored = conn.execute(f"""SELECT count(*) FROM {s}.decisions d WHERE d.made_by LIKE 'review-agent@%%'
-                                AND NOT EXISTS (SELECT 1 FROM {s}.scores sc WHERE sc.run_id = d.made_on->'applied_under'->>'score_run' AND sc.passed)""").fetchone()[0]
-    return [{"check": "no review-agent reading became a decision while the switch is off", "switch": "on" if applies else "off",
-             "review_agent_decisions": int(made), "ok": applies or int(made) == 0},
-            {"check": "every review-agent decision names a passing score", "without_a_passing_score": int(unscored), "ok": int(unscored) == 0}]
 
 
 def check_ruling_106(conn, s: str) -> list:
@@ -468,7 +453,6 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_addresses(conn, s)
     out += check_published(conn, s, pub)
     out += check_rows_current(conn, s)
-    out += check_review_switch(conn, s)
     out += check_ruling_106(conn, s)
     out += check_ruling_107(conn, s)
     out += check_ruling_109(conn, s)
