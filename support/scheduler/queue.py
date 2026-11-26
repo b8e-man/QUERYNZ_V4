@@ -444,14 +444,25 @@ def then_rows(conn, schema: str, qid: int, jt, *, registry: dict = None, now=Non
     in flight). The lines say what happened and are appended to the finished
     row's detail; the new row's `then_of` is `qid`. A named job the catalogue
     lacks is a line, never an exception: `check` refuses the catalogue, the
-    worker does not die on it."""
-    if not jt.then:
+    worker does not die on it.
+
+    A job marked `until_empty` names itself too, when the finished row did
+    at least one piece: the next row follows at once and lists what is left;
+    a row that did nothing ends the chain (no loop of empty rows)."""
+    names = list(jt.then)
+    if getattr(jt, "until_empty", False):
+        done = pieces_left(conn, schema, qid)["done"]
+        if done:
+            names.append(jt.name)
+        else:
+            _detail(conn, schema, qid, "until_empty: the row did no piece; the chain ends here")
+    if not names:
         return []
     registry = registry if registry is not None else reg.load()
     lines = []
     with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s::text))", ("scheduler.then",))
-        for name in jt.then:
+        for name in names:
             if name not in registry:
                 lines.append(f"then: {name} is not in the catalogue; not queued")
                 continue
@@ -466,11 +477,16 @@ def then_rows(conn, schema: str, qid: int, jt, *, registry: dict = None, now=Non
             except ValueError as exc:
                 lines.append(f"then: {name} not queued: {exc}")
                 continue
-            lines.append(f"then: queued row {new}" if len(jt.then) == 1 else f"then: {name} queued as row {new}")
+            lines.append(f"then: queued row {new}" if len(names) == 1 else f"then: {name} queued as row {new}")
         if lines:
             conn.execute(f"UPDATE {schema}.queue SET detail = concat_ws(' | ', NULLIF(detail, ''), %s::text) WHERE id = %s",
                          (" | ".join(lines)[:2000], qid))
     return lines
+
+
+def _detail(conn, schema: str, qid: int, line: str) -> None:
+    conn.execute(f"UPDATE {schema}.queue SET detail = concat_ws(' | ', NULLIF(detail, ''), %s::text) WHERE id = %s",
+                 (line[:2000], qid))
 
 
 def pieces_left(conn, schema: str, qid: int) -> dict:

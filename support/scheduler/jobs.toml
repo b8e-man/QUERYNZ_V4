@@ -1496,6 +1496,7 @@ class = "due"
 priority = 130
 command = ["python", "-m", "registers.news.load", "--job"]
 nice = 10
+then = ["qv4-news-read"]   # 26 November 2026: the articles a load lands are read; one row in flight, so a running chain is left alone
 
 [jobs.qv4-beehive-load]
 description = "Beehive: rebuild the lane's tables from the MCP's beehive documents and the old estate's export, publish pub.beehive_releases and its tables on green. Nightly at 04:00 NZDT, after the pull (ruling 96)."
@@ -2050,7 +2051,7 @@ at_utc = "11:50"
 nice = 15
 
 [jobs.qv4-news-read]
-description = "The first read of the news corpus (Arthur, 25 November 2026): one piece per article (key url_key), newest first, through the news-reader profile (Qwen 3.8 27B, Arthur, 26 November 2026: \"use 27b for reading the media\") in three passes (read, quotes, tones); the reading stored ungated by the text's hash, then the gates (registers.news.gates 2) judge each quote, role and tone into news_private.read_items, kept or not, with the rule. Te reo Māori articles and paywall stubs are skipped and recorded (Arthur: “skip te reo”). Keys from python -m registers.news.read --pieces --limit 8000; both boxes take pieces while they stand the 27B (by day both, by night node1), 16 streams a box. A row of 8,000 is queued every 16 minutes while none is in flight (Arthur, 26 November 2026), so the rows follow each other until nothing is unread."
+description = "The first read of the news corpus (Arthur, 25 November 2026): one piece per article (key url_key), newest first, through the news-reader profile (Qwen 3.8 27B, Arthur, 26 November 2026: \"use 27b for reading the media\") in three passes (read, quotes, tones); the reading stored ungated by the text's hash, then the gates (registers.news.gates 2) judge each quote, role and tone into news_private.read_items, kept or not, with the rule. Te reo Māori articles and paywall stubs are skipped and recorded (Arthur: “skip te reo”). Keys from python -m registers.news.read --pieces --limit 8000; both boxes take pieces while they stand the 27B (by day both, by night node1), 16 streams a box. Each row queues the next the moment it finishes (until_empty; Arthur, 26 November 2026), until nothing is unread; each news load queues it again."
 needs = "model-profile"
 profile = "news-reader"
 memory_gb = 0.5
@@ -2063,7 +2064,7 @@ pieces_command = ["python", "-m", "registers.news.read", "--pieces", "--limit", 
 pieces = true
 can_share = true
 concurrency = 16   # the news-reader profile's 16 streams (8 a card)
-every_s = 960   # Arthur, 26 November 2026: "keep working through rows of articles. we dont want to fire each row manually": a row of the next 8,000 unread is queued every 16 minutes (longer than the deadline, as the catalogue requires) unless one is still queued or leased; a row is about three hours at 46 a minute, so the wait between rows is under 9% of the time; an empty list ends the row at once
+until_empty = true   # Arthur, 26 November 2026: "keep working through rows of articles. we dont want to fire each row manually": the next row of 8,000 is queued the moment one finishes; a row with nothing unread ends the chain, and each news load queues it again
 
 [jobs.qv4-news-sites]
 description = "The old news copy one line a site, for the board's Sources tab (Arthur, 14 November 2026: a light for every source, news by site): old_incoming_news_private.articles grouped by its address's host, counts and dates only (never text or an address), written to <live>/checks/news-sites.json, which the source lights read. The owner login, read-only transaction (the read login has no grant on a _private schema). Daily at 06:00 NZDT, after the night's copy; about six seconds over 2.8 million rows."

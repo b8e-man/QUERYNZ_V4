@@ -433,3 +433,33 @@ def test_pieces_from_a_command_then_rows_and_the_status_fields_against_the_table
     # a then naming a job the catalogue lacks is a line, not an exception
     gone = dataclasses.replace(cat["cpu"], then=("nowhere",))
     assert q.then_rows(conn, s, load2, gone, registry=cat, now=secs(11)) == ["then: nowhere is not in the catalogue; not queued"]
+
+
+def test_an_until_empty_job_queues_its_next_row_when_a_row_did_work_and_stops_when_one_did_none(conn, s, cat):
+    """Arthur, 26 November 2026: "keep working through rows ... we dont want to fire each row manually"."""
+    import dataclasses
+    cat["doc"] = dataclasses.replace(cat["doc"], until_empty=True)
+    first = q.enqueue(conn, s, "doc", pieces=["a", "b"], registry=cat, now=secs(0))
+    c = q.claim(conn, s, "w1", ["doc"], lease_s=60, now=secs(1))
+    conn.execute(f"UPDATE {s}.pieces SET state = 'done' WHERE queue_id = %s", (first,))
+    q.complete(conn, s, first, c["token"], outcome="ok", now=secs(2))
+    assert q.then_rows(conn, s, first, cat["doc"], registry=cat, now=secs(3)) == [f"then: queued row {first + 1}"]
+    nxt = conn.execute(f"SELECT job, pieces_source, then_of FROM {s}.queue WHERE id = %s", (first + 1,)).fetchone()
+    assert nxt == ("doc", "command", first), "the next row lists its own pieces at the claim"
+    # the next row finds nothing: no piece done, so the chain ends and says why
+    c2 = q.claim(conn, s, "w1", ["doc"], lease_s=60, now=secs(4))
+    q.complete(conn, s, first + 1, c2["token"], outcome="ok", now=secs(5))
+    assert q.then_rows(conn, s, first + 1, cat["doc"], registry=cat, now=secs(6)) == []
+    assert conn.execute(f"SELECT count(*) FROM {s}.queue WHERE job = 'doc'").fetchone()[0] == 2
+    assert "the chain ends here" in conn.execute(f"SELECT detail FROM {s}.queue WHERE id = %s", (first + 1,)).fetchone()[0]
+
+
+def test_the_check_refuses_until_empty_without_a_pieces_command_or_beside_a_clock(tmp_path):
+    import pathlib
+    here = pathlib.Path(reg.__file__).resolve().parent
+    jobs = (here / "jobs.toml").read_text(encoding="utf-8")
+    jp = tmp_path / "jobs.toml"
+    jp.write_text(jobs.replace('pieces_command = ["python", "-m", "registers.news.read", "--pieces", "--limit", "8000"]\n', ""))
+    assert any("qv4-news-read: until_empty needs a pieced job with a pieces_command" in p for p in reg.problems(jp, here / "profiles.toml"))
+    jp.write_text(jobs.replace("until_empty = true", "until_empty = true\nevery_s = 3600"))
+    assert any("qv4-news-read: until_empty and a clock" in p for p in reg.problems(jp, here / "profiles.toml"))

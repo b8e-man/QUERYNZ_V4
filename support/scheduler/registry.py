@@ -156,6 +156,10 @@ class JobType:
     # node1 over NFS, so the restore rehearsal's scratch server on node1 wrote its whole database over the network
     # (4 MB/s, the 12-hour deadline missed twice); it runs where the disk is.
     boxes: tuple[str, ...] = ()
+    # `until_empty` (Arthur, 26 November 2026: "keep working through rows ... we dont want to fire each row manually"):
+    # a pieced job with a pieces_command queues its next row the moment a row finishes having done at least one
+    # piece; a row that lists nothing, or does nothing, ends the chain until something queues the job again.
+    until_empty: bool = False
 
     @property
     def name(self) -> str:
@@ -289,7 +293,7 @@ def load(path: pathlib.Path | None = None) -> dict[str, JobType]:
             pieces_command=tuple([pcmd] if isinstance(pcmd, str) else pcmd),
             then=tuple([then] if isinstance(then, str) else then), threads=int(b.get("threads", 1)),
             memory_counts=_memory_counts(name, b.get("memory_counts", "pss")),
-            boxes=tuple(b.get("boxes") or ()))
+            boxes=tuple(b.get("boxes") or ()), until_empty=bool(b.get("until_empty", False)))
     return out
 
 
@@ -392,6 +396,10 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
                 out.append(f"{jt.name}: concurrency {jt.concurrency} x threads {jt.threads} = "
                            f"{jt.concurrency * jt.threads} pieces in flight on one row is over profile {jt.profile}'s "
                            f"{streams} streams" + ("" if served.standing else f" a card on {CARDS_A_BOX} cards"))
+        if jt.until_empty and not (jt.pieces and jt.pieces_command):
+            out.append(f"{jt.name}: until_empty needs a pieced job with a pieces_command (the next row lists its own pieces)")
+        if jt.until_empty and (jt.every_s or jt.at_utc or jt.wanted):
+            out.append(f"{jt.name}: until_empty and a clock or a wanted count: one way of queueing a job, not two")
         for t in jt.then:
             if t not in jts:
                 out.append(f"{jt.name}: then names {t!r}, which is not in the catalogue")
