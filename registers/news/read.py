@@ -1,9 +1,11 @@
 """The first read of the news corpus (Arthur, 25 November 2026: "I'd like to read the media corpora and extract signal
 from them"; "apply these rules to the first read we do").
 
-One article is read by the text reader (profile `text-reader`) in the golden sample's four passes, the prompts of
-registers.news.gold.trial unchanged: the read (entities, roles, relations, quotes, events, numbers, tones), quotes in
-their own pass, claims as who says what, and each non-neutral tone asked again on its own. The reading is stored whole
+One article is read by the text reader (profile `text-reader`, Qwen 3.8 27B since 26 November 2026) in three passes,
+the prompts of registers.news.gold.trial unchanged: the read (entities, roles, relations, quotes, events, numbers,
+tones), quotes in their own pass, and each non-neutral tone asked again on its own. No claims pass (Arthur, 26
+November 2026: two passes for the golden sample's items, the tones pass measured after: 27B tones 90% right on his
+answers with it, 84% without; claims are not among the items judged). The reading is stored whole
 and ungated in the reader store, keyed by the hash of the masked text the model read, and replayed from there by any
 later read of the same text (no model call). Then the gates (registers.news.gates) judge every quote, role, claim and
 tone, and the items land in `news_private.read_items` with the verdict and the rule; `news_private.read_done` names
@@ -29,18 +31,21 @@ import sys
 import time
 
 from support import db
-from support import reader as rd
+from support import profiles, reader as rd
 from registers.news import gates as G
 from registers.news.gold import trial as T
 from registers.news.gold.sample import PAYWALL, masked
 
-READER = "registers.news.read 2"
+READER = "registers.news.read 4"
 LANE = "news"
-PROFILE, PROFILE_VERSION = "news-article", 1
+PROFILE = "news-article"
+#: the document profile's version from the ledger (support/profiles/profiles.jsonl), registered 26 November 2026; it was
+#: this constant, 1, from 25 November until then, and v1 is the first version the ledger holds
+PROFILE_VERSION = profiles.reading_version(PROFILE)
 #: the trial's settings: what was measured is what runs
 SETTINGS = {"temperature": 0.0, "max_tokens": 12000, "thinking": False,
-            "passes": ["read", "quotes", "claims", "tones"],
-            "prompts": hashlib.sha256("\n".join((T.PROMPT, T.QUOTE_PROMPT, T.CLAIM_PROMPT, T.TONE_PROMPT)).encode())
+            "passes": ["read", "quotes", "tones"],
+            "prompts": hashlib.sha256("\n".join((T.PROMPT, T.QUOTE_PROMPT, T.TONE_PROMPT)).encode())
             .hexdigest()[:16]}
 #: an article shorter than this is a brief or a stub; longer than this cannot sit with the prompt and the answer in the
 #: profile's 32,768-token context (the read's prompt is about 3,000 tokens, its answer up to 12,000)
@@ -87,12 +92,11 @@ def key_for(sha: str, model: str) -> str:
 
 
 def read_text(text: str, url: str, model: str) -> tuple[dict | None, str, float]:
-    """The four passes over one text: (the ungated reading or None, the served model, seconds)."""
+    """The three passes over one text: (the ungated reading or None, the served model, seconds)."""
     t0 = time.monotonic()
     r = T.read_one("", text, url, model, lane=LANE)
     got = r.get("parsed")
     if isinstance(got, dict):
-        T.claims_pass(got, text, url, model, lane=LANE)
         T.tone_pass(got, text, url, model, lane=LANE)
     return (got if isinstance(got, dict) else None), (r.get("model") or model), round(time.monotonic() - t0, 1)
 

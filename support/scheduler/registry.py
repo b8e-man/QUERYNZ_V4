@@ -333,6 +333,20 @@ def night_window(path: pathlib.Path | None = None) -> night.Window | None:
                         always=b.get("always") is True)
 
 
+def standing_schedule(path: pathlib.Path | None = None) -> night.Schedule | None:
+    """Which standing server each box stands at each hour (Arthur, 26 November 2026), from jobs.toml's `[standing]`
+    section: `default`, and `[[standing.shift]]` rows of box, start_local, end_local, profile. None when the catalogue
+    has none: a box then stands every standing server its programs allow, as before."""
+    b = _raw(path or JOBS).get("standing")
+    if not b:
+        return None
+    tz = str(b.get("timezone") or "Pacific/Auckland")
+    shifts = tuple(night.Shift(box=str(x.get("box") or ""), start=str(x.get("start_local") or ""),
+                               end=str(x.get("end_local") or ""), profile=str(x.get("profile") or ""), timezone=tz)
+                   for x in b.get("shift") or [])
+    return night.Schedule(default=str(b.get("default") or ""), shifts=shifts)
+
+
 def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | None = None) -> list[str]:
     """Everything wrong with the catalogue. Empty list = green. Each rule is
     a shape that has already cost this estate something."""
@@ -448,6 +462,19 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
                        f"not a standing server or a view)")
         if w.card < 0:
             out.append("night_window: card names the card index the profile is loaded on")
+    sch = standing_schedule(path)
+    if sch is not None:
+        for name in sch.profiles():
+            st = profs.get(name)
+            if st is None or not st.standing:
+                out.append(f"standing: {name!r} is not a standing server in profiles.toml")
+        for x in sch.shifts:
+            if not (night.valid_hhmm(x.start) and night.valid_hhmm(x.end)) or x.start == x.end:
+                out.append(f"standing: the shift for {x.box} has hours {x.start!r} to {x.end!r}, not two HH:MM minutes")
+            if not x.box:
+                out.append("standing: a shift names no box")
+        if not night.known_zone(sch.shifts[0].timezone if sch.shifts else "Pacific/Auckland"):
+            out.append("standing: timezone is not a zone this box knows")
     return out
 
 

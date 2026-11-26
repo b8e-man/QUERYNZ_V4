@@ -12,11 +12,11 @@ TEXT = ("Fonterra chief executive Richard Allen said they did not comment on mar
         "The report says the river is in poor health and getting worse every year.")
 
 
-def test_a_quote_is_kept_only_with_its_speaker_named_beside_it_and_a_document_is_a_citation():
+def test_a_quote_is_kept_with_a_speaker_and_its_words_in_the_text_and_a_document_is_a_citation():
     near = {"text": "they did not comment on market speculation", "speaker": "e1", "channel": "interview"}
     assert G.quote(near, ENTS, TEXT)["kept"]
     far = dict(near, speaker="e3")
-    assert G.quote(far, ENTS, TEXT)["rule"].startswith("the speaker is not named")
+    assert G.quote(far, ENTS, TEXT)["kept"], "gates 2: the 250-character rule is withdrawn"
     doc = {"text": "the river is in poor health", "speaker": "e2", "channel": "document"}
     v = G.quote(doc, ENTS, TEXT)
     assert not v["kept"] and v["citation"]
@@ -24,11 +24,9 @@ def test_a_quote_is_kept_only_with_its_speaker_named_beside_it_and_a_document_is
     assert not G.quote(dict(near, text="words the article never prints"), ENTS, TEXT)["kept"]
 
 
-def test_a_role_needs_a_title_word_and_no_of_possessive_or_leading_descriptor():
+def test_a_role_passes_whole_since_gates_2():
     ok = lambda role: G.role({"role": role}, ENTS, TEXT)["kept"]
-    assert ok("chief executive") and ok("housing spokesperson") and ok("Senior Constable")
-    assert not ok("chairs") and not ok("legends") and not ok("Labour's") and not ok("member of")
-    assert not ok("former chief executive") and not ok("outgoing chair")
+    assert all(ok(r) for r in ("chief executive", "chairs", "Labour's", "member of", "former chief executive"))
 
 
 def test_a_claim_needs_its_claimant_and_a_verb_of_saying_in_its_own_sentence_and_the_writers_pass():
@@ -39,17 +37,18 @@ def test_a_claim_needs_its_claimant_and_a_verb_of_saying_in_its_own_sentence_and
     assert G.claim(dict(fact, says="writer"), ENTS, TEXT)["kept"]
 
 
-def test_a_tone_needs_four_words_of_evidence():
-    assert not G.tone({"evidence": "acclaimed director"}, ENTS, TEXT)["kept"]
+def test_a_tone_passes_whole_since_gates_2():
+    assert G.tone({"evidence": "acclaimed director"}, ENTS, TEXT)["kept"]
     assert G.tone({"evidence": "a dangerous bluff that will divide"}, ENTS, TEXT)["kept"]
 
 
 def test_apply_marks_every_item_and_removes_none():
     got = {"entities": ENTS, "roles": [{"role": "chief executive"}, {"role": "chairs"}],
-           "quotes": [], "claims": None, "sentiment": [{"evidence": "blockbuster"}]}
+           "quotes": [{"text": "words the article never prints", "speaker": "e1"}], "claims": None,
+           "sentiment": [{"evidence": "blockbuster"}]}
     counts = G.apply(got, TEXT)
-    assert counts["roles"] == {"kept": 1, "dropped": 1, "citations": 0}
-    assert counts["sentiment"]["dropped"] == 1 and len(got["roles"]) == 2
+    assert counts["roles"] == {"kept": 2, "dropped": 0, "citations": 0}
+    assert counts["quotes"]["dropped"] == 1 and len(got["quotes"]) == 1 and "gate" in got["quotes"][0]
 
 
 class FakeConn:
@@ -116,3 +115,13 @@ def test_te_reo_and_a_paywall_stub_are_skipped_and_recorded_without_a_model_call
     assert "skipped, te reo" in line
     done = next(p for sql, p in conn.sql if "INSERT INTO news_private.read_done" in sql)
     assert done[6] == "skipped" and "te reo" in done[8]
+
+
+def test_the_news_read_runs_on_the_model_profile_its_document_profile_names():
+    from registers.news import read as R
+    from support import profiles
+    from support.scheduler import registry as reg
+    p = profiles.profile("news-article")
+    assert p is not None and R.PROFILE_VERSION == profiles.reading_version("news-article")
+    assert reg.load()["qv4-news-read"].profile == p["config"]["model_profile"] == "news-reader"
+    assert p["config"]["passes"] == R.SETTINGS["passes"] and p["config"]["gates"] == R.G.GATES

@@ -24,8 +24,9 @@
 [server]
 binary = "built"
 
-# FLASH-NEXT ON RADIANCE (ruling 121, 29 October 2026): on node2 Qwen3.8-Flash-Next replaces Qwen3.6 as the text
-# reader and review model. A STANDING server: its own unit `qv4-radiance` (support/scheduler/units/) runs Radiance in
+# FLASH-NEXT ON RADIANCE (ruling 121, 29 October 2026; by night on node2 since 26 November 2026, jobs.toml [standing]:
+# the lanes it reads better than the 27B, the spot check of that day): on node2 Qwen3.8-Flash-Next replaces Qwen3.6 as the text
+# reader and review model. A STANDING server: its own unit `qv4-radiance-flash` (`qv4-radiance` until 26 November) (support/scheduler/units/) runs Radiance in
 # a container across both cards as ONE profile; the card manager reads its model back and marks both cards, and
 # never plans it. It stops and starts the unit in one case only: the night window of jobs.toml `[night_window]`
 # (ruling 129), for the page reader. The unit holds the server's settings (slots, context bound, pool, headroom);
@@ -36,7 +37,7 @@ binary = "built"
 [profiles.flash-next]
 model = "qwen4exp"
 binary = "radiance"
-unit = "qv4-radiance.service"
+unit = "qv4-radiance-flash.service"
 port = 8060
 cards = 2
 weights = ["radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad"]
@@ -74,6 +75,49 @@ temperature = 0.2
 max_tokens = 6144
 request = {chat_template_kwargs = {enable_thinking = true}, thinking_token_budget = 2048}
 used_for = "The review agent; answering questions in products. Thinking on, closed at 2,048 tokens so the answer is never all reasoning"
+
+# QWEN 3.8 27B, ONE SERVER A CARD (Arthur, 26 November 2026: one instance of the dense model on each card; "use
+# 27b for reading the media", "a scheduled configuration change based on document profiles"). By day it stands on
+# both boxes, every card on the media read; by night node2 stands Flash-Next instead (jobs.toml [standing]). A
+# STANDING server: its unit `qv4-radiance` is the proxy on :8060
+# (support/scheduler/fanout.py) over `qv4-radiance-card@0` and `@1` (support/scheduler/units/), each Radiance at
+# tensor parallel 1 with 8 sequences at the 32k bound, so 16 a box. The card manager reads its model back through the
+# proxy and marks both cards, and never plans it; it stops and starts the unit in the night window only (ruling 129).
+# `flags` is empty because no llama-server is started for it; a test holds the units and this block equal. Measured 26
+# November on node2 (the trial servers, the same image and model): rocm-smi 31.2 and 31.4 GiB used of 31.9 a card,
+# 3.8 GiB of it held before the server (driver, the frozen OCR server on card 0); host RSS 20.0 GB a server; 17 s from
+# the container's start to its listening line.
+[profiles.qwen38-27b]
+model = "qwen38-27b"
+binary = "radiance"
+unit = "qv4-radiance.service"
+port = 8060
+cards = 2
+weights = ["radiance/qwen3.8-27b-mxfp4.rad"]
+slots = 16   # 8 a card (Arthur, 26 November: "lets go with 8"); the trial's 16 a card was no faster an article
+context = 32768
+temperature = 0.0
+max_tokens = 8192
+memory_gb = 27.4
+host_memory_gb = 40.0   # 20.0 GB a server, two a box
+measured_geometry = "32768x16"
+load_seconds = 17.3
+flags = []
+used_for = "The standing server the news reader is a view on (Arthur, 26 November 2026)"
+
+# The news reader is a VIEW on qwen38-27b (Arthur, 26 November 2026: "use 27b for reading the media"): on his answers
+# to tranches 2-7 the 27B's quotes were 90% right ungated (Flash-Next 52%), its roles 92% (85%), its tones with the
+# tones pass 90% (84%). Thinking off, as for every reader.
+[profiles.news-reader]
+on = "qwen38-27b"
+model = "qwen38-27b"
+slots = 16
+context = 32768
+temperature = 0.0
+max_tokens = 12000
+streams = 16   # 8 a card, the trial's best (26 November 2026: 22.8 articles a minute on node2, two passes)
+request = {chat_template_kwargs = {enable_thinking = false}}
+used_for = "Reading news articles into rows (registers.news.read); the media's own document profile"
 
 [profiles.embedding]
 model = "bge-m3-q8"

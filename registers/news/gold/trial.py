@@ -27,7 +27,7 @@ from registers.news.gold.sample import HERE, T, _conn, masked
 
 OUT = Path("/home/user/querynzv4-work/live/news-trial")
 URL = "http://127.0.0.1:8060/v1/chat/completions"
-MODEL = "qwen4exp"
+MODEL = "qwen38-27b"
 LANE = "news-trial"
 
 PROMPT = """You read one New Zealand news article and record what it says, as data. You never decide who anyone is beyond what the article prints, and you never add anything you know from outside the article.

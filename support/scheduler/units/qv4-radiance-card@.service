@@ -1,0 +1,49 @@
+[Unit]
+Description=QueryNZV4 model server — Qwen 3.8 27B on Radiance, card %i alone, 127.0.0.1:807%i
+# Arthur, 26 November 2026: "let's switch everything to 3.8 27b", one instance of the dense model on each card at 8
+# a card (the trial of 26 November: two passes of the news sample, 22.8 articles a minute on node2 at 8 a card, the
+# reads more precise than Flash-Next's on his answers). One of two: card 0 on :8070, card 1 on :8071, behind the
+# proxy `qv4-radiance` on :8060 (support/scheduler/fanout.py), which the card manager, the night window and the
+# watchdog stop, start and read. PartOf: stopping or restarting qv4-radiance stops or restarts this too.
+# Radiance has no data-parallel mode, so a card is a server; tensor parallel 1. Until 26 November this unit's place
+# was Flash-Next across both cards at tensor parallel 2 (ruling 121; git history of qv4-radiance.service).
+PartOf=qv4-radiance.service
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=notify
+NotifyAccess=all
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Environment=QV4_RADIANCE_27B=/home/user/models/radiance/qwen3.8-27b-mxfp4.rad
+EnvironmentFile=-/home/user/querynzv4/support/scheduler/units/qv4-radiance-%H.env
+ExecStartPre=/usr/bin/test -r ${QV4_RADIANCE_27B}
+LimitMEMLOCK=infinity
+# Both render nodes are passed (one alone left Radiance on the processor, 26 November) and the card is chosen by
+# HIP_VISIBLE_DEVICES. 8 sequences at the 32k bound (Hansard sends about 20,000 tokens with 11,000 to answer in);
+# the token embedding in host RAM (Radiance's default), so the card's memory goes to the KV cache. Thinking is off by
+# default; a profile that wants it (review) says so per request. --gpu-headroom-mib 500: the frozen OCR server on
+# node2's card 0 is counted as already held at start (hard limit 23).
+ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --sdnotify=conmon --replace -d \
+  --name qv4-radiance-card%i \
+  --device /dev/kfd --device /dev/dri/renderD128 --device /dev/dri/renderD129 \
+  --ipc host \
+  --security-opt seccomp=unconfined \
+  --ulimit memlock=-1:-1 \
+  -e HIP_VISIBLE_DEVICES=%i \
+  -p 127.0.0.1:807%i:8000 \
+  -v ${QV4_RADIANCE_27B}:/model.rad:ro \
+  docker.io/stilldeadcode/radiance:latest \
+  --model /model.rad --served-model-name qwen38-27b \
+  --tp 1 \
+  --max-model-len 32768 --max-num-seqs 8 --kv-cache-dtype fp8 --gpu-headroom-mib 500 \
+  --chat-template-kwargs '{"enable_thinking":false}' \
+  --host 0.0.0.0 --port 8000
+ExecStop=/usr/bin/podman stop --ignore -t 30 --cidfile=%t/%n.ctr-id
+ExecStopPost=/usr/bin/podman rm -f --ignore -t 10 --cidfile=%t/%n.ctr-id
+TimeoutStartSec=300
+TimeoutStopSec=60
+Restart=on-failure
+RestartSec=30

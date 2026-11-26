@@ -86,14 +86,32 @@ always = true
 start_local = "22:00"   # ruling 129 (opened from 15:00 on Arthur's word on 30 October for the page backlog; restored 21:20)
 end_local = "05:45"
 timezone = "Pacific/Auckland"
-standing = "flash-next"
+standing = "qwen38-27b"   # the window stops whichever standing server the box stands ([standing] below); this names the default
 profile = "page-reader"
 card = 1
+
+# THE STANDING SCHEDULE (Arthur, 26 November 2026: "the answer is always a scheduled configuration change based on
+# document profiles"; "we use flash next for the new documents where it outperforms and use 27b for reading the
+# media. We use all cards for the media extraction during the day and have scheduled work assigned to one of the
+# nodes which switch to flash next by night"). A box stands one standing server at a time: `default` outside every
+# shift, a shift's profile inside it. At an edge the card manager stops giving the outgoing server's views new pieces,
+# waits for this box's pieces of them to finish, stops its unit, starts the other, reads the model back and records
+# both in the swap ledger (cards.py, shift_tick). Jobs on a view wait until a box stands its server. node2 by night:
+# Flash-Next's n-gram table is on its spare drive (qv4-radiance-node2.env).
+[standing]
+default = "qwen38-27b"
+timezone = "Pacific/Auckland"
+
+[[standing.shift]]
+box = "node2"
+start_local = "22:00"
+end_local = "05:45"
+profile = "flash-next"
 
 # Step 2.9: the cards the carve-out holds. The planner never evicts these.
 # Ruling 121 (29 October 2026): the frozen chat model (querynz-agent-llm,
 # :8020) left the carve-out, and qv4-radiance holds both of node2's cards
-# as the standing profile flash-next, which the planner never plans (inside
+# as the standing profile qwen38-27b (flash-next until 26 November 2026), which the planner never plans (inside
 # the night window above the card manager, not the planner, takes them for
 # the page reader and gives them back). The frozen OCR server
 # (querynz-vision-ocr, :8032) keeps its room inside Radiance's
@@ -2045,11 +2063,11 @@ at_utc = "11:50"
 nice = 15
 
 [jobs.qv4-news-read]
-description = "The first read of the news corpus (Arthur, 25 November 2026): one piece per article (key url_key), newest first, through the text-reader profile in the golden sample's four passes (read, quotes, claims, tones); the reading stored ungated by the text's hash, then the gates (registers.news.gates) judge each quote, role, claim and tone into news_private.read_items, kept or not, with the rule. Te reo Māori articles and paywall stubs are skipped and recorded (Arthur: “skip te reo”). Keys from python -m registers.news.read --pieces (2,000 a row); the other box joins a row when it is free, 8 streams each. Queued by hand on Arthur's word; nothing schedules it."
+description = "The first read of the news corpus (Arthur, 25 November 2026): one piece per article (key url_key), newest first, through the news-reader profile (Qwen 3.8 27B, Arthur, 26 November 2026: \"use 27b for reading the media\") in three passes (read, quotes, tones); the reading stored ungated by the text's hash, then the gates (registers.news.gates 2) judge each quote, role and tone into news_private.read_items, kept or not, with the rule. Te reo Māori articles and paywall stubs are skipped and recorded (Arthur: “skip te reo”). Keys from python -m registers.news.read --pieces (2,000 a row); both boxes take pieces while they stand the 27B (by day both, by night node1), 16 streams a box. Queued by hand on Arthur's word; nothing schedules it."
 needs = "model-profile"
-profile = "text-reader"
+profile = "news-reader"
 memory_gb = 0.5
-deadline_s = 900   # the trial's four passes: median about 60 s an article, the longest read 152 s
+deadline_s = 900   # the 27B's two passes: median 36 s an article at 8 a card (26 November 2026); the tones pass adds little
 query_timeout_s = 60
 class = "whenever"
 priority = 190   # unique (25 November 2026): the corpus read yields to every other reader on the card
@@ -2057,7 +2075,7 @@ command = ["python", "-m", "registers.news.read", "--piece"]
 pieces_command = ["python", "-m", "registers.news.read", "--pieces"]
 pieces = true
 can_share = true
-concurrency = 8   # the text-reader profile's 8 streams
+concurrency = 16   # the news-reader profile's 16 streams (8 a card)
 
 [jobs.qv4-news-sites]
 description = "The old news copy one line a site, for the board's Sources tab (Arthur, 14 November 2026: a light for every source, news by site): old_incoming_news_private.articles grouped by its address's host, counts and dates only (never text or an address), written to <live>/checks/news-sites.json, which the source lights read. The owner login, read-only transaction (the read login has no grant on a _private schema). Daily at 06:00 NZDT, after the night's copy; about six seconds over 2.8 million rows."

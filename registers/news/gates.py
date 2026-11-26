@@ -17,12 +17,20 @@ of all model output kept):
 
 The title words and the attribution verbs were tuned on those same answers, so the first ungated tranche after
 (tranche 8) is the clean measure.
+
+Gates 2 (Arthur, 26 November 2026: every reader moved to Qwen 3.8 27B, "loosen the gates"). On the 27B's two-pass
+read of the same answers (467 judged articles) the rules above dropped mostly right items: the role rules 24 judged
+items, 22 right (precision 92% before and after); the 250-character rule 8 quotes, all 8 right; the four-word tone
+rule 10 tones, 9 right. Those are withdrawn: a role and a tone pass whole. Kept, because what they drop was wrong: a
+quote with nobody named as speaking, or words not in the text (2 judged, 0 right); and a document's words stay apart
+as a citation. The 27B, ungated, was right on 92% of judged roles and 90% of judged quotes. The claim gate stands
+for any claim a reading carries; the corpus read makes none since gates 2.
 """
 from __future__ import annotations
 
 import re
 
-GATES = "registers.news.gates 1"
+GATES = "registers.news.gates 2"
 
 #: how far either side of a quote's words its speaker must be named (characters)
 SPEAKER_WINDOW = 250
@@ -74,21 +82,12 @@ def quote(q: dict, ents: dict, text: str) -> dict:
     i = text.find(t[:60]) if t else -1
     if i < 0:
         return {"kept": False, "rule": "the words are not in the text"}
-    window = text[max(0, i - SPEAKER_WINDOW): i + len(t) + SPEAKER_WINDOW]
-    if not any(f in window for f in forms(ents, spk)):
-        return {"kept": False, "rule": f"the speaker is not named within {SPEAKER_WINDOW} characters"}
-    return {"kept": True, "rule": "speaker named beside the words"}
+    return {"kept": True, "rule": "a speaker named and the words in the text"}   # the 250-character rule: gates 1
 
 
 def role(r: dict, ents: dict, text: str) -> dict:
-    words = (r.get("role") or "").strip()
-    if ROLE_OF.search(words):
-        return {"kept": False, "rule": "an 'of' or a possessive in the title"}
-    if ROLE_DESCRIPTOR.search(words):
-        return {"kept": False, "rule": "a descriptor leads the title"}
-    if not ROLE_HEAD.search(words):
-        return {"kept": False, "rule": "no title word"}
-    return {"kept": True, "rule": "a title word"}
+    """Gates 2: a role passes whole (the title-word, 'of' and descriptor rules of gates 1 dropped right roles)."""
+    return {"kept": True, "rule": "a role passes whole (gates 2)"}
 
 
 def claim(cl: dict, ents: dict, text: str) -> dict:
@@ -106,9 +105,8 @@ def claim(cl: dict, ents: dict, text: str) -> dict:
 
 
 def tone(s: dict, ents: dict, text: str) -> dict:
-    if len((s.get("evidence") or "").split()) < TONE_MIN_WORDS:
-        return {"kept": False, "rule": f"evidence under {TONE_MIN_WORDS} words"}
-    return {"kept": True, "rule": "evidence long enough"}
+    """Gates 2: a tone passes whole (the four-word rule of gates 1 dropped right tones)."""
+    return {"kept": True, "rule": "a tone passes whole (gates 2)"}
 
 
 #: the reading's list → its gate

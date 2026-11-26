@@ -33,3 +33,14 @@ def _never_the_live_folder(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(cards, "NIGHT_WORD", str(tmp_path / "live-never" / "night-word.json"))
     monkeypatch.setattr(cards, "INBOX_CARDS", str(tmp_path / "live-never" / "inbox"))
     monkeypatch.setattr(cards, "LOGS", str(tmp_path / "live-never" / "servers"))
+
+
+@pytest.fixture(autouse=True)
+def _no_shipped_standing_schedule(monkeypatch) -> None:
+    """A card manager a test builds stands every standing server its programs allow, as before the schedule (26
+    November 2026), unless the test passes `schedule=` itself: the shipped [standing] section names real boxes and
+    hours, and a test's fake catalogue names its own standing profiles."""
+    from support.scheduler import registry as reg
+    if not hasattr(reg, "shipped_standing_schedule"):
+        reg.shipped_standing_schedule = reg.standing_schedule      # a test of the shipped section reads it here
+    monkeypatch.setattr(reg, "standing_schedule", lambda path=None: None)

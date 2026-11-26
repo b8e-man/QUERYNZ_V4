@@ -124,31 +124,40 @@ def cat(tmp_path):
 
 # ── the shipped profiles ─────────────────────────────────────────────────────
 
-def test_the_shipped_flash_next_profile_is_the_standing_radiance_server_on_both_cards():
-    p = reg.profiles()["flash-next"]
-    assert (p.model, p.binary, p.unit, p.port, p.cards) == ("qwen4exp", "radiance", "qv4-radiance.service", 8060, 2)
-    assert p.weights == ("radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad",)
-    assert p.geometry == "32768x10" and p.measured_geometry == p.geometry   # 32k since 31 October (the bulk ingest; the unit test says why)
-    assert p.memory_gb and p.host_memory_gb and p.load_seconds, "memory and load time are measured, not left empty"
-
-
-def test_the_reader_and_review_are_views_on_it_and_qwen36_has_left():
+def test_the_shipped_standing_profiles_are_flash_next_and_the_27b_on_one_port():
+    """26 November 2026 (Arthur: "a scheduled configuration change based on document profiles"): two standing servers,
+    one at a time a box on :8060: Flash-Next across both cards (its own unit since that day), and Qwen 3.8 27B one
+    server a card behind the proxy."""
     profs = reg.profiles()
-    tr, rv = profs["text-reader"], profs["review"]
+    f, d = profs["flash-next"], profs["qwen38-27b"]
+    assert (f.model, f.binary, f.unit, f.port, f.cards) == ("qwen4exp", "radiance", "qv4-radiance-flash.service", 8060, 2)
+    assert f.weights == ("radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad",)
+    assert f.geometry == "32768x10" and f.measured_geometry == f.geometry
+    assert (d.model, d.binary, d.unit, d.port, d.cards) == ("qwen38-27b", "radiance", "qv4-radiance.service", 8060, 2)
+    assert d.weights == ("radiance/qwen3.8-27b-mxfp4.rad",)
+    assert d.geometry == "32768x16" and d.measured_geometry == d.geometry
+    for p in (f, d):
+        assert p.memory_gb and p.host_memory_gb and p.load_seconds, "memory and load time are measured, not left empty"
+
+
+def test_the_reader_and_review_are_views_on_flash_next_and_the_news_reader_on_the_27b():
+    profs = reg.profiles()
+    tr, rv, nw = profs["text-reader"], profs["review"], profs["news-reader"]
     assert tr.on == rv.on == "flash-next" and tr.model == rv.model == "qwen4exp"
-    assert tr.request_fields["chat_template_kwargs"] == {"enable_thinking": False}
+    assert nw.on == "qwen38-27b" and nw.model == "qwen38-27b"
+    assert tr.request_fields["chat_template_kwargs"] == nw.request_fields["chat_template_kwargs"] == {"enable_thinking": False}
     assert rv.request_fields["chat_template_kwargs"] == {"enable_thinking": True}
     assert rv.request_fields["thinking_token_budget"] > 0
     assert not any("qwen3.6" in p.model or any("Qwen3.6" in w for w in p.weights) for p in profs.values())
+    assert reg.load()["qv4-news-read"].profile == "news-reader"
     assert reg.problems() == []
 
 
-def test_the_unit_and_the_profile_agree():
-    """One fact, two files: the unit's served name, slots, context bound and
-    port are the profile's, or the read-back refuses every load."""
+def test_the_flash_unit_and_its_profile_agree():
     p = reg.profiles()["flash-next"]
-    text = UNIT.read_text(encoding="utf-8")
-    for line in text.splitlines():                     # the unit's own defaults (a box's .env may move the model file)
+    unit = UNIT.parent / p.unit
+    text = unit.read_text(encoding="utf-8")
+    for line in text.splitlines():
         if line.startswith("Environment=QV4_"):
             k, _, v = line[len("Environment="):].partition("=")
             text = text.replace("${" + k + "}", v)
@@ -157,11 +166,30 @@ def test_the_unit_and_the_profile_agree():
     flag = lambda n: argv[argv.index(n) + 1]  # noqa: E731
     assert flag("--served-model-name") == p.model
     assert int(flag("--max-num-seqs")) == p.slots and int(flag("--max-model-len")) == p.context
-    assert flag("-p") == f"127.0.0.1:{p.port}:{p.port}"
-    assert p.unit == UNIT.name
+    assert flag("-p") == f"127.0.0.1:{p.port}:{p.port}" and flag("--name") == "qv4-radiance-flash"
     assert flag("-v").split(":")[0].endswith(p.weights[0])
-    for own in UNIT.parent.glob("qv4-radiance-*.env"):  # every box's own model file is the same weights
-        model = [l.split("=", 1)[1] for l in own.read_text(encoding="utf-8").splitlines() if l.startswith("QV4_RADIANCE_MODEL=")]
+    assert "\n[Install]" not in text and "WantedBy=" not in text, "a boot starts the default (the 27B); the card manager starts Flash-Next by schedule"
+
+
+def test_the_units_and_the_profile_agree():
+    """One fact, three files: each card server's served name and context bound, the slots of the two together, the
+    proxy's port and the weights are the profile's, or the read-back refuses every load."""
+    p = reg.profiles()["qwen38-27b"]
+    card = UNIT.parent / "qv4-radiance-card@.service"
+    text = card.read_text(encoding="utf-8")
+    for line in text.splitlines():
+        if line.startswith("Environment=QV4_"):
+            k, _, v = line[len("Environment="):].partition("=")
+            text = text.replace("${" + k + "}", v)
+    body = text.split("\nExecStart=", 1)[1].split("\nExecStop=", 1)[0]
+    argv = shlex.split(" ".join(l.rstrip("\\").strip() for l in body.splitlines() if not l.lstrip().startswith("#")))
+    flag = lambda n: argv[argv.index(n) + 1]  # noqa: E731
+    assert flag("--served-model-name") == p.model
+    assert int(flag("--max-num-seqs")) * p.cards == p.slots and int(flag("--max-model-len")) == p.context
+    assert flag("-v").split(":")[0].endswith(p.weights[0])
+    assert p.unit == UNIT.name and f"--port {p.port} " in UNIT.read_text(encoding="utf-8")
+    for own in UNIT.parent.glob("qv4-radiance-*.env"):  # a box's own model file is the same weights
+        model = [l.split("=", 1)[1] for l in own.read_text(encoding="utf-8").splitlines() if l.startswith("QV4_RADIANCE_27B=")]
         assert all(m.endswith(p.weights[0]) for m in model), own.name
 
 

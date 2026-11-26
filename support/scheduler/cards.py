@@ -213,13 +213,19 @@ class Manager:
 
     def __init__(self, *, popen=None, ask=None, models_dir: str = None, log=None, reservations: list = None,
                  active_seconds=None, window=_CATALOGUE, systemctl=None, read_cards=None, clock=None, sleep=None,
-                 mark: str = None, inbox: str = None, word: str = None):
+                 mark: str = None, inbox: str = None, word: str = None, schedule=_CATALOGUE):
         self.popen = popen or subprocess.Popen
         self.ask = ask or pb.ask_server
         self.models_dir = models_dir
         self.reservations = reservations if reservations is not None else reg.reservations()
         # the night window (ruling 129): the window from the catalogue, and what acting on it needs, all injectable
         self.window: night.Window | None = reg.night_window() if window is _CATALOGUE else window
+        # the standing schedule (Arthur, 26 November 2026): which standing server this box stands at each hour
+        self.schedule: night.Schedule | None = reg.standing_schedule() if schedule is _CATALOGUE else schedule
+        self.standing_now: str | None = None         # the standing profile this box stands (schedule only)
+        self.shift_state: str | None = None          # None | draining | starting: a swap of standing server under way
+        self.shift_from: str | None = None
+        self.shift_retry_at = 0.0
         self.systemctl = systemctl or systemctl_user
         self.read_cards = read_cards or pb.cards
         self.clock = clock or time.monotonic
@@ -258,6 +264,7 @@ class Manager:
         self.worker = worker
         self.log = self.log or worker.log
         self.register_cards(worker)
+        self.standing_recover(worker)
         self.night_recover(worker)
 
     def register_cards(self, worker) -> None:
@@ -342,9 +349,107 @@ class Manager:
     # ── standing servers (ruling 121) ────────────────────────────────────────
 
     def standing_profiles(self, worker) -> list[reg.Profile]:
-        """The standing servers this box runs: the profile's program is here."""
+        """The standing servers this box runs: the profile's program is here; under a schedule, only the one this box
+        stands now (the others share its port and are stopped)."""
         progs = worker.profile.get("programs") or {}
-        return [p for p in worker.profiles.values() if p.standing and progs.get(p.binary)]
+        out = [p for p in worker.profiles.values() if p.standing and progs.get(p.binary)]
+        if self.schedule is None:
+            return out
+        return [p for p in out if p.name == self.standing_now]
+
+    def standing_recover(self, worker, now: dt.datetime = None) -> None:
+        """Which scheduled standing server this box stands, at the worker's start: the one whose model answers on its
+        port, else the one due now (the shift tick then starts it)."""
+        if self.schedule is None:
+            return
+        progs = worker.profile.get("programs") or {}
+        for name in sorted(self.schedule.profiles()):
+            p = worker.profiles.get(name)
+            if p is None or not p.standing or not progs.get(p.binary):
+                continue
+            a = self.ask(p.port)
+            if a["healthy"] and a["served"] == p.model:
+                self.standing_now = name
+                self.log(f"standing: {p.unit} answers with {p.model} on :{p.port}; this box stands {name}")
+                return
+        self.standing_now = self.schedule.due(worker.box, now or dt.datetime.now(dt.timezone.utc))
+        self.log(f"standing: no scheduled server answers; this box stands {self.standing_now} (due now)")
+
+    def shift_tick(self, worker, now: dt.datetime, demands: dict) -> None:
+        """At a shift's edge (jobs.toml [standing]): stop giving the outgoing server's views new pieces (its cards
+        draining), wait for this box's pieces of them to finish, stop its unit until the cards release it, start the
+        due one and read its model back. Each stop and start is a swap-ledger line (hard limit 25). A pause of the
+        page reader's window (night_state not standing) holds the shift until it is over."""
+        if self.schedule is None or self.night_state != "standing" or self.standing_now is None:
+            return
+        due = self.schedule.due(worker.box, now)
+        progs = worker.profile.get("programs") or {}
+        new, old = worker.profiles.get(due), worker.profiles.get(self.shift_from or self.standing_now)
+        if new is None or not new.standing or not progs.get(new.binary) or old is None:
+            return
+        if self.shift_state is None:
+            if due == self.standing_now:
+                return
+            self.shift_state, self.shift_from = "draining", self.standing_now
+            self.night_logged.discard("shift-wait")
+            self.log(f"standing: {due} is due on {worker.box}; {old.name}'s cards drain, then {old.unit} stops")
+        idx = sorted(c["index"] for c in worker.profile.get("cards") or []
+                     if f"{worker.box}:{c['index']}" not in {r.key for r in self.reservations})[:max(old.cards, new.cards)]
+        if self.shift_state == "draining":
+            for card in idx:
+                q.upsert_card(worker.conn, worker.schema, worker.box, card, draining=True)
+            views = self._views(worker, old.name)
+            with worker.lock:
+                running = sorted(r.jt.name for r in worker.running.values() if r.jt.profile in views)
+            if running:
+                self._once("shift-wait", f"standing: {old.name} drains; {running[0]} still has pieces in flight here")
+                return
+            before = self.read_cards()
+            t0 = self.clock()
+            rc = self.systemctl("stop", old.unit)
+            released = self._wait_released(old, idx, before=before)
+            secs = round(self.clock() - t0, 1)
+            why = f"standing schedule: {due} is due on {worker.box}; {old.unit} stopped for {new.unit}"
+            for card in idx:
+                q.record_swap(worker.conn, worker.schema, worker.box, card, "stop", why, from_profile=old.name,
+                              by_worker=worker.name, ok=rc == 0 and released,
+                              detail=f"systemctl stop exit {rc}; released in {secs}s" if released else
+                              f"systemctl stop exit {rc}; not released after {secs}s")
+                q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None,
+                              holder=None, draining=False, slots=None, slots_busy=None, reserved=True,
+                              reserved_why=f"standing schedule: {old.unit} stopped, {new.unit} starting", worker=worker.name)
+            self.standing_seen.pop(old.name, None)
+            self.standing_quiet.pop(old.name, None)
+            self.standing_died_at.pop(old.name, None)
+            if not released:
+                self.log(f"standing: {old.unit} stopped (exit {rc}) but the cards had not released it after {secs}s; "
+                         f"{new.unit} waits a tick")
+                self.shift_state = "starting"
+                self.shift_retry_at = self.clock() + 60
+                return
+            self.shift_state = "starting"
+        if self.shift_state == "starting":
+            if self.clock() < self.shift_retry_at:
+                return
+            t0 = self.clock()
+            rc = self.systemctl("restart", new.unit)     # restart, not start: a unit left active under an older file
+            served = self._wait_standing(new)
+            secs = round(self.clock() - t0, 1)
+            ok = served == new.model
+            for card in idx[:new.cards]:
+                q.record_swap(worker.conn, worker.schema, worker.box, card, "load",
+                              f"standing schedule: {new.unit} serves {new.model} on :{new.port} across {new.cards} card(s)",
+                              from_profile=self.shift_from, to_profile=new.name, by_worker=worker.name,
+                              load_seconds=secs if ok else None, served_model=served, ok=ok,
+                              detail=f"systemctl restart exit {rc}; {served!r} read back in {secs}s")
+            if not ok:
+                self.shift_retry_at = self.clock() + 120
+                self.log(f"standing: {new.unit} did not answer with {new.model} (exit {rc}, {served!r} after {secs}s); "
+                         f"tried again in two minutes")
+                return
+            self.log(f"standing: {worker.box} stands {new.name} ({new.unit}, {secs}s); {self.shift_from} stopped")
+            self.standing_now, self.shift_state, self.shift_from = new.name, None, None
+            self.standing_seen[new.name] = True      # the load is recorded above; mark_standing marks the cards
 
     def standing_cards(self, worker, prof: reg.Profile) -> list[int]:
         reserved = {r.key for r in self.reservations}
@@ -353,6 +458,8 @@ class Manager:
 
     def mark_standing(self, worker) -> None:
         """Read each standing server's model back and mark its cards."""
+        if self.shift_state is not None:
+            return                    # a scheduled swap holds the cards; shift_tick marks them
         for prof in self.standing_profiles(worker):
             if self.night_holds(prof.name):
                 continue              # the night window holds its cards; night_tick marks them (ruling 129)
@@ -380,7 +487,7 @@ class Manager:
                     why = (f"{prof.unit} holds this card for {prof.name}; it answers on :{prof.port} with {a['served']!r}, "
                            f"not {prof.model!r}" if a["served"] else f"{prof.unit} holds this card for {prof.name}; "
                            f"not answering on :{prof.port}")
-                    if self.night_state == "restarting" and self.window and prof.name == self.window.standing:
+                    if self.night_state == "restarting" and self.window and prof.name == self.night_standing():
                         why += "; it did not start again after the night window (ruling 129); the worker tries again each tick"
                     q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None,
                                   draining=False, slots=None, slots_busy=None, reserved=True, reserved_why=why,
@@ -527,6 +634,7 @@ class Manager:
         self.reconcile_listing(worker)
         demands = q.demands(worker.conn, worker.schema, worker.registry, now=now)
         self.night_tick(worker, now, demands)
+        self.shift_tick(worker, now, demands)
         self.mark_standing(worker)
         self.watchdog(worker, demands)
         self.sample(worker, demands)
@@ -570,14 +678,20 @@ class Manager:
         w = self.window
         if w is None:
             return None
-        prof = worker.profiles.get(w.standing)
+        prof = worker.profiles.get(self.night_standing())
         if prof is None or not prof.standing or not (worker.profile.get("programs") or {}).get(prof.binary):
             return None
         return prof
 
     def night_holds(self, name: str) -> bool:
         """Whether the window holds this standing profile's cards right now."""
-        return self.window is not None and name == self.window.standing and self.night_state in ("page", "closing")
+        return self.window is not None and name == self.night_standing() and self.night_state in ("page", "closing")
+
+    def night_standing(self) -> str | None:
+        """The standing profile the window stops: under a schedule the one this box stands, else the window's own."""
+        if self.schedule is not None:
+            return self.standing_now
+        return self.window.standing if self.window else None
 
     def _jobs_on(self, worker, profiles: set[str]) -> set[str]:
         return {n for n, jt in worker.registry.items() if jt.profile in profiles}
@@ -675,6 +789,8 @@ class Manager:
 
     def night_tick(self, worker, now: dt.datetime, demands: dict) -> None:
         """One look at the clock and the queue: open the window, close it, or keep trying to start the unit."""
+        if self.shift_state is not None:
+            return    # a scheduled swap of standing server is under way (shift_tick)
         w, prof = self.window, self.night_profile(worker)
         if w is None or prof is None:
             return

@@ -200,3 +200,38 @@ def inside(now: dt.datetime, w: Window, wd: dict | None = None) -> tuple[bool, s
     if wd["state"] == "open":
         return True, (None if by_clock else describe(wd, w))
     return False, (describe(wd, w) if by_clock else None)
+
+
+# ── the standing schedule (Arthur, 26 November 2026) ─────────────────────────
+# "The answer is always a scheduled configuration change based on document profiles": a box stands one standing
+# server at a time, the one its schedule names for the hour. By day every box stands Qwen 3.8 27B, every card on the
+# media read; by night one box stands Flash-Next for the lanes it reads better (the spot check of 26 November:
+# Hansard, beehive, council minutes). The card manager swaps the unit at the edge (cards.py, shift_tick).
+
+@dataclasses.dataclass(frozen=True)
+class Shift:
+    box: str            # the box this shift applies to
+    start: str          # HH:MM local
+    end: str            # HH:MM local (may be past midnight)
+    profile: str        # the standing profile the box stands inside the shift
+    timezone: str = "Pacific/Auckland"
+
+    @property
+    def window(self) -> Window:
+        return Window(start=self.start, end=self.end, timezone=self.timezone, standing=self.profile, profile="", card=-1)
+
+
+@dataclasses.dataclass(frozen=True)
+class Schedule:
+    default: str                    # the standing profile outside every shift
+    shifts: tuple = ()              # Shift, in order: the first that holds the hour wins
+
+    def due(self, box: str, now: dt.datetime) -> str:
+        """The standing profile `box` stands at `now`."""
+        for s in self.shifts:
+            if s.box == box and in_window(now, s.window):
+                return s.profile
+        return self.default
+
+    def profiles(self) -> set:
+        return {self.default} | {s.profile for s in self.shifts}

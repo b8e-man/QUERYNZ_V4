@@ -315,7 +315,7 @@ def hip(box):
 def test_the_shipped_window_is_open_at_every_hour_for_the_page_reader_on_card_1():
     """Ruling 177 (15 November 2026): "it should always be working". The ruling-129 hours stay in the file, unread."""
     w = reg.night_window()
-    assert (w.start, w.end, w.timezone, w.standing, w.profile, w.card) == ("22:00", "05:45", "Pacific/Auckland", "flash-next",
+    assert (w.start, w.end, w.timezone, w.standing, w.profile, w.card) == ("22:00", "05:45", "Pacific/Auckland", "qwen38-27b",
                                                                             "page-reader", 1)
     assert w.always is True
     for when in (nz(30, 12, 0), nz(30, 21, 59), nz(31, 5, 45), nz(31, 6, 15)):
@@ -323,7 +323,7 @@ def test_the_shipped_window_is_open_at_every_hour_for_the_page_reader_on_card_1(
         assert night.closes_at(when, w) == when + dt.timedelta(days=1)     # a `night close` word holds a day
     assert "every hour" in str(w)
     assert reg.problems() == []
-    assert reg.profiles()[w.profile].memory_gb == 4.8 and reg.profiles()[w.standing].load_seconds == 21.6
+    assert reg.profiles()[w.profile].memory_gb == 4.8 and reg.profiles()[w.standing].load_seconds == 17.3
 
 
 def test_the_window_opens_and_closes_by_the_local_clock_in_summer_and_winter():

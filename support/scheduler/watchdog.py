@@ -29,6 +29,9 @@ import urllib.request
 from support import appendline
 
 UNIT = "qv4-radiance"
+#: the standing units that share :8060, one at a time a box (jobs.toml [standing], 26 November 2026): the watchdog
+#: watches whichever is active; the 27B's proxy first (its restart restarts both card servers, its parts)
+UNITS = ("qv4-radiance", "qv4-radiance-flash")
 METRICS = os.environ.get("QV4_RADIANCE_METRICS") or "http://127.0.0.1:8060/metrics"
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 BOX = os.uname().nodename
@@ -110,11 +113,12 @@ def main(argv=None) -> int:
     from support.scheduler import cards
     now = time.time()
     state = _load(STATE)
-    active_s = cards.unit_active_seconds(UNIT) if cards.systemctl_user("is-active", UNIT, timeout=15) == 0 else None
+    unit = next((u for u in UNITS if cards.systemctl_user("is-active", u, timeout=15) == 0), UNIT)
+    active_s = cards.unit_active_seconds(unit) if cards.systemctl_user("is-active", unit, timeout=15) == 0 else None
     new, action, reason = decide(state, now, active_s, metrics_now() if active_s is not None else {})
     if action == "restart":
         t0 = time.monotonic()
-        rc = cards.systemctl_user("restart", UNIT)
+        rc = cards.systemctl_user("restart", unit)
         reason += f"; restarted (exit {rc}, {time.monotonic() - t0:.0f} s)"
         alarm.send(f"qv4 {BOX}: model server restarted by its watchdog", reason)
     elif action == "alarm":
