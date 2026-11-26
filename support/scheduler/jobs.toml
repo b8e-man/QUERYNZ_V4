@@ -354,6 +354,18 @@ at_utc = "12:00"
 nice = 10
 
 # ── step 4.2, the links (links-1) ──────────────────────────────────────────
+[jobs.qv4-links-empty]
+description = "The links tables found empty are built again at once (Arthur, 26 November 2026): the tables a build makes again are UNLOGGED, so a crash of the database server or a takeover leaves them empty; every 15 minutes this asks whether links.links holds a row and, when it holds none and no qv4-links-build is queued or running, queues one."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 60
+class = "due"
+priority = 60
+command = ["python", "-m", "links.empty"]
+every_s = 900
+item_seconds = 1.0
+
 [jobs.qv4-links-build]
 description = "Step 4.2: rebuild the links from the published registers: rows under the shared reading, the two confirming rules, the number links, groups, the watch, the test pairs and the six measurements. After each lane load; register rule 10 (rebuild what changed) is the next tranche."
 needs = "processor"

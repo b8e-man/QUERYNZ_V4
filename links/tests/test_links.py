@@ -235,3 +235,22 @@ def test_every_links_table_is_unlogged_or_named_as_kept():
     assert not (unlogged & KEPT_LOGGED)
     assert made - unlogged - KEPT_LOGGED == set(), "a links table neither unlogged nor named as kept"
     assert unlogged <= made, unlogged - made
+
+
+def test_empty_links_queue_one_build_and_only_one():
+    from links import empty
+
+    class C:
+        def __init__(self, held, queued):
+            self.held, self.queued = held, queued
+
+        def execute(self, sql, params=None):
+            row = (self.held,) if "EXISTS" in sql else self.queued
+            return type("R", (), {"fetchone": lambda _s: row})()
+    got = []
+    def enqueue(conn, schema, job, **k):
+        got.append(job)
+        return 77
+    assert "nothing to do" in empty.look(C(True, None), "scheduler", enqueue) and got == []
+    assert "already queued as row 5" in empty.look(C(False, (5, "queued")), "scheduler", enqueue) and got == []
+    assert "queued qv4-links-build as row 77" in empty.look(C(False, None), "scheduler", enqueue) and got == ["qv4-links-build"]
