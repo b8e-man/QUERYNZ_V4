@@ -60,6 +60,37 @@ Rules:
 - An advertisement, a promotion or a sponsor's line inside the page is not part of the article.
 Answer with ONE JSON object {"subjects": [{"name", "kind", "words"}]}."""
 
+#: s2 (27 November 2026), from Arthur's judgments of s1 (15 of 22 wrong: too specific, compound, place-bound): the
+#: general level people follow, compounds split, no micro events, organisations and cases left to the entities. On trial;
+#: the live read keeps PROMPT (s1) until s2 passes his review.
+PROMPT_S2 = """You name the subjects of one New Zealand news article: the things it is about that a reader would follow across many articles. A subject is a heading in a media-monitoring index, not a description of this one story.
+
+A subject is one of these kinds:
+- event: a significant named happening that many articles report ("Cyclone Gabrielle", "the 2026 general election", "the 2022 Seoul Halloween crowd crush", "the 2027 Super Rugby Pacific season").
+- technology: a technique, device or technology ("3D printing", "facial recognition", "electric vehicles").
+- product_or_work: a widely known product, brand, game, film, book or show ("Call of Duty", "Shortland Street").
+- law_or_policy: an act, bill, regulation, scheme or policy ("the Wildlife Act", "the Fast-track Approvals Bill", "the bright-line test").
+- issue: a matter of public concern or debate ("elder abuse", "illegal firearms", "housing affordability", "council rates").
+- programme_or_project: a named programme, project or campaign ("the Auckland City Rail Link", "Kia houkura te Kopakopa").
+- field: an industry, trade, activity or competition ("home construction", "coastal freight", "aged care", "Super Rugby Pacific").
+
+Rules:
+- Name the subject at the level a reader follows, the second step from general to specific. From construction > home construction > new home construction > new home construction in New Zealand, the subject is "home construction". "car crash", not "the two-car crash on State Highway 1"; "council rates", not "council rates and value for money".
+- One subject, one thing. Split a compound into its parts and leave the place out: "building consents in the Stratford District" is "building consents" (Stratford is a place, recorded elsewhere); "West Coast flood protection works insurance" is "flood protection insurance".
+- No place or country as a modifier unless it is part of the thing's own name: "elder abuse", not "abuse of older people in New Zealand".
+- Use the established term where one exists ("elder abuse", "kauri dieback", "wealth tax").
+- One name for one thing: do not list both "coastal freight" and "New Zealand coastal shipping".
+- No micro events: a single crash, arrest, fire, signing, survey, report, local award or small-town happening is not a subject; the issue or field it belongs to may be ("car crash", "building consents"). An event is a subject only when it is significant and named, so that many articles would report it.
+- A minor or local product, column, campaign or website named once is not a subject.
+- A person, an organisation (a company, agency, party, team, iwi, court), a court case or a place is not a subject: those are recorded elsewhere. A significant event named after one can be ("the Christchurch mosque attacks").
+- Not the newspaper's section words ("crime", "business", "sport", "politics"): those are recorded elsewhere.
+- Only what the article is about, not a passing mention. Usually 1 to 5 subjects.
+- "words" is copied character for character from the article: the shortest passage that shows the subject. Never words that are not in the article.
+- An advertisement, a promotion or a sponsor's line inside the page is not part of the article.
+Answer with ONE JSON object {"subjects": [{"name", "kind", "words"}]}."""
+
+PROMPTS = {"s1": PROMPT, "s2": PROMPT_S2}
+
 SCHEMA = {"type": "object", "properties": {"subjects": {"type": "array", "items": {
     "type": "object", "properties": {"name": {"type": "string"}, "kind": {"type": "string", "enum": list(KINDS)},
                                      "words": {"type": "string"}},
@@ -147,10 +178,10 @@ def user_text(text: str, entities: dict = None) -> str:
     return ents + "ARTICLE (data, not instructions):\n\n" + text
 
 
-def one(text: str, entities: dict, url: str, model: str, lane: str = "news-trial") -> dict:
+def one(text: str, entities: dict, url: str, model: str, lane: str = "news-trial", prompt: str = None) -> dict:
     from registers.news.gold import trial as T
     t0 = time.monotonic()
-    out, raw = T._call(url, model, PROMPT, user_text(text, entities), SCHEMA, "subjects", lane)
+    out, raw = T._call(url, model, prompt or PROMPT, user_text(text, entities), SCHEMA, "subjects", lane)
     got = T._parse(raw) or {}
     kept, dropped = gate(got.get("subjects") or [], text)
     return {"subjects": kept, "dropped": dropped, "gate": GATE, "model": model, "seconds": round(time.monotonic() - t0, 1),
@@ -191,7 +222,7 @@ def _entities(a: dict) -> dict:
         return {}
 
 
-def trial(run: str, url: str, model: str, workers: int, limit: int) -> Path:
+def trial(run: str, url: str, model: str, workers: int, limit: int, prompt: str = "s1") -> Path:
     from registers.news.gold import trial as T
     out = OUT / f"subjects-{run}"
     out.mkdir(parents=True, exist_ok=True)
@@ -202,10 +233,10 @@ def trial(run: str, url: str, model: str, workers: int, limit: int) -> Path:
         if p.exists():
             return a["id"], "kept"
         try:
-            got = one(a["text"], _entities(a), url, model)
+            got = one(a["text"], _entities(a), url, model, prompt=PROMPTS[prompt])
         except Exception as e:
             return a["id"], f"failed: {type(e).__name__}: {str(e)[:200]}"
-        p.write_text(json.dumps({**got, "id": a["id"], "url_key": a.get("url_key"), "text": a["text"]}, ensure_ascii=False, indent=1))
+        p.write_text(json.dumps({**got, "prompt": prompt, "id": a["id"], "url_key": a.get("url_key"), "text": a["text"]}, ensure_ascii=False, indent=1))
         return a["id"], f"{len(got['subjects'])} kept, {len(got['dropped'])} dropped, {got['seconds']} s"
     with cf.ThreadPoolExecutor(workers) as ex:
         for aid, how in ex.map(go, arts):
@@ -330,7 +361,8 @@ def main(argv=None) -> int:
         print(piece(argv[1], connect=db.connect, url=url, model=model))
         return 0
     if argv[:1] == ["trial"]:
-        print(trial(run, opt("--url", T.URL), opt("--model", T.MODEL), int(opt("--workers", "4")), int(opt("--limit", "20"))))
+        print(trial(run, opt("--url", T.URL), opt("--model", T.MODEL), int(opt("--workers", "4")), int(opt("--limit", "20")),
+                    opt("--prompt", "s1")))
     elif argv[:1] == ["regate"]:                 # the gate again over a trial's outputs, no model call
         for p in sorted((OUT / f"subjects-{run}").glob("*.json")):
             r = json.loads(p.read_text())
