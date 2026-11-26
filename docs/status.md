@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-25 NZDT. **Process:** ruling 131 (31 Oct) ended the
+**Date:** 2026-11-26 NZDT. **Process:** ruling 131 (31 Oct) ended the
 plan's gate process; work runs on Arthur's word. **Boxes:** two, both
 take every job (ruling 145); jobs run from the release copy
 (`python -m support.installer release` on each box after every push).
@@ -24,19 +24,24 @@ take every job (ruling 145); jobs run from the release copy
   over 12 h: it ran on node1 over NFS; now pinned to node2). Links:
   middle names that differ are two people (pub.links_different,
   996,528 pairs); every near link says why. Lane reds of 24 Nov fixed.
+- 26 Nov: models by schedule: the 27B by day on both boxes, Flash-Next
+  on node2 22:00-05:45 (shift_tick). The news read (news-article v1,
+  gates 2) runs row after row (until_empty). Every reading carries its
+  serving id (support/recipes). Review agent removed (ruling 180).
 
 ## Running
 
 - The bulk ingest from the MCP every six hours; each pull queues the
   reader lanes' loads and the news load.
 - The old estate's tables copied in nightly (23:50 to 05:45).
+- The news read: 2.75 million unread, about 50 days.
 
 ## Half-done
 
 - Provider asks open: estate-news-gaps@2026-11-21 (first landings
   26 Nov); estate-lane-gaps@2026-11-25 (REA 27, WorkSafe 5, tenancy 504).
-- Links: shared-associate@1 built, first in the 26 Nov 07:45 build;
-  document co-mention being measured for the same build.
+- Reader configurations (support/recipes): tranches 2-6 to build:
+  recipes, golden sets, trials, the selector, the other lanes.
 - Held back until after the council landings due 24 Nov: disclosure
   statements, Electoral Commission, council minutes, ERA and courts.
 - 4.5: the rebuilt site's build is refused since 23 Nov: the
@@ -49,6 +54,8 @@ take every job (ruling 145); jobs run from the release copy
 
 ## Waits on Arthur
 
+- node2's database standby, lost since 7 Nov: the rebuild script
+  (root) in querynzv4-work/handover/.
 - The rebuilt site's pin (above). The Insolvency Register API
   subscription and the PPSR account (8.4); letters (Dunedin, TPK,
   Police); rulings 69, 75; the 15 unsplittable courts documents.
