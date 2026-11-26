@@ -9,7 +9,8 @@ on New Zealand), as text with a headline, date, publisher, byline and the
 publisher's address for the article. They reach the estate as corpora: the
 old estate's news tables copied verbatim into the lane `news` (step 9.2),
 and corpora handed over by the website-crawl provider or read from a keyed
-API (ruling 156). The estate crawls no news host itself, so this page names
+API (ruling 156). The estate crawls no news host itself (one exception, Arthur, 26 November 2026:
+the board reads an article's own page for its lead picture's address, `news-article-pictures.md`), so this page names
 no host for the fetch gate: a keyed news API, if one is read, gets its own
 page with its `hosts:` line. Use: an index on the boxes, searched with the
 names and things in one report's register records (step 9.3); the report

@@ -9,7 +9,8 @@ SELECT d.url_key, a.url, a.host, a.title, a.author, a.published_at, d.read_at, d
        coalesce((d.counts->'quotes'->>'kept')::int, 0) AS quotes_kept,
        coalesce((d.counts->'roles'->>'kept')::int, 0) AS roles_kept,
        coalesce((d.counts->'sentiment'->>'kept')::int, 0) AS tones_kept,
-       d.counts->>'skipped' AS skipped_why
+       d.counts->>'skipped' AS skipped_why,
+       left(a.text, 700) AS opening        -- the first words, for the board's newspaper blurb (26 November 2026)
 FROM news_private.read_done d JOIN news_private.articles a USING (url_key);
 
 -- Every gated item of an article's reading, kept or not, with the rule that decided it: the board's news inspector

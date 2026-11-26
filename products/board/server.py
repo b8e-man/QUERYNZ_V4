@@ -23,6 +23,8 @@ Routes:
                     opens a page with that dossier under its graph, so a view reopens with it; `dv=`, `do=` on
                     either: one view of a many-rows dossier paged from that offset
   GET  /static/<name>  the board's own files (assets.FILES), with a long cache header; 404 for any other name
+  GET  /paper       the paper tab: the newest read articles as a front page; /paper/picture?k= a story's picture,
+                    a redirect to the publisher's, its address found once (paper.py)
   GET  /pinned      the pinned panes       GET /saved     the saved paths
   POST /pin         pin a pane             POST /save     save the path walked
   GET  /doc/<sha256>  the captured document a row cites, its bytes read only from the store with its content type,
@@ -64,7 +66,7 @@ from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
 from products.board import chat, collapse, db, document, dossier, graph, lights, lineage, links_view, near, panes, people, search, state, uses
-from products.board import news, papers_past, review, subject_report
+from products.board import news, paper, papers_past, review, subject_report
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -394,13 +396,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):      # one line per request, no query text (a search is a person's typing)
         sys.stderr.write(f"{self.address_string()} {self.command} {self.path.split('?')[0]} {args[1] if len(args) > 1 else ''}\n")
 
-    def send_html(self, body: str, status: int = 200):
+    def send_html(self, body: str, status: int = 200, policy: str = None):
         data = body.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Security-Policy", POLICY)
+        self.send_header("Content-Security-Policy", policy or POLICY)
         self.end_headers()
         self.wfile.write(data)
 
@@ -464,6 +466,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_html("<p>not here</p>", 404)
                     return
                 self.send_html(render_papers_past(q, papers_past.offset_of(qs), key, papers_past.asked_of(qs)))
+                return
+            if url.path == paper.PATH:       # the paper tab (Arthur, 26 November 2026)
+                with RENDER_LOCK, db.read_connect() as conn:
+                    self.send_html(paper.render(conn), policy=paper.POLICY)
+                return
+            if url.path == paper.PICTURE:    # a story's picture: a redirect to the publisher's, found once (no lock held)
+                where = paper.picture((qs.get("k") or [""])[0][:600])
+                if where:
+                    self.redirect(where)
+                else:
+                    self.send_response(404)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
                 return
             if url.path == news.PATH:        # the news tab (Arthur, 26 November 2026)
                 with RENDER_LOCK, db.read_connect() as conn:
