@@ -524,6 +524,11 @@ class Worker:
                 env["QV4_CARD"] = str(card["card"])
             prof = self.profiles[r.jt.profile]
             env["QV4_MODEL"] = prof.model
+            if card and self.cards_manager is not None:
+                # how the model behind this card is served, by id (support.recipes.serving): the reading carries it
+                server = self.profiles.get(prof.on) if getattr(prof, "on", None) else prof
+                if server is not None:
+                    env["QV4_SERVING_ID"] = self.cards_manager.serving_for(self, server, card["port"])
             env["QV4_PROFILE"] = r.jt.profile
             # what every request on this profile says (ruling 121: the reader's thinking off, review's on with a
             # budget); a job merges it into its call

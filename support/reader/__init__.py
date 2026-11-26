@@ -100,6 +100,8 @@ class Reading:
     made_at: str = ""
     commit: str = ""       # the code's commit when the reading was made (code_commit, from 15 November 2026); not in
                            # the key, so a reading stored before then replays as before, its commit ""
+    serving: str = ""      # how the model was served, by id (support.recipes.serving; resolve() names the units, the
+                           # image, the weights); QV4_SERVING_ID from the worker, from 26 November 2026; not in the key
 
     def __post_init__(self):
         if self.read_from not in READ_FROM:
@@ -143,6 +145,8 @@ class Store:
         os.makedirs(os.path.dirname(p), exist_ok=True)
         if not reading.commit:
             reading = replace(reading, commit=code_commit())
+        if not reading.serving and os.environ.get("QV4_SERVING_ID"):
+            reading = replace(reading, serving=os.environ["QV4_SERVING_ID"])
         tmp = f"{p}.{os.getpid()}.tmp"     # 14 Nov 2026: two pieces of one document shared ".tmp" and one lost it
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(asdict(reading), f, ensure_ascii=False)

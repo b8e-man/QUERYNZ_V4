@@ -97,6 +97,7 @@ from support.scheduler import queue as q
 from support.scheduler import registry as reg
 from support.scheduler import runs
 from support import appendline
+from support.recipes import serving
 
 PORT_BASE = 8110
 LOAD_TIMEOUT_S = 900          # a 21 GB load from a cold page cache takes minutes
@@ -226,6 +227,10 @@ class Manager:
         self.shift_state: str | None = None          # None | draining | starting: a swap of standing server under way
         self.shift_from: str | None = None
         self.shift_retry_at = 0.0
+        # the serving id of each server by (port, profile) (support.recipes.serving; Arthur, 26 November 2026: the
+        # reader configuration recorded against the records it produces); a spawned server's at its load, a standing
+        # server's the first time a piece asks, dropped when the card's server changes
+        self.serving_ids: dict[tuple[int, str], str] = {}
         self.systemctl = systemctl or systemctl_user
         self.read_cards = read_cards or pb.cards
         self.clock = clock or time.monotonic
@@ -433,6 +438,7 @@ class Manager:
                 return
             t0 = self.clock()
             rc = self.systemctl("restart", new.unit)     # restart, not start: a unit left active under an older file
+            self.serving_ids.pop((new.port, new.name), None)   # the unit may run a newer file than when last asked
             served = self._wait_standing(new)
             secs = round(self.clock() - t0, 1)
             ok = served == new.model
@@ -669,7 +675,34 @@ class Manager:
                               from_profile=s.prof.name, by_worker=worker.name, ok=False)
                 q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None,
                               draining=False, slots=None, slots_busy=None)
+                self.serving_ids.pop((s.port, s.prof.name), None)
                 del self.servers[card]
+
+    # ── the serving record (support.recipes.serving) ─────────────────────────
+
+    def serving_for(self, worker, prof: reg.Profile, port: int) -> str:
+        """The serving id a reading made on `port` carries: the server's record hashed and appended to the servings
+        ledger. A standing server's is worked out the first time a piece asks; one that cannot be worked out says
+        so ("unmeasured: why") and is asked again next time, never passed as a known serving."""
+        key = (port, prof.name)
+        sid = self.serving_ids.get(key)
+        if sid and not sid.startswith(serving.UNMEASURED):
+            return sid
+        if prof.standing:
+            sid = self._serving_record(lambda: serving.standing(prof, box=worker.box, models_dir=self.models_dir),
+                                       worker.box, prof.name)
+        else:
+            sid = sid or f"{serving.UNMEASURED}: no record of the server on :{port}"
+        self.serving_ids[key] = sid
+        return sid
+
+    def _serving_record(self, build, box: str, name: str) -> str:
+        try:
+            return serving.record(build(), box=box)
+        except Exception as e:                   # an unreadable unit or ledger: the reading says so, the piece runs
+            if self.log:                        # set at start(); a manager asked before it has no log yet
+                self.log(f"serving record of {name}: {type(e).__name__}: {e}")
+            return f"{serving.UNMEASURED}: {type(e).__name__}: {e}"[:200]
 
     # ── the night window (ruling 129) ────────────────────────────────────────
 
@@ -1226,6 +1259,8 @@ class Manager:
             q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None)
             return self._failed(worker, card, prof, d, detail, load_seconds=seconds, served_model=served)
         self.servers[card] = Server(proc, prof, card, port, t0)
+        self.serving_ids[(port, prof.name)] = self._serving_record(lambda: serving.spawned(prof, argv, binary, self.models_dir),
+                                                                   worker.box, prof.name)
         self.holder_since[card] = now_s
         q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=prof.name, port=port, pid=proc.pid,
                       server_started_at=q.utcnow(), holder=d.job_type, draining=False, slots=prof.slots, slots_busy=0,
@@ -1262,6 +1297,7 @@ class Manager:
         s = self.servers.pop(card, None)
         if s is None:
             return
+        self.serving_ids.pop((s.port, s.prof.name), None)
         self.log(f"card {card}: unloading {s.prof.name}: {why}")
         runs.placement(f"{worker.box}:{card}", "unload", None, why, s.prof.name)
         self._stop(s.proc)
