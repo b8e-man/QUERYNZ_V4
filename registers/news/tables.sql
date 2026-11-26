@@ -177,6 +177,17 @@ CREATE TABLE IF NOT EXISTS news_private.read_done (
 );
 CREATE INDEX IF NOT EXISTS read_done_read_at ON news_private.read_done (read_at);   -- the board's news tab sorts by it
 
+-- the articles read before reader 6 that the subjects pass has since read alone (registers.news.subjects; Arthur, 27
+-- November 2026: "lets make the switch then drip feed the already read articles in"), one row an article
+CREATE TABLE IF NOT EXISTS news_private.subjects_done (
+    url_key      text PRIMARY KEY,
+    reading_key  text NOT NULL,          -- the subjects reading in the store
+    subjects     integer NOT NULL,       -- kept by the gate
+    dropped      integer NOT NULL,
+    model        text NOT NULL,
+    at           timestamptz NOT NULL DEFAULT now()
+);
+
 -- every gated item of a reading, kept or not, with the rule that decided it (rewritten from the store at will)
 CREATE TABLE IF NOT EXISTS news_private.read_items (
     url_key          text NOT NULL,

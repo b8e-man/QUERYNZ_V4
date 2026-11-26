@@ -10,8 +10,10 @@ SELECT d.url_key, a.url, a.host, a.title, a.author, a.published_at, d.read_at, d
        coalesce((d.counts->'roles'->>'kept')::int, 0) AS roles_kept,
        coalesce((d.counts->'sentiment'->>'kept')::int, 0) AS tones_kept,
        d.counts->>'skipped' AS skipped_why,
-       left(a.text, 700) AS opening        -- the first words, for the board's newspaper blurb (26 November 2026)
-FROM news_private.read_done d JOIN news_private.articles a USING (url_key);
+       left(a.text, 700) AS opening,       -- the first words, for the board's newspaper blurb (26 November 2026)
+       s.reading_key AS subjects_key       -- an article read before reader 6: its subjects pass's own reading (27 November 2026)
+FROM news_private.read_done d JOIN news_private.articles a USING (url_key)
+LEFT JOIN news_private.subjects_done s USING (url_key);
 
 -- Every gated item of an article's reading, kept or not, with the rule that decided it: the board's news inspector
 -- shows them beside the stored reading (26 November 2026: "an inspector pane that shows all the extracted data held").

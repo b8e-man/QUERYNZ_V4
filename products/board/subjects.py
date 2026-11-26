@@ -8,6 +8,8 @@ name in the readings already made). The specific subjects are what the article i
 """
 from __future__ import annotations
 
+import json
+
 
 def broad(got: dict) -> list[str]:
     th = ((got or {}).get("article") or {}).get("themes") or []
@@ -33,3 +35,15 @@ def names(got: dict) -> list[str]:
             seen.add(n.lower())
             out.append(n)
     return out
+
+
+def merged(got: dict, store, subjects_key: str = None) -> dict:
+    """The reading with its subjects: its own (reader 6 on), else those of its subjects pass's own reading (an article
+    read before reader 6, registers.news.subjects; 27 November 2026), with that pass's dropped subjects beside them."""
+    if (got or {}).get("subjects") or not subjects_key:
+        return got
+    try:
+        sub = json.loads(store.get(subjects_key).text or "{}") or {}
+    except Exception:
+        return got
+    return {**(got or {}), "subjects": sub.get("subjects") or [], "subjects_dropped": sub.get("dropped") or []}

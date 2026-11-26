@@ -40,3 +40,8 @@ docs/research/curation-plan.md. One line a close, the time first.
   229, Marama Davidson 224, Simon Watts 182, Barbara Edmonds 146, Todd McClay 142, Mark Mitchell 98. It would be a
   new links rule (method: twenty pairs, Arthur rules). Shane Jones and David Seymour are not settled by it: more than
   one of their candidates is a politician (split groups of one MP).
+- 27 Nov, morning **The switch (Arthur: "lets make the switch then drip feed the already read articles in").** Reader
+  `registers.news.read 6`, profile news-article version 2: a fourth pass, the subjects, gated as it lands. The ~36,000
+  articles read before it take the subjects pass alone (reader `registers.news.subjects 1`, its own reading, recorded
+  in news_private.subjects_done): job qv4-news-subjects, a row of 8,000 a night at 02:00, before the corpus read
+  while it lasts. The inspector, the paper and links.news read either shape.

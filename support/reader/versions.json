@@ -305,10 +305,20 @@
   "files": [
    "registers/news/gates.py",
    "registers/news/gold/sample.py",
-   "registers/news/read.py"
+   "registers/news/read.py",
+   "registers/news/subjects.py"
   ],
-  "reader": "registers.news.read 5",
-  "sha256": "6bbf2f25019103e72d6db1b37cba9e73b47200b6ad12285cccec28d22a601037"
+  "reader": "registers.news.read 6",
+  "sha256": "39f9b94b8d284562c464197f63a1bf92c39c289de42227e19fb56abe108948cb"
+ },
+ "registers/news/subjects.py": {
+  "files": [
+   "registers/news/gold/sample.py",
+   "registers/news/read.py",
+   "registers/news/subjects.py"
+  ],
+  "reader": "registers.news.subjects 1",
+  "sha256": "59017a429783abc47a3319e616314ab5787a984830fd13a501627e6ed639ba31"
  },
  "registers/openlaw/read.py": {
   "files": [

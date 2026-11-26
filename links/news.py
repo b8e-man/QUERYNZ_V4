@@ -150,15 +150,20 @@ def build(limit: int = None, log=print) -> dict:
         conn.execute(DDL)
         for t in ("news_ties", "news_entities", "news_subjects", "news_articles"):
             conn.execute(f"DELETE FROM links.{t}")
-        arts = conn.execute("SELECT url_key, reading_key, title, published_at, host FROM pub.news_read WHERE outcome IN ('read', 'replayed') "
+        arts = conn.execute("SELECT url_key, reading_key, title, published_at, host, subjects_key FROM pub.news_read WHERE outcome IN ('read', 'replayed') "
                             "ORDER BY read_at DESC" + (f" LIMIT {int(limit)}" if limit else "")).fetchall()
         rows, subj, art, missing = [], [], [], 0
-        for url_key, key, title, published, host in arts:
+        for url_key, key, title, published, host, subjects_key in arts:
             try:
                 got = json.loads(store.get(key).text or "null") or {}
             except Exception:
                 missing += 1
                 continue
+            if not got.get("subjects") and subjects_key:     # read before reader 6: its subjects pass's own reading
+                try:
+                    got["subjects"] = (json.loads(store.get(subjects_key).text or "{}") or {}).get("subjects") or []
+                except Exception:
+                    pass
             for e in entities_of(got, title):
                 rows.append((url_key, e["entity"], e["name"], e["kind"], e["keys"], e["mentions"], e["in_headline"],
                              e["quoted"], e["in_role"], published))

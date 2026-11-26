@@ -183,7 +183,7 @@ def blurb(opening: str, title: str, words: int = 42) -> str:
     return cut[:end + 1] if end > len(cut) // 2 else cut.rstrip(",;:") + "…"
 
 
-def tags_of(store, reading_key: str) -> tuple[list, list, list]:
+def tags_of(store, reading_key: str, subjects_key: str = None) -> tuple[list, list, list]:
     """(broad subjects, names, subjects): the reader's broad subjects (for the desk); the people, organisations and
     places it named, the most often named first (by the forms the article used), each once; and the subjects to tag,
     the specific first, then the broad from the most specific (IPTC labels are written broad to specific)."""
@@ -191,6 +191,7 @@ def tags_of(store, reading_key: str) -> tuple[list, list, list]:
         got = json.loads(store.get(reading_key).text or "null") or {}
     except Exception:
         return [], [], []
+    got = subjects.merged(got, store, subjects_key)
     th = subjects.broad(got)
     subj = [x["name"] for x in subjects.specific(got)] + list(reversed(th))
     ents = got.get("entities") if isinstance(got.get("entities"), dict) else {}
@@ -227,7 +228,7 @@ def stories(conn, store=None, a: dict = None) -> list[dict]:
     if a["site"]:
         where, params = " AND host = %s", [a["site"]]
     cur = conn.execute("SELECT url_key, url, host, title, author, published_at, reading_key, capture_sha256, opening, "
-                       "quotes_kept, roles_kept FROM pub.news_read WHERE outcome IN ('read', 'replayed') AND title IS NOT NULL "
+                       "quotes_kept, roles_kept, subjects_key FROM pub.news_read WHERE outcome IN ('read', 'replayed') AND title IS NOT NULL "
                        f"AND published_at <= now() + interval '1 day'{where} ORDER BY published_at DESC NULLS LAST LIMIT %s",
                        params + [WINDOW if (a["desk"] or a["name"] or a["subject"]) else STORIES])
     cols = [c.name for c in cur.description]
@@ -236,7 +237,7 @@ def stories(conn, store=None, a: dict = None) -> list[dict]:
         from support import reader as rd
         store = rd.Store()
     for r in rows:
-        r["themes"], r["names"], r["subjects"] = tags_of(store, r["reading_key"])
+        r["themes"], r["names"], r["subjects"] = tags_of(store, r["reading_key"], r.get("subjects_key"))
         r["desk"] = desk(r["themes"])
     if a["desk"]:
         rows = [r for r in rows if r["desk"] == a["desk"]]

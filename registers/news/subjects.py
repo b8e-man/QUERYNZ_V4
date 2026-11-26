@@ -251,6 +251,62 @@ def review(run: str) -> Path:
     return p
 
 
+# ---- the articles read before reader 6: the subjects pass alone, on a schedule ------------------------------------
+# Arthur, 27 November 2026: "lets make the switch then drip feed the already read articles in"; "the cards will never
+# have spare capacity. however I agree. we will need to schedule the reread". Job qv4-news-subjects: a row a night.
+
+READER = "registers.news.subjects 1"
+SETTINGS = {"temperature": 0.0, "max_tokens": 12000, "thinking": False, "passes": ["subjects"],
+            "prompt": __import__("hashlib").sha256(PROMPT.encode()).hexdigest()[:16], "gate": GATE}
+LIMIT = 8000
+
+
+def pieces(conn, limit: int = LIMIT) -> list:
+    """The articles a reader before 6 read, with no subjects reading yet, newest published first."""
+    return [k for (k,) in conn.execute(
+        "SELECT d.url_key FROM news_private.read_done d JOIN news_private.articles a USING (url_key) "
+        "WHERE d.outcome IN ('read', 'replayed') AND d.reader <> 'registers.news.read 6' "
+        "AND NOT EXISTS (SELECT 1 FROM news_private.subjects_done s WHERE s.url_key = d.url_key) "
+        "ORDER BY a.published_at DESC NULLS LAST LIMIT %s", (limit,)).fetchall()]
+
+
+def piece(url_key: str, *, connect, url: str, model: str, store=None, call=None) -> str:
+    """One article's subjects pass: the text the reading was made from, the names it found, the gate; stored as a
+    reading of its own (this READER), recorded in news_private.subjects_done. The connection is open only to read and
+    to land, never across the model's call."""
+    from support import reader as rd
+    from registers.news import read as R
+    store = store or rd.Store()
+    with connect() as c:
+        row = c.execute("SELECT a.title, a.author, a.text, d.reading_key FROM news_private.articles a "
+                        "JOIN news_private.read_done d USING (url_key) WHERE url_key = %s", (url_key,)).fetchone()
+    if row is None:
+        return f"{url_key[:60]}: not a read article"
+    text = R.text_of(*row[:3])
+    sha = R.text_sha(text)
+    try:
+        ents = (json.loads(store.get(row[3]).text or "{}") or {}).get("entities") or {}
+    except Exception:
+        ents = {}
+    profile, version = R.PROFILE, R.PROFILE_VERSION
+    key = rd.reading_key(sha, 1, model, SETTINGS, profile, version)
+    if store.has(key):
+        got = json.loads(store.get(key).text or "{}")
+    else:
+        got = (call or one)(text, ents, url, model, lane=R.LANE)
+        got = {"subjects": got["subjects"], "dropped": got["dropped"], "gate": GATE}
+        store.put(rd.Reading(document=sha, page=1, reader=READER, model=model, settings=SETTINGS, profile=profile,
+                             profile_version=version, read_from="text", text=json.dumps(got, ensure_ascii=False),
+                             checks={"usable": True}, made_at=time.strftime("%Y-%m-%dT%H:%M:%S%z")))
+    with connect() as c:
+        c.execute("INSERT INTO news_private.subjects_done (url_key, reading_key, subjects, dropped, model) "
+                  "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (url_key) DO UPDATE SET reading_key = EXCLUDED.reading_key, "
+                  "subjects = EXCLUDED.subjects, dropped = EXCLUDED.dropped, model = EXCLUDED.model, at = now()",
+                  (url_key, key, len(got["subjects"]), len(got["dropped"]), model))
+        c.commit()
+    return f"{url_key[:60]}: {len(got['subjects'])} subjects kept, {len(got['dropped'])} dropped"
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
 
@@ -258,6 +314,21 @@ def main(argv=None) -> int:
         return argv[argv.index(k) + 1] if k in argv else d
     from registers.news.gold import trial as T
     run = opt("--run", "s1")
+    if argv[:1] == ["--pieces"]:
+        from support import db
+        with db.connect() as c:
+            for k in pieces(c, int(opt("--limit", str(LIMIT)))):
+                print(k)
+        return 0
+    if argv[:1] == ["--piece"] and len(argv) > 1:
+        import os
+        from support import db
+        url, model = os.environ.get("QV4_MODEL_URL"), os.environ.get("QV4_MODEL")
+        if not url or not model:
+            print("refused: no QV4_MODEL_URL and QV4_MODEL; run as a piece of qv4-news-subjects on the worker's card")
+            return 2
+        print(piece(argv[1], connect=db.connect, url=url, model=model))
+        return 0
     if argv[:1] == ["trial"]:
         print(trial(run, opt("--url", T.URL), opt("--model", T.MODEL), int(opt("--workers", "4")), int(opt("--limit", "20"))))
     elif argv[:1] == ["regate"]:                 # the gate again over a trial's outputs, no model call

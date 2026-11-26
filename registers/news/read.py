@@ -36,8 +36,9 @@ from support import profiles, reader as rd
 from registers.news import gates as G
 from registers.news.gold import trial as T
 from registers.news.gold.sample import PAYWALL, masked
+from registers.news import subjects as S
 
-READER = "registers.news.read 5"
+READER = "registers.news.read 6"   # 6 (27 November 2026): the subjects pass, a fourth
 LANE = "news"
 PROFILE = "news-article"
 #: the document profile's version from the ledger (support/profiles/profiles.jsonl), registered 26 November 2026; it was
@@ -45,8 +46,8 @@ PROFILE = "news-article"
 PROFILE_VERSION = profiles.reading_version(PROFILE)
 #: the trial's settings: what was measured is what runs
 SETTINGS = {"temperature": 0.0, "max_tokens": 12000, "thinking": False,
-            "passes": ["read", "quotes", "tones"],
-            "prompts": hashlib.sha256("\n".join((T.PROMPT, T.QUOTE_PROMPT, T.TONE_PROMPT)).encode())
+            "passes": ["read", "quotes", "tones", "subjects"],
+            "prompts": hashlib.sha256("\n".join((T.PROMPT, T.QUOTE_PROMPT, T.TONE_PROMPT, S.PROMPT)).encode())
             .hexdigest()[:16]}
 #: an article shorter than this is a brief or a stub; longer than this cannot sit with the prompt and the answer in the
 #: profile's 32,768-token context (the read's prompt is about 3,000 tokens, its answer up to 12,000)
@@ -93,12 +94,16 @@ def key_for(sha: str, model: str) -> str:
 
 
 def read_text(text: str, url: str, model: str) -> tuple[dict | None, str, float]:
-    """The three passes over one text: (the ungated reading or None, the served model, seconds)."""
+    """The four passes over one text: (the ungated reading or None, the served model, seconds). The subjects pass
+    (registers.news.subjects) is gated as it lands: its kept subjects in `subjects`, the dropped with their rule in
+    `subjects_dropped` (curation step 0b; Arthur, 27 November 2026: "lets make the switch")."""
     t0 = time.monotonic()
     r = T.read_one("", text, url, model, lane=LANE)
     got = r.get("parsed")
     if isinstance(got, dict):
         T.tone_pass(got, text, url, model, lane=LANE)
+        sub = S.one(text, got.get("entities") if isinstance(got.get("entities"), dict) else {}, url, model, lane=LANE)
+        got["subjects"], got["subjects_dropped"] = sub["subjects"], sub["dropped"]
     return (got if isinstance(got, dict) else None), (r.get("model") or model), round(time.monotonic() - t0, 1)
 
 

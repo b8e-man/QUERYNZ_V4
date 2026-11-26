@@ -200,7 +200,7 @@ def section(name: str, value, ents: dict, gates: dict) -> str:
 def inspector(conn, url_key: str, a: dict = None, store=None) -> str:
     """The pane for one article: its record, then every section of its stored reading, the gates beside each item."""
     cur = conn.execute("SELECT url_key, url, host, title, author, published_at, read_at, outcome, model, reader, gates, "
-                       "seconds, reading_key, skipped_why, capture_sha256 FROM pub.news_read WHERE url_key = %s", (url_key,))
+                       "seconds, reading_key, skipped_why, capture_sha256, subjects_key FROM pub.news_read WHERE url_key = %s", (url_key,))
     cols = [c.name for c in cur.description]
     row = cur.fetchone()
     close = f'<a class="close" href="{esc(href({**a, "open": ""}))}" title="close">×</a>' if a else ""
@@ -233,6 +233,7 @@ def inspector(conn, url_key: str, a: dict = None, store=None) -> str:
         got = None
     if not isinstance(got, dict):
         return f'<aside class="nw-insp">{head}{stamp}<p class="why">the reading holds no data (unusable)</p></aside>'
+    got = subjects.merged(got, store or rd.Store(), r.get("subjects_key"))
     ents = got.get("entities") if isinstance(got.get("entities"), dict) else {}
     names = [k for k in SECTIONS if k in got] + sorted(k for k in got if k not in SECTIONS)
     body = "".join(section(k, got[k], ents, gates) for k in names)

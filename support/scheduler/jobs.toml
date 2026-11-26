@@ -2102,6 +2102,23 @@ concurrency = 16   # the news-reader profile's 16 streams (8 a card)
 then = ["qv4-sightings-news"]   # curation step 1 (26 November 2026): each row's read articles through the name pass, then the ties
 until_empty = true   # Arthur, 26 November 2026: "keep working through rows of articles. we dont want to fire each row manually": the next row of 8,000 is queued the moment one finishes; a row with nothing unread ends the chain, and each news load queues it again
 
+[jobs.qv4-news-subjects]
+description = "The subjects pass alone over the articles read before reader 6 (registers.news.subjects; Arthur, 27 November 2026: \"lets make the switch then drip feed the already read articles in\"; \"the cards will never have spare capacity. however I agree. we will need to schedule the reread\"): a row of 8,000 a night, newest published first, each article's subjects stored as a reading of its own and recorded in news_private.subjects_done; it goes before the corpus read on the card while its row lasts, then the read carries on. About 36,000 articles were read before the switch."
+needs = "model-profile"
+profile = "news-reader"
+memory_gb = 0.5
+deadline_s = 600
+query_timeout_s = 60
+class = "due"
+priority = 189   # just before the corpus read (190): the night's row is worked first, then the read carries on
+command = ["python", "-m", "registers.news.subjects", "--piece"]
+pieces_command = ["python", "-m", "registers.news.subjects", "--pieces", "--limit", "8000"]
+pieces = true
+can_share = true
+concurrency = 16
+at_utc = "13:00"   # 02:00 NZDT: node1 stands the 27B through the night; a row of 8,000 a night, about five nights
+then = ["qv4-links-news"]
+
 [jobs.qv4-news-sites]
 description = "The old news copy one line a site, for the board's Sources tab (Arthur, 14 November 2026: a light for every source, news by site): old_incoming_news_private.articles grouped by its address's host, counts and dates only (never text or an address), written to <live>/checks/news-sites.json, which the source lights read. The owner login, read-only transaction (the read login has no grant on a _private schema). Daily at 06:00 NZDT, after the night's copy; about six seconds over 2.8 million rows."
 needs = "processor"
