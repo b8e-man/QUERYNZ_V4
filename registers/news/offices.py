@@ -46,12 +46,28 @@ For each office a person holds or held in the article, give:
 One entry per office: a person who is an MP and a minister has two. An office the article only implies is not given. A person with no office in the article has no entry.
 Answer with ONE JSON object {"offices": [...]}."""
 
+#: o2 (27 November 2026), from Arthur's judgments of o1 (12 of 18 right): "other" hides the office ("the office is Māori
+#: caucus chair"; "role: chair or committee chair"; "whats wrong with former climate ambassador?"), so every office carries
+#: its title as printed; a person the article names by surname alone has none ("Jones ... drop it"); an activity is no
+#: office ("co-chaired negotiations ... doesnt denote a conclusive office or role"); an organisation with its abbreviation
+#: printed is written "name (ABBREVIATION)" ("NZNO should be in parentheses")
+PROMPT_O2 = PROMPT.replace(
+    '- "words": the words that give the office',
+    '- "title": the office as a noun phrase, the words printed, without the person, the party or the body: "Māori caucus chair", "chair", "climate ambassador", "kaiwhakahaere", "Health Minister", "list MP". Always given; for "other" it is the office.\n'
+    '- "words": the words that give the office').replace(
+    '- "body": who the office is of, as printed:',
+    '- "body": who the office is of, as printed (an organisation whose abbreviation the article prints is "name (ABBREVIATION)": "Tōpūtanga Tapuhi Kaitiaki o Aotearoa (NZNO)"):').replace(
+    'One entry per office:',
+    'Only a position a person holds or held, never a thing they did: "co-chaired negotiations" or "led the delegation" is no office. A person the article names by a surname alone ("Jones") gets no entry.\n'
+    'One entry per office:')
+PROMPTS = {"o1": PROMPT, "o2": PROMPT_O2}
+
 SN = {"type": ["string", "null"]}
 SCHEMA = {"type": "object", "properties": {"offices": {"type": "array", "items": {"type": "object", "properties": {
-    "who": {"type": "string"}, "office": {"type": "string", "enum": list(OFFICES)}, "words": {"type": "string"},
+    "who": {"type": "string"}, "office": {"type": "string", "enum": list(OFFICES)}, "title": SN, "words": {"type": "string"},
     "portfolio": SN, "body": SN, "party": SN, "electorate": SN, "list": {"type": ["boolean", "null"]},
     "qualifier": {"type": "string", "enum": list(QUALIFIERS)}},
-    "required": ["who", "office", "words", "portfolio", "body", "party", "electorate", "list", "qualifier"]}}},
+    "required": ["who", "office", "title", "words", "portfolio", "body", "party", "electorate", "list", "qualifier"]}}},
     "required": ["offices"]}
 
 
@@ -89,13 +105,13 @@ def user_text(text: str, people: dict, roles: list) -> str:
     return f"PEOPLE:\n{ps or '(none)'}\n\nROLES FOUND:\n{rs or '(none)'}\n\nARTICLE:\n{text}"
 
 
-def one(text: str, got: dict, url: str, model: str, lane: str = "news-trial") -> dict:
+def one(text: str, got: dict, url: str, model: str, lane: str = "news-trial", prompt: str = None) -> dict:
     from registers.news.gold import trial as T
     t0 = time.monotonic()
     ents = got.get("entities") if isinstance(got.get("entities"), dict) else {}
     people = {k: v for k, v in ents.items() if isinstance(v, dict) and v.get("kind") == "person"}
     roles = [r for r in got.get("roles") or [] if isinstance(r, dict) and r.get("who") in people]
-    out, raw = T._call(url, model, PROMPT, user_text(text, people, roles), SCHEMA, "offices", lane)
+    out, raw = T._call(url, model, prompt or PROMPT, user_text(text, people, roles), SCHEMA, "offices", lane)
     kept, dropped = gate((T._parse(raw) or {}).get("offices") or [], text, set(people))
     return {"offices": kept, "dropped": dropped, "people": {k: v.get("name") for k, v in people.items()},
             "gate": GATE, "model": model, "seconds": round(time.monotonic() - t0, 1)}
@@ -105,7 +121,8 @@ def _articles() -> list[dict]:
     """The office-rule-1 set's articles: each with its text and its stored reading."""
     from support import db
     from support import reader as rd
-    d = json.loads((REVIEW / "office-rule-1.json").read_text())
+    src = REVIEW / "office-rule-1.json"
+    d = json.loads((src if src.exists() else REVIEW / "done" / "office-rule-1.json").read_text())
     keys = list(dict.fromkeys(q["article"] for q in d["questions"]))
     out = []
     with db.connect(db.READ_KEY, "querynz_v4") as c:
@@ -118,7 +135,7 @@ def _articles() -> list[dict]:
     return out
 
 
-def trial(run: str, url: str, model: str, workers: int) -> Path:
+def trial(run: str, url: str, model: str, workers: int, prompt: str = "o1") -> Path:
     out = OUT / f"offices-{run}"
     out.mkdir(parents=True, exist_ok=True)
 
@@ -127,7 +144,7 @@ def trial(run: str, url: str, model: str, workers: int) -> Path:
         if p.exists():
             return a["id"], "kept"
         try:
-            got = one(a["text"], a["got"], url, model)
+            got = one(a["text"], a["got"], url, model, prompt=PROMPTS[prompt])
         except Exception as e:
             return a["id"], f"failed: {type(e).__name__}: {str(e)[:200]}"
         p.write_text(json.dumps({**got, "id": a["id"], "url_key": a["url_key"], "title": a["title"], "text": a["text"]},
@@ -141,6 +158,8 @@ def trial(run: str, url: str, model: str, workers: int) -> Path:
 
 def describe(o: dict, people: dict) -> str:
     bits = [o["qualifier"] if o["qualifier"] != "current" else "", o["office"]]
+    if o.get("title") and o["title"].lower() != o["office"]:
+        bits.append(f"({o['title']})")
     if o.get("portfolio"):
         bits.append(f"· portfolio {o['portfolio']}")
     if o.get("body"):
@@ -223,7 +242,7 @@ def main(argv=None) -> int:
     from registers.news.gold import trial as T
     run = opt("--run", "o1")
     if argv[:1] == ["trial"]:
-        print(trial(run, opt("--url", T.URL), opt("--model", T.MODEL), int(opt("--workers", "4"))))
+        print(trial(run, opt("--url", T.URL), opt("--model", T.MODEL), int(opt("--workers", "4")), opt("--prompt", "o1")))
     elif argv[:1] == ["review"]:
         print(review(run))
     else:
