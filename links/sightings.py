@@ -269,8 +269,8 @@ def scan(text: str, forms) -> list:
 # ── the forms ─────────────────────────────────────────────────────────────────────────────────────────────────
 #: I (Arthur, 27 November 2026: yes): an organisation form made only of company words and small words is no form ("is
 #: limited", "trustees of", "nz ltd", "co leader"). A company so named keeps its register row; it is only never sought
-#: by that form in a document's text, where "the company is limited" would find it. "nz" is no company word: "one nz" is
-#: the telco
+#: by that form in a document's text, where "the company is limited" would find it. "nz" is no company word, only filler beside
+#: one ("nz ltd"): "one nz" is the telco
 COMPANY_WORDS = frozenset({"limited", "ltd", "trustee", "trustees", "company", "co", "leader", "inc", "incorporated",
                            "trust", "holdings", "group"})
 
@@ -278,7 +278,7 @@ COMPANY_WORDS = frozenset({"limited", "ltd", "trustee", "trustees", "company", "
 def company_words_only(form: str) -> bool:
     from links.forms_review import SMALL
     w = form.split()
-    return any(x in COMPANY_WORDS for x in w) and all(x in COMPANY_WORDS or x in SMALL for x in w)
+    return any(x in COMPANY_WORDS for x in w) and all(x in COMPANY_WORDS or x in SMALL or x == "nz" for x in w)
 
 
 def build_forms(conn, log=print) -> dict:
