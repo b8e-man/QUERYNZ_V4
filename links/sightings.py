@@ -202,7 +202,7 @@ te reo|te reo maori|sign language|new zealand sign language""".replace("\n", "")
 #: columns), the members' own views and their interest returns: a form one of them gives is a person's name, whatever a
 #: place or a body is also called ("glen innes")
 PARTS_VIEWS = frozenset({v for _r, v, sql in __import__("links.rows", fromlist=["SOURCES"]).SOURCES
-                         if not re.search(r"NULL,\s*NULL,\s*NULL\s+FROM", sql)}
+                         if not re.search(r"NULL,\s*NULL,\s*NULL(\s*,\s*\w+)?\s+FROM", sql)}
                         | set(__import__("links.rows", fromlist=["MEMBER_DAY_VIEWS"]).MEMBER_DAY_VIEWS) | {"mp_interest_returns"})
 
 #: forms Arthur judged (the review tab's name-forms sets, carried into the repository by `python -m links.forms_review
@@ -289,8 +289,11 @@ def build_forms(conn, log=print) -> dict:
         cur.itersize = 50000
         # a register's filing only: a name a model read is no form (links.rows.MODEL_VIEWS); a suppressed name is no form either
         # (ruling 142 carries its flag on the row, and a sighting found by its form would carry none)
-        cur.execute("SELECT kind, name_filed, given, middle, family, view FROM links.rows WHERE NOT (view = ANY(%s)) AND NOT suppressed",
-                    (sorted(MODEL_VIEWS),))
+        # H2 (Arthur, 27 November 2026: "do it"): a court party line the caption reader read with low confidence keeps its
+        # row and gives no form; the reader cuts a long party across lines ("AND SOUTHLAND DISTRICT HEALTH", "OF AOTEAROA")
+        cur.execute("SELECT kind, name_filed, given, middle, family, view FROM links.rows r WHERE NOT (view = ANY(%s)) AND NOT suppressed "
+                    "AND NOT (view = 'court_judgment_parties' AND EXISTS (SELECT 1 FROM pub.court_judgment_parties p "
+                    "WHERE p.key = r.key AND p.confidence = 'low'))", (sorted(MODEL_VIEWS),))
         split = set()                     # forms a register that files people by their name parts gives as a person's
         votes = {}
         for kind, filed, given, middle, family, view in cur:

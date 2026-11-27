@@ -334,7 +334,7 @@ SOURCES = (
     # a minister's diary entry's attendees that are a person or an organisation (a Crown official, a group, a role or a
     # withheld name is none), dated by the entry; an entry whose attendees' text names an address is not read
     ("ministers_diaries", "minister_diary_attendees", """
-        SELECT key, attendee, NULL, entry_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        SELECT key, attendee, NULL, entry_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL, kind
         FROM pub.minister_diary_attendees
         WHERE kind IN ('person', 'organisation') AND attendee IS NOT NULL AND attendee <> '' AND NOT coalesce(attendees_names_address, false)"""),
     # the funders that publish the grants files, undated (the view prints no date and cites no document)
@@ -404,6 +404,10 @@ MODEL_VIEWS = frozenset({"beehive_people", "hansard_people", "parliament_people"
 #: 2,545 of the iwi directory's 2,697 iwi, hapū, marae and governance entities were read as people, a name with no
 #: organisation word in English)
 BODY_VIEWS = frozenset({"iwi_directory_entities", "party_names"})
+#: H1 (Arthur, 27 November 2026: "do it"): the views that carry their register's own kind, as a 13th column. A row the
+#: register calls an organisation stays one unless its name opens with a given name: the diary reader marks "Family
+#: Violence", "RNZ" and "Checkpoint" organisations, and reading the kind from the name alone made 41,788 of them people
+REGISTER_KIND_VIEWS = frozenset({"minister_diary_attendees"})
 _DASHES = (" – ", " — ", " - ")
 _TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
 _BRACKETED = re.compile(r"\s*\([^()]*\)")
@@ -565,6 +569,9 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
             catch["a party's short form that is a person or a country"] = catch.get("a party's short form that is a person or a country", 0) + 1
         return None
     kind = "organisation" if view in BODY_VIEWS else "office" if kn.is_office(name) else kn.name_kind(name)
+    if (kind == "person" and view in REGISTER_KIND_VIEWS and len(r) > 12 and r[12] == "organisation"
+            and not kn.person_sign(name)):
+        kind = "organisation"
     if kind == "person" and view in DONATION_VIEWS and kn.is_joint_name(name) is True:
         # one donor, two people: read as nobody alone; its part rows carry the people (part_records)
         read = {"given": None, "middle": None, "family": None, "name_key": kn.person_key(name),

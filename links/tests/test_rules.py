@@ -405,3 +405,14 @@ def test_a_party_is_a_body_by_each_of_its_names_and_its_short_forms_not_a_person
     assert rec("p/name/1", "New Zealand First Party")[4] == "organisation"
     assert rec("p/name/1/short", "New Zealand First")[4] == "organisation"
     assert rec("p/name/2/short", "Leighton Baker") is None and rec("p/name/3/short", "Aotearoa/New Zealand") is None
+
+
+def test_a_diary_attendee_its_register_calls_an_organisation_stays_one_unless_it_opens_with_a_given_name():
+    from links import rows as R
+    def kind(name, reg):
+        r = ("k/1", name, None, None, None, None, None, None, False, None, None, None, reg)
+        return R.row_record("ministers_diaries", "minister_diary_attendees", r)[4]
+    assert kind("Family Violence", "organisation") == "organisation"
+    assert kind("RNZ", "organisation") == "organisation"
+    assert kind("Christopher Stevenson – Partner", "organisation") == "person"
+    assert kind("Family Violence", "person") == "person", "only the register's organisation is kept"

@@ -77,3 +77,8 @@ docs/research/curation-plan.md. One line a close, the time first.
   ignoring a register's own kind: 41,788 diary attendees the diary reader called organisations are people in links.rows
   ("Family Violence", "RNZ", "Checkpoint"); and the court caption reader's 35,791 low-confidence parties are taken whole
   ("AND SOUTHLAND DISTRICT HEALTH", "OF AOTEAROA").
+- 27 Nov night **H1, H2** (Arthur: "do it"). H1: links.rows carries the diary register's kind (REGISTER_KIND_VIEWS, a
+  13th column); an attendee it calls an organisation stays one unless the name opens with a known given name
+  (keys.names.person_sign; "te" never counts): 39,621 of the 41,788 move back. H2: a low-confidence court party (35,791)
+  keeps its row and gives no form. Both take effect at the 07:45 links build and its form build; then measure what is
+  left of name-forms-1's 425 phrase people, and rebuild the list without what the rules settle.

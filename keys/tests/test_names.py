@@ -162,3 +162,8 @@ def test_the_crown_bodies_the_rebuild_still_filed_as_people_are_organisations():
     for x in ("Te Puni Kōkiri", "Serious Fraud Office", "New Zealand Defence Force", "Parliamentary Service", "Civil Defence"):
         assert n.name_kind(x) == "organisation", x
     assert n.name_kind("William Young") == "person"
+
+
+def test_a_person_sign_is_a_known_given_name_first_and_never_te():
+    assert n.person_sign("Hon David Parker") and n.person_sign("Christopher Stevenson – Partner")
+    assert not n.person_sign("Family Violence") and not n.person_sign("Te Puna Ora o Mataatua") and not n.person_sign("RNZ")

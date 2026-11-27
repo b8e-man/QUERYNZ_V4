@@ -136,3 +136,8 @@ def test_an_organisation_form_of_company_words_and_small_words_only_is_no_form()
         assert S.company_words_only(f), f
     for f in ("fonterra co operative group ltd", "vector gas ltd", "waipareira trust", "new zealand law society", "one nz"):
         assert not S.company_words_only(f), f
+
+
+def test_a_view_that_files_names_whole_is_no_parts_view_whatever_it_carries_after_them():
+    assert "minister_diary_attendees" not in S.PARTS_VIEWS and "court_judgment_parties" not in S.PARTS_VIEWS
+    assert "directors" in S.PARTS_VIEWS

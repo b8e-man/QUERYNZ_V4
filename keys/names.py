@@ -244,6 +244,13 @@ def is_office(name: str) -> bool:
 _BRACKET = re.compile(r"\([^()]*\)")
 
 
+def person_sign(name: str) -> bool:
+    """True when a line opens, past any honorific, with a given name the director register knows ("Christopher Stevenson –
+    Partner", "Hon David Parker"); "te" is no sign, as it opens bodies as often as names ("Te Puna Ora o Mataatua")."""
+    w = fold_diacritics(strip_honorifics(name or "")).lower().replace("-", " ").split()
+    return bool(w) and w[0] != "te" and w[0] in given_names()
+
+
 def name_kind(name: str, party_keys=()) -> str:
     """'person' | 'organisation' | 'estate' | 'party'. A party's own organ
     (branch, electorate committee) is the party when `party_keys` holds the
