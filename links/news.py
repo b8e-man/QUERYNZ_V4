@@ -23,6 +23,7 @@ reader store, one read article at a time; the store is never walked.
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 
@@ -31,6 +32,11 @@ from keys import names as kn
 KINDS = ("person", "organisation")
 QUOTE_KEYS = ("speaker",)
 ROLE_KEYS = ("who", "of")
+#: political-office@1 (Arthur, 27 November 2026: twenty cases judged, twenty yes, review set office-rule-1): a role the
+#: article itself gives a person that names a political office
+OFFICE = re.compile(r"\b(minister|prime minister|mp|member of parliament|leader|co-leader|deputy leader|spokesperson|whip|"
+                    r"speaker|mayor|councillor)\b", re.I)
+RULE_OFFICE = "political-office@1"
 
 DDL = """
 CREATE UNLOGGED TABLE IF NOT EXISTS links.news_entities (
@@ -46,6 +52,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS links.news_entities (
     published_at timestamptz,
     PRIMARY KEY (url_key, entity)
 );
+ALTER TABLE links.news_entities ADD COLUMN IF NOT EXISTS office boolean NOT NULL DEFAULT false;   -- a political office the article gives it
 CREATE UNLOGGED TABLE IF NOT EXISTS links.news_ties (
     url_key      text NOT NULL,
     entity       text NOT NULL,
@@ -54,6 +61,9 @@ CREATE UNLOGGED TABLE IF NOT EXISTS links.news_ties (
     candidates   integer NOT NULL,
     PRIMARY KEY (url_key, entity, entity_id)
 );
+-- the rule that decided: name (one group of the name: tied; several: possible), or political-office@1 (a possible name
+-- whose one politician the article's office settles: tied, the other candidates "passed over")
+ALTER TABLE links.news_ties ADD COLUMN IF NOT EXISTS rule text NOT NULL DEFAULT 'name';
 CREATE INDEX IF NOT EXISTS news_ties_entity_id ON links.news_ties (entity_id);
 CREATE UNLOGGED TABLE IF NOT EXISTS links.news_subjects (
     url_key      text NOT NULL,
@@ -102,6 +112,7 @@ def entities_of(got: dict, title: str) -> list[dict]:
     ents = got.get("entities") if isinstance(got.get("entities"), dict) else {}
     quoted = {q.get(k) for q in got.get("quotes") or [] if isinstance(q, dict) for k in QUOTE_KEYS}
     roles = {r.get(k) for r in got.get("roles") or [] if isinstance(r, dict) for k in ROLE_KEYS}
+    offices = {r.get("who") for r in got.get("roles") or [] if isinstance(r, dict) and OFFICE.search(r.get("role") or "")}
     head = (title or "").lower()
     out = []
     for eid, e in ents.items():
@@ -115,7 +126,7 @@ def entities_of(got: dict, title: str) -> list[dict]:
             continue
         out.append({"entity": eid, "name": name, "kind": kind, "keys": keys, "mentions": len(set(forms) | {name}),
                     "in_headline": any(f.lower() in head for f in set(forms) | {name} if len(f) > 3),
-                    "quoted": eid in quoted, "in_role": eid in roles})
+                    "quoted": eid in quoted, "in_role": eid in roles, "office": kind == "person" and eid in offices})
     return out
 
 
@@ -138,6 +149,23 @@ def subjects_of(url_key: str, got: dict) -> list[tuple]:
             seen.add(f)
             out.append((url_key, f, said, b))
     return out
+
+
+def office_rule(conn) -> int:
+    """political-office@1 over the possible ties: a person the article gives a political office, of whose candidates
+    exactly one is a politician (pub.entities.politician), is that politician. Returns the names it settled."""
+    conn.execute("""
+        CREATE TEMP TABLE office_settled ON COMMIT DROP AS
+        SELECT t.url_key, t.entity
+        FROM links.news_ties t JOIN links.news_entities n USING (url_key, entity) JOIN pub.entities e USING (entity_id)
+        WHERE t.status = 'possible' AND n.kind = 'person' AND n.office
+        GROUP BY 1, 2 HAVING sum(coalesce(e.politician, false)::int) = 1""")
+    conn.execute("""
+        UPDATE links.news_ties t SET status = CASE WHEN coalesce(e.politician, false) THEN 'tied' ELSE 'passed over' END,
+                                     rule = %s
+        FROM office_settled o, pub.entities e
+        WHERE t.url_key = o.url_key AND t.entity = o.entity AND e.entity_id = t.entity_id""", (RULE_OFFICE,))
+    return conn.execute("SELECT count(*) FROM office_settled").fetchone()[0]
 
 
 def build(limit: int = None, log=print) -> dict:
@@ -166,11 +194,12 @@ def build(limit: int = None, log=print) -> dict:
                     pass
             for e in entities_of(got, title):
                 rows.append((url_key, e["entity"], e["name"], e["kind"], e["keys"], e["mentions"], e["in_headline"],
-                             e["quoted"], e["in_role"], published))
+                             e["quoted"], e["in_role"], published, e["office"]))
             subj += subjects_of(url_key, got)
             art.append((url_key, host, ((got.get("article") or {}).get("type") or None), published))
         with conn.cursor() as cur:
-            cur.executemany("INSERT INTO links.news_entities VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            cur.executemany("INSERT INTO links.news_entities (url_key, entity, name, kind, keys, mentions, in_headline, quoted, "
+                            "in_role, published_at, office) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                             "ON CONFLICT DO NOTHING", rows)
             cur.executemany("INSERT INTO links.news_subjects VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING", subj)
             cur.executemany("INSERT INTO links.news_articles VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING", art)
@@ -201,11 +230,13 @@ def build(limit: int = None, log=print) -> dict:
                         FROM links.news_entities e CROSS JOIN LATERAL unnest(e.keys) k(key)
                         JOIN kg ON kg.key = k.key AND kg.kind = e.kind) d) x;
         """)
+        out_office = office_rule(conn)
         conn.execute(PUBLISH)
         out = dict(zip(("tied", "possible"), conn.execute(
             "SELECT count(DISTINCT (url_key, entity)) FILTER (WHERE status = 'tied'), "
             "count(DISTINCT (url_key, entity)) FILTER (WHERE status = 'possible') FROM links.news_ties").fetchone()))
         conn.commit()
+    out["political_office"] = out_office
     out.update({"entities": len(rows), "articles": len(arts) - missing, "seconds": round(time.monotonic() - t0, 1)})
     log(json.dumps(out))
     return out

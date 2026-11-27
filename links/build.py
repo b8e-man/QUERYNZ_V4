@@ -269,6 +269,9 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         out[name] = step(conn, s, reader=reader) if step is member_day_links else step(conn, s)
         log(f"links.build: {name}: {out[name]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
+    # a registered party by each of its names (C, Arthur, 27 November 2026)
+    out[rules.RULE_PARTY_NAME] = party_name_links(conn, s)
+    log(f"links.build: {rules.RULE_PARTY_NAME}: {out[rules.RULE_PARTY_NAME]} ({time.monotonic() - t0:.0f} s)")
     # a Real Estate Authority licence number printed on two decisions (3 November 2026)
     out[rules.RULE_LICENCE] = licence_links(conn, s)
     log(f"links.build: {rules.RULE_LICENCE}: {out[rules.RULE_LICENCE]} ({time.monotonic() - t0:.0f} s)")
@@ -356,6 +359,28 @@ def number_links(conn, s: str) -> dict:
         out[view] = {"printed": int(printed), "one_body": int(joined), "several_bodies": int(several), "not_held": int(held_not)}
     conn.commit()
     return out
+
+
+def party_name_links(conn, s: str) -> int:
+    """`party-name@1`: the rows of the parties register's names (links.rows view party_names) of one registered party,
+    a star per party from its smallest ref, confirmed: the register itself files them under the party's key
+    ("ec-party/1994-12-02/af3607addd1b/name/...", ".../abbreviation/...", a short form ".../short")."""
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        WITH p AS (SELECT ref, name_filed,
+                          regexp_replace(key, '/(name|abbreviation|printed)/[^/]+(/short)?$', '') AS party
+                   FROM {s}.rows WHERE view = 'party_names'),
+             head AS (SELECT party, min(ref COLLATE "C") COLLATE "default" AS ref FROM p GROUP BY 1 HAVING count(*) > 1)
+        SELECT least(h.ref COLLATE "C", x.ref), greatest(h.ref COLLATE "C", x.ref), %(rule)s,
+               jsonb_build_object('party', x.party, 'as_filed', jsonb_build_array(m.name_filed, x.name_filed),
+                                  'registers', jsonb_build_array('parties', 'parties')),
+               'confirmed', NULL
+        FROM p x JOIN head h ON h.party = x.party JOIN p m ON m.ref = h.ref
+        WHERE x.ref <> h.ref
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_PARTY_NAME})
+    n = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_PARTY_NAME,)).fetchone()[0]
+    conn.commit()
+    return int(n)
 
 
 def licence_links(conn, s: str) -> dict:

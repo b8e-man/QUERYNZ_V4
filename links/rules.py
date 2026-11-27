@@ -875,6 +875,9 @@ def judgment_numbers(candidates: list) -> tuple:
 # 3 November 2026 (Arthur: "rea_parties (agents, by licence number where a register carries it)"): the Real Estate
 # Authority's licence number, which its decisions print beside a licensee, names one licensee
 RULE_LICENCE = "licence-number@1"
+# C (Arthur, 27 November 2026: "a party by each of its names"): the parties register files each registered party's names
+# (registered, former, abbreviation, as printed) under the party's own key, and links.rows reads each and its short form
+RULE_PARTY_NAME = "party-name@1"
 NEAR_LICENCE_KINDS = "one licence number printed beside a person on one decision and an agency on another; the number is not one licensee's here"
 NEAR_LICENCE_NAMES = ("one licence number printed beside two names that do not agree (first and last name, or the agency's name); a number read from a decision's text is not trusted over the names")
 
