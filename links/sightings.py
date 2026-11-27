@@ -267,6 +267,20 @@ def scan(text: str, forms) -> list:
 
 
 # ── the forms ─────────────────────────────────────────────────────────────────────────────────────────────────
+#: I (Arthur, 27 November 2026: yes): an organisation form made only of company words and small words is no form ("is
+#: limited", "trustees of", "nz ltd", "co leader"). A company so named keeps its register row; it is only never sought
+#: by that form in a document's text, where "the company is limited" would find it. "nz" is no company word: "one nz" is
+#: the telco
+COMPANY_WORDS = frozenset({"limited", "ltd", "trustee", "trustees", "company", "co", "leader", "inc", "incorporated",
+                           "trust", "holdings", "group"})
+
+
+def company_words_only(form: str) -> bool:
+    from links.forms_review import SMALL
+    w = form.split()
+    return any(x in COMPANY_WORDS for x in w) and all(x in COMPANY_WORDS or x in SMALL for x in w)
+
+
 def build_forms(conn, log=print) -> dict:
     ensure_tables(conn)
     counts, kinds = {}, {}
@@ -293,11 +307,14 @@ def build_forms(conn, log=print) -> dict:
     for f, v in votes.items():
         kinds[f] = max(v, key=lambda k: (v[k], rank.get(k, 0)))
     rule, place = judged(), places(conn)
-    dropped = {"junk": 0, "place": 0}
+    dropped = {"junk": 0, "place": 0, "company_words": 0}
     for f in list(counts):
         j = (rule.get(f) or {}).get("choice")
         if j == "junk":
             dropped["junk"] += 1
+            del counts[f]
+        elif kinds[f] == "organisation" and company_words_only(f):
+            dropped["company_words"] += 1
             del counts[f]
         elif f in place and f not in split:   # F: a place, unless a row files it as a person's given and family names
             dropped["place"] += 1

@@ -129,3 +129,10 @@ def test_a_judged_class_and_the_review_answers_become_the_judged_file(tmp_path):
     j = json.loads(out.read_text())
     assert j["of the"]["choice"] == "junk" and "waitangi tribunal" not in j and "in their" not in j
     assert j["social development"]["choice"] == "junk" and got["junk"] == 1 + len(F.CLASS_RULINGS)
+
+
+def test_an_organisation_form_of_company_words_and_small_words_only_is_no_form():
+    for f in ("is limited", "trustees of", "nz ltd", "co leader", "holdings limited"):
+        assert S.company_words_only(f), f
+    for f in ("fonterra co operative group ltd", "vector gas ltd", "waipareira trust", "new zealand law society", "one nz"):
+        assert not S.company_words_only(f), f

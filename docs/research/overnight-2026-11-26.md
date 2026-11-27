@@ -71,3 +71,9 @@ docs/research/curation-plan.md. One line a close, the time first.
   split); Te Puni Kōkiri, the SFO, the Parliamentary Service, the Defence Force, Civil Defence added to GOV_WORDS; a title
   glued by a stop ("Mrs.chandanie"). "hon trevor mallard", "dr michael cullen": current code gives no such form from any
   row; the next form build shows whether 7332 ran on older code.
+- 27 Nov evening **Rule I** (Arthur: yes): an organisation form of company words and small words only is no form
+  (COMPANY_WORDS; 59 forms today; the company's register row stays). **H** asked back: how the phrases came to be people.
+  Found: links.rows recomputes every row's kind from the name (keys.names.name_kind, person unless an organisation word),
+  ignoring a register's own kind: 41,788 diary attendees the diary reader called organisations are people in links.rows
+  ("Family Violence", "RNZ", "Checkpoint"); and the court caption reader's 35,791 low-confidence parties are taken whole
+  ("AND SOUTHLAND DISTRICT HEALTH", "OF AOTEAROA").
