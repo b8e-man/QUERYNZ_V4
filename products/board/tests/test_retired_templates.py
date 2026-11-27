@@ -41,8 +41,9 @@ def test_board_tab_defaults_to_the_one_report():
 
 @pytest.mark.slow
 def test_live_board_opens_on_the_diagnostic_template():
-    port = int(os.environ.get("QV4_BOARD_PORT") or 8420)
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}/subject-report", timeout=30) as r:
+    # the board runs on node2 alone; the full tier runs on either box (28 November 2026: refused on node1)
+    url = os.environ.get("QV4_BOARD_URL") or "http://10.0.0.2:8420"
+    with urllib.request.urlopen(f"{url}/subject-report", timeout=30) as r:
         page = r.read().decode("utf-8")
     selected = re.findall(r'<option value="([a-z0-9-]+)" selected', page)
     assert selected == ["diagnostic"], f"the live tab opens on {selected}"

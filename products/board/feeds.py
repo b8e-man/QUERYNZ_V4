@@ -132,7 +132,7 @@ def save(settings: dict, path: str = None) -> dict:
 # ---- what a feed holds -------------------------------------------------------------------------------------------
 
 def fold(s: str) -> str:
-    from registers.news.subjects import fold as f
+    from support.subjecttext import fold as f
     return f(s)
 
 
@@ -179,7 +179,7 @@ def suggest_subjects(conn, entity_id: str) -> list[dict]:
 def subject_keys(conn, subjects: list[dict]) -> set:
     """The folded subjects the read news holds that a feed's subjects catch: each signifier as it is, and by its stems
     in any subject that holds them ("3D printing" in "3D-printed firearms")."""
-    from registers.news.subjects import names_in
+    from support.subjecttext import names_in
     want = [s for x in subjects if x.get("on", True) for s in (x.get("signifiers") or [x["name"]]) if s.strip()]
     # a signifier Arthur added to a suggested subject is typed too: it catches its other forms
     if not want:

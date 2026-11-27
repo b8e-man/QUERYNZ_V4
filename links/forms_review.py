@@ -6,7 +6,9 @@ based on what is discarded. each name-form should only be listed for judging onc
 
     python -m links.forms_review build [--n 1500]    the next set, name-forms-<k>, into the review folder
     python -m links.forms_review absorb              every set's junk and wrong-kind answers into links/forms_judged.json,
-                                                     which the form build reads (links.sightings.JUDGED)
+                                                     which the form build reads (links.sightings.JUDGED); export the
+                                                     answers first (python -m products.board.review --export SET): the
+                                                     links import nothing of the board (tests/test_imports_one_way.py)
 
 WHICH FORMS. A form of links.name_forms the name pass has found at least MIN_HITS times (links.sightings, every lane)
 that holds a small word ("of the", "in their") or is found HITS_PER_ROW times as often as the registers file it (a
@@ -130,8 +132,6 @@ def main(argv=None) -> int:
         build(int(argv[argv.index("--n") + 1]) if "--n" in argv else N)
         return 0
     if argv[:1] == ["absorb"]:
-        from products.board import review
-        review.export(sorted(p.stem for p in REVIEW.glob(f"{PREFIX}*.json")))
         print(json.dumps(absorb()))
         return 0
     print(__doc__)

@@ -30,7 +30,6 @@ import json
 import re
 import sys
 import time
-import unicodedata
 from pathlib import Path
 
 KINDS = ("event", "technology", "product_or_work", "law_or_policy", "issue", "programme_or_project", "field")
@@ -132,55 +131,7 @@ def schema_for(kinds) -> dict:
         "required": ["name", "kind", "words"]}}}, "required": ["subjects"]}
 
 
-def fold(s: str) -> str:
-    """Macrons and accents folded, lower case, every run of other than a letter or digit one space."""
-    s = unicodedata.normalize("NFKD", s or "")
-    s = "".join(c for c in s if not unicodedata.combining(c)).lower()
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", s).split())
-
-
-SUFFIXES = ("ings", "ing", "ed", "es", "s")
-
-
-def stem(word: str) -> str:
-    for x in SUFFIXES:
-        if len(word) > len(x) + 2 and word.endswith(x):
-            return word[: -len(x)]
-    return word
-
-
-STOP = {"the", "a", "an", "of", "in", "on", "and", "for", "to", "at", "by", "new", "zealand", "nz"}
-
-
-def stems(s: str) -> list[str]:
-    """A name's stems, its small words left out: "3D printing" → ["3d", "print"]; "3D-printed guns" → ["3d", "print", "gun"]."""
-    return [stem(w) for w in fold(s).split() if w not in STOP]
-
-
-GAP = 2
-
-
-def names_in(name: str, text: str) -> bool:
-    """True when the name's stems are in the text's stems in order, any ending, with at most GAP words between two of
-    them: "3D printing" is in "3D-printed guns"; "illegal firearms" in "illegal 3D-printed firearms"; "the Seoul crowd
-    crush" is not in "a crowd crush in Seoul" (the order differs), so that one is inferred."""
-    want = stems(name)
-    if not want:
-        return False
-    have = stems(text)
-    for i, w in enumerate(have):
-        if w != want[0]:
-            continue
-        at, ok = i, True
-        for nxt in want[1:]:
-            window = have[at + 1: at + 2 + GAP]
-            if nxt not in window:
-                ok = False
-                break
-            at = at + 1 + window.index(nxt)
-        if ok:
-            return True
-    return False
+from support.subjecttext import GAP, STOP, SUFFIXES, fold, names_in, stem, stems  # noqa: E402,F401  (moved; the gate uses them here)
 
 
 def gate(subjects: list, text: str) -> tuple[list, list]:
@@ -328,7 +279,10 @@ def review(run: str) -> Path:
 # Arthur, 27 November 2026: "lets make the switch then drip feed the already read articles in"; "the cards will never
 # have spare capacity. however I agree. we will need to schedule the reread". Job qv4-news-subjects: a row a night.
 
-READER = "registers.news.subjects 1"
+#: 2 (28 November 2026): the trial prompts s3 and s3b, and the gate takes s3's kinds; the pass itself (s1) is unchanged
+READER = "registers.news.subjects 2"
+#: the news readers whose reading has the subjects pass in it (6 added it); an article they read needs no pass of its own
+WITH_SUBJECTS = ("registers.news.read 6", "registers.news.read 7")
 SETTINGS = {"temperature": 0.0, "max_tokens": 12000, "thinking": False, "passes": ["subjects"],
             "prompt": __import__("hashlib").sha256(PROMPT.encode()).hexdigest()[:16], "gate": GATE}
 LIMIT = 8000
@@ -338,9 +292,9 @@ def pieces(conn, limit: int = LIMIT) -> list:
     """The articles a reader before 6 read, with no subjects reading yet, newest published first."""
     return [k for (k,) in conn.execute(
         "SELECT d.url_key FROM news_private.read_done d JOIN news_private.articles a USING (url_key) "
-        "WHERE d.outcome IN ('read', 'replayed') AND d.reader <> 'registers.news.read 6' "
+        "WHERE d.outcome IN ('read', 'replayed') AND NOT (d.reader = ANY(%s)) "
         "AND NOT EXISTS (SELECT 1 FROM news_private.subjects_done s WHERE s.url_key = d.url_key) "
-        "ORDER BY a.published_at DESC NULLS LAST LIMIT %s", (limit,)).fetchall()]
+        "ORDER BY a.published_at DESC NULLS LAST LIMIT %s", (list(WITH_SUBJECTS), limit)).fetchall()]
 
 
 def piece(url_key: str, *, connect, url: str, model: str, store=None, call=None) -> str:
