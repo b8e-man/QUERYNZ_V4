@@ -154,6 +154,35 @@ def describe(o: dict, people: dict) -> str:
     return f"{people.get(o['who'], o['who'])}: " + " ".join(b for b in bits if b)
 
 
+def context_runs(text: str, offices: list) -> list:
+    """The article's own sentences that hold each office's words, the words marked, in the article's order: the sample
+    the review page shows (Arthur, 27 November 2026: "the sample text rarely contains the relevant context")."""
+    body = text.split("\n\n", 1)[1] if "\n\n" in text else text
+    spans = [(m.start(), m.end()) for m in re.finditer(r"[^.!?\n]+[.!?]?", body)]
+    picked = {}
+    for o in offices:
+        w = (o.get("words") or "").strip()
+        if not w:
+            continue
+        i = body.lower().find(w.lower())
+        if i < 0:
+            continue
+        for a, b in spans:
+            if a <= i < b:
+                picked.setdefault((a, b), []).append((i, i + len(w)))
+                break
+    runs = []
+    for (a, b), marks in sorted(picked.items()):
+        pos = a
+        for i, j in sorted(set(marks)):
+            if i < pos:
+                continue
+            runs += [{"text": body[pos:i]}, {"text": body[i:j], "mark": "role"}]
+            pos = j
+        runs += [{"text": body[pos:b].rstrip() + "\n"}]
+    return [r for r in runs if r["text"]] or [{"text": "(no office in the text)"}]
+
+
 def review(run: str) -> Path:
     arts, qs = {}, []
     for p in sorted((OUT / f"offices-{run}").glob("*.json")):
@@ -169,7 +198,7 @@ def review(run: str) -> Path:
             ask.append({"text": "Dropped by the gate: " + "; ".join(f"{o.get('words')} ({o['rule']})" for o in r["dropped"]) + "\n"})
         ask.append({"text": "Are these the offices, complete and right?"})
         qs.append({"id": r["id"][:40], "kind": "offices", "label": "Offices", "article": r["id"], "ask": ask,
-                   "context": [{"text": r["title"], "mark": "role"}],
+                   "context": context_runs(r["text"], r["offices"] + r["dropped"]),
                    "choices": [{"key": "yes", "label": "Yes: right and complete"},
                                {"key": "wrong", "label": "One or more is wrong (note which)"},
                                {"key": "missing", "label": "One or more is missing (note what)"},

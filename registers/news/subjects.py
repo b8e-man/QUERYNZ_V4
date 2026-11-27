@@ -244,6 +244,12 @@ def trial(run: str, url: str, model: str, workers: int, limit: int, prompt: str 
     return out
 
 
+def context_runs(text: str, subjects: list) -> list:
+    """The article's sentences that hold each subject's words, marked (as registers.news.offices.context_runs)."""
+    from registers.news.offices import context_runs as runs
+    return runs(text, subjects)
+
+
 def review(run: str) -> Path:
     """The trial as one review set: a question an article, its subjects listed with the article's words marked."""
     src = OUT / f"subjects-{run}"
@@ -264,7 +270,7 @@ def review(run: str) -> Path:
             ask.append({"text": "Dropped by the gate: " + "; ".join(f"{d.get('name')} ({d['rule']})" for d in r["dropped"]) + "\n"})
         ask.append({"text": "Are these the article's subjects?"})
         qs.append({"id": r["id"][:40], "kind": "subjects", "label": "Subjects", "article": r["id"], "ask": ask,
-                   "context": [{"text": title, "mark": "role"}],
+                   "context": context_runs(r["text"], r["subjects"] + r["dropped"]),
                    "choices": [{"key": "yes", "label": "Yes: right and complete"},
                                {"key": "wrong", "label": "One or more is wrong (note which)"},
                                {"key": "missing", "label": "One or more is missing (note what)"},

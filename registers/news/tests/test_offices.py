@@ -23,3 +23,10 @@ def test_an_office_reads_as_one_line():
     o = {"who": "e2", "office": "minister", "words": "caretaker Health Minister", "portfolio": "Health", "body": None,
          "party": None, "electorate": None, "list": None, "qualifier": "caretaker"}
     assert O.describe(o, {"e2": "Simeon Brown"}) == "Simeon Brown: caretaker minister · portfolio Health"
+
+
+def test_the_sample_is_the_sentences_that_hold_the_offices_marked():
+    text = "HEADLINE: H\n\nA first line. Labour finance spokesperson Barbara Edmonds spoke. Nothing here. The caretaker Health Minister replied."
+    runs = O.context_runs(text, [{"words": "caretaker Health Minister"}, {"words": "Labour finance spokesperson"}])
+    assert [r["text"] for r in runs if r.get("mark")] == ["Labour finance spokesperson", "caretaker Health Minister"]
+    assert "Nothing here" not in "".join(r["text"] for r in runs) and "A first line" not in "".join(r["text"] for r in runs)
