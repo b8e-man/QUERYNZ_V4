@@ -1225,6 +1225,17 @@ def build_groups(conn, s: str, log=print) -> dict:
     return out
 
 
+def office_ok(conn, s: str) -> bool:
+    """Whether `<s>.entities` takes the kind "office" (ruling B, 27 November 2026; tables.sql). A table made before it
+    keeps its old check until Arthur widens it (docs/research/overnight-2026-11-26.md); until then an office's entity is
+    an organisation, its rows still "office"."""
+    got = conn.execute("""SELECT pg_get_constraintdef(c.oid) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid
+                          JOIN pg_namespace n ON n.oid = t.relnamespace
+                          WHERE n.nspname = %s AND t.relname = 'entities' AND c.contype = 'c' AND pg_get_constraintdef(c.oid) LIKE '%%kind%%'""",
+                       (s,)).fetchall()
+    return not got or any("office" in d for (d,) in got)
+
+
 def build_entities(conn, s: str, log=print) -> dict:
     """Rebuild `<schema>.entities` whole from the groups and the rows (ruling
     123): one row per entity, a group or a row in no group (never a lone row a text reader's model read: it is cited
@@ -1263,8 +1274,9 @@ def build_entities(conn, s: str, log=print) -> dict:
             SELECT entity_id, count(*) AS rows, array_agg(DISTINCT register ORDER BY register) AS registers,
                    bool_or(contested) AS contested, coalesce(bool_or(politician), false) AS politician
             FROM named GROUP BY entity_id)
-        SELECT c.entity_id, coalesce(ch.kind, 'organisation'), ch.name, c.rows, c.registers, c.contested, c.politician, now(), ch.suppressed
-        FROM counted c JOIN chosen ch USING (entity_id)""", {"model_views": sorted(lrows.MODEL_VIEWS)})
+        SELECT c.entity_id, CASE WHEN ch.kind = 'office' AND NOT %(office_ok)s THEN 'organisation' ELSE coalesce(ch.kind, 'organisation') END,
+               ch.name, c.rows, c.registers, c.contested, c.politician, now(), ch.suppressed
+        FROM counted c JOIN chosen ch USING (entity_id)""", {"model_views": sorted(lrows.MODEL_VIEWS), "office_ok": office_ok(conn, s)})
     conn.execute(f"ANALYZE {s}.entities")
     conn.commit()
     row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE rows > 1), count(*) FILTER (WHERE rows = 1),

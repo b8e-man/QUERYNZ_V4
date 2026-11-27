@@ -21,7 +21,7 @@ def test_the_sql_defines_the_entities_table_with_its_columns():
     body = sql.split("CREATE TABLE IF NOT EXISTS links.entities")[1].split(");")[0]
     for col in COLUMNS:
         assert re.search(rf"^\s+{col}\s", body, re.M), col
-    assert "CHECK (kind IN ('person', 'organisation', 'estate'))" in body
+    assert "CHECK (kind IN ('person', 'organisation', 'estate', 'office'))" in body
     assert "entity_id    text PRIMARY KEY" in body
 
 

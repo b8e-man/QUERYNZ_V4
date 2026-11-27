@@ -256,7 +256,7 @@ CREATE TABLE IF NOT EXISTS links.measurements (
 -- `contested` from the groups; `politician` where any row is. Rebuilt whole with the groups; edited by nobody. Regenerable.
 CREATE TABLE IF NOT EXISTS links.entities (
     entity_id    text PRIMARY KEY,         -- the group id, or a lone row's ref
-    kind         text NOT NULL CHECK (kind IN ('person', 'organisation', 'estate')),
+    kind         text NOT NULL CHECK (kind IN ('person', 'organisation', 'estate', 'office')),   -- office: ruling B, 27 November 2026
     display_name text NOT NULL,
     rows         integer NOT NULL,
     registers    text[] NOT NULL,

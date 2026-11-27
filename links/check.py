@@ -328,7 +328,7 @@ def check_entities(conn, s: str, pub: str = "pub") -> list:
                (SELECT count(*) FROM e WHERE NOT EXISTS (SELECT 1 FROM g WHERE g.group_id = e.entity_id)
                                         AND NOT EXISTS (SELECT 1 FROM lone WHERE lone.ref = e.entity_id)),
                (SELECT coalesce(sum(rows), 0) FROM e), (SELECT coalesce(sum(n), 0) FROM g),
-               (SELECT count(*) FROM e WHERE kind NOT IN ('person', 'organisation', 'estate')),
+               (SELECT count(*) FROM e WHERE kind NOT IN ('person', 'organisation', 'estate', 'office')),
                (SELECT count(*) FROM e WHERE btrim(display_name) = '')""", {"model_views": sorted(rows.MODEL_VIEWS)}).fetchone()
     n, groups, lone, groups_missing, lone_missing, neither, rows_sum, grouped_rows, other_kinds, blank = (int(x) for x in row)
     return [{"check": f"{pub}.entities is the groups plus the lone rows, one row each (ruling 123)",
