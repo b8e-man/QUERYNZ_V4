@@ -56,6 +56,20 @@ def test_a_title_or_office_filed_in_front_of_the_given_names_is_no_part_of_a_per
     assert S.forms_of("organisation", "Justice and Electoral Committee", None, None, None) == {"justice and electoral committee"}
     assert S.forms_of("person", "The Rt Hon Sir William Francis BIRCH", "The", "Rt Hon Sir William Francis", "BIRCH") == \
         {"william francis birch", "william birch"}, "a title the Companies Office runs on into the middle names"
+    assert S.forms_of("person", "Mrs.chandanie Priya MADDUMAGE", "Mrs.chandanie", "Priya", "MADDUMAGE") == \
+        {"chandanie priya maddumage", "chandanie maddumage"}
+
+
+def test_the_regions_and_each_district_linz_lists_are_places():
+    class C:
+        def execute(self, *_):
+            class R:
+                def fetchall(self):
+                    return [("Hawke Bay",), ("Central Hawke's Bay District, Hastings District",), ("Area Outside Territorial Authority",)]
+            return R()
+    p = S.places(C())
+    assert {"hawke s bay", "west coast", "tamaki makaurau", "hastings district", "hastings", "central hawke s bay"} <= p
+    assert "area outside territorial authority" not in p
 
 
 def test_a_hyphenated_given_name_keeps_its_whole_first_name_in_the_given_and_family_form():

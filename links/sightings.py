@@ -162,6 +162,8 @@ def forms_of(kind: str, name_filed: str, given: str, middle: str, family: str) -
         # when a register files one word per field: the Companies Office's "The Rt Hon Sir William Francis BIRCH" is given
         # "The", middle "Rt Hon Sir William Francis" (27 November 2026: 70 person forms still opened with a title)
         g, m = (given or "").split(), (middle or "").split()
+        if g and "." in g[0] and norm(g[0].split(".")[0]) in TITLES:     # "Mrs.chandanie", no space after the stop
+            g = [x for x in g[0].split(".", 1)[1:] if x] + g[1:]
         while g and norm(g[0]) in TITLES:
             g = g[1:]
         if not g:
@@ -215,13 +217,27 @@ def judged() -> dict:
         return {}
 
 
+#: the regions, as LINZ's place names give none (its region column holds "NZ", "RD", "Antarctica"; 27 November 2026:
+#: "hawke s bay", "west coast" and "tamaki makaurau" were still forms after the rebuild), with their Māori names
+REGIONS = ("Northland", "Te Tai Tokerau", "Auckland", "Tāmaki Makaurau", "Waikato", "Bay of Plenty", "Te Moana-a-Toi", "Gisborne",
+           "Tairāwhiti", "Hawke's Bay", "Te Matau-a-Māui", "Taranaki", "Manawatū-Whanganui", "Manawatu-Wanganui", "Wellington",
+           "Te Whanganui-a-Tara", "Tasman", "Te Tai o Aorere", "Nelson", "Whakatū", "Marlborough", "Te Tauihu", "Top of the South",
+           "West Coast", "Te Tai Poutini", "Canterbury", "Waitaha", "Otago", "Ōtākou", "Southland", "Murihiku", "Chatham Islands",
+           "Wharekauri", "North Island", "Te Ika-a-Māui", "South Island", "Te Waipounamu", "Stewart Island", "Rakiura")
+_DISTRICT = re.compile(r"\s+(district|city|county|province|land district)$")
+
+
 def places(conn) -> set:
-    """New Zealand's place names (LINZ: every feature, its district and region) and ABROAD, as forms."""
-    got = set(ABROAD)
-    for (n,) in conn.execute("SELECT name FROM pub.linz_place_names UNION SELECT territorial_authority FROM pub.linz_place_names "
-                             "UNION SELECT region FROM pub.linz_place_names").fetchall():
-        if n:
-            got.add(norm(n))
+    """New Zealand's place names (LINZ: every feature and its districts), REGIONS and ABROAD, as forms. LINZ files a
+    feature's districts as one list ("Central Hawke's Bay District, Hastings District"): each is a place, with and without
+    its "District" or "City"."""
+    got = set(ABROAD) | {norm(r) for r in REGIONS}
+    for (n,) in conn.execute("SELECT name FROM pub.linz_place_names UNION SELECT territorial_authority FROM pub.linz_place_names").fetchall():
+        for p in (n or "").split(","):
+            p = norm(p)
+            if p and p != "area outside territorial authority":
+                got.add(p)
+                got.add(_DISTRICT.sub("", p))
     return got
 
 

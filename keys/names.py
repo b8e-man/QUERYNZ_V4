@@ -206,13 +206,15 @@ def _person_with_a_weak_surname(entity: str) -> bool:
 
 
 #: A (Arthur, 27 November 2026): the Crown's bodies, the courts and tribunals, and iwi and their rūnanga are organisations.
-#: Court party lines and ministers' diaries file them whole ("WAITANGI TRIBUNAL", "Ngāi Tahu"), and no organisation word
+#: (27 November 2026, after the rebuild: Te Puni Kōkiri, the Serious Fraud Office, the Parliamentary Service, the Defence
+#: Force and Civil Defence were still filed as people.) Court party lines and ministers' diaries file them whole ("WAITANGI TRIBUNAL", "Ngāi Tahu"), and no organisation word
 #: above says so. Read on the name with any bracketed note taken off ("NIGEL McGLONE (Police Officer of Tauranga)" is a person)
 GOV_WORDS = re.compile(
     r"\b(ministry|tribunal|authority|commission|agency|department|inland revenue|police|crown law|corrections|"
     r"(high|district|supreme|environment|employment|family|youth|land|coroners?|m[aā]ori land|disputes|tenancy|"
     r"military|criminal|appeal) court|court of appeal|university|polytechnic|k[aā]inga ora|oranga tamariki|waka kotahi|"
-    r"te whatu ora|health new zealand|te p[uū]kenga)\b"
+    r"te whatu ora|health new zealand|te p[uū]kenga|te puni k[oō]kiri|serious fraud office|parliamentary service|"
+    r"defence force|civil defence|parliamentary counsel office|crown entit(y|ies) of)\b"
     r"|^(ng[aā]ti|ng[aā]i|ng[aā]|te r[uū]nanga|te r[uū]naka|r[uū]nanga|r[uū]naka|te kaahui)\b", re.I)
 #: B (Arthur, 27 November 2026): an office is not a person: "Minister of Health", "the Attorney-General", "Commissioner of
 #: Inland Revenue", "Principal Family Court Judge". Its holder changes; a mention resolves to the holder on its date.

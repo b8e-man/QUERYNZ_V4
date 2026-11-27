@@ -156,3 +156,9 @@ def test_an_office_before_a_name_is_a_title_and_a_person_before_a_body_is_the_pe
     for n in ("Prime Minister", "Prime Minister of Niue", "Governor-General", "Solicitor-General", "Minister for Women"):
         assert kn.is_office(n), n
     assert kn.name_kind("Gaye Searancke, Public Service Commission") == "person"
+
+
+def test_the_crown_bodies_the_rebuild_still_filed_as_people_are_organisations():
+    for x in ("Te Puni Kōkiri", "Serious Fraud Office", "New Zealand Defence Force", "Parliamentary Service", "Civil Defence"):
+        assert n.name_kind(x) == "organisation", x
+    assert n.name_kind("William Young") == "person"

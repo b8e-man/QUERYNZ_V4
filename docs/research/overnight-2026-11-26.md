@@ -65,3 +65,9 @@ docs/research/curation-plan.md. One line a close, the time first.
   organisation, 250 office, 299 estate; party-name@1 94 links; political-office@1 settled 5,014 news ties, passed over
   21,655. Entities still person/organisation/estate (Arthur's widen.py not yet run). 70 person forms kept a title the
   Companies Office files into the middle names: fixed in forms_of, takes effect at the next form build.
+- 27 Nov evening, name-forms-1 against the rebuilt forms: of 1,500, 85 gone (14 judged junk), 183 changed kind, 1,194
+  unanswered and unchanged. Rulings A and F reached less than they should: LINZ's region column holds no regions and its
+  district column is a list, so Hawke's Bay, the West Coast, Tāmaki Makaurau were no place (REGIONS added, districts
+  split); Te Puni Kōkiri, the SFO, the Parliamentary Service, the Defence Force, Civil Defence added to GOV_WORDS; a title
+  glued by a stop ("Mrs.chandanie"). "hon trevor mallard", "dr michael cullen": current code gives no such form from any
+  row; the next form build shows whether 7332 ran on older code.
