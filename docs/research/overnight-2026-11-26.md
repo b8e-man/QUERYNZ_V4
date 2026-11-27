@@ -61,3 +61,7 @@ docs/research/curation-plan.md. One line a close, the time first.
 - 27 Nov **Subjects s2** (prompt from Arthur's notes; micro events never subjects) on the same 22: review set
   news-subjects-s2. qv4-news-subjects held until s2 passes. **Offices pass** (registers.news.offices, a trial): review
   set news-offices-o1, the twenty office-rule articles.
+- 27 Nov 18:13 **Rebuild done** (links build row 7311, forms 7332, news ties 7342): forms 4,502,997 person, 313,596
+  organisation, 250 office, 299 estate; party-name@1 94 links; political-office@1 settled 5,014 news ties, passed over
+  21,655. Entities still person/organisation/estate (Arthur's widen.py not yet run). 70 person forms kept a title the
+  Companies Office files into the middle names: fixed in forms_of, takes effect at the next form build.

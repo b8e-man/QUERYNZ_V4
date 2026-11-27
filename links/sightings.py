@@ -158,10 +158,17 @@ TITLES = {"dr", "mr", "mrs", "ms", "miss", "mx", "hon", "rt", "the", "sir", "dam
 def forms_of(kind: str, name_filed: str, given: str, middle: str, family: str) -> set:
     out = set()
     if kind == "person" and family:
-        g = (given or "").split()           # as filed: "Aiden-Lee" stays one given name, its form "aiden lee johnson"
+        # as filed: "Aiden-Lee" stays one given name, its form "aiden lee johnson". A title runs on into the middle names
+        # when a register files one word per field: the Companies Office's "The Rt Hon Sir William Francis BIRCH" is given
+        # "The", middle "Rt Hon Sir William Francis" (27 November 2026: 70 person forms still opened with a title)
+        g, m = (given or "").split(), (middle or "").split()
         while g and norm(g[0]) in TITLES:
             g = g[1:]
-        given = " ".join(g)
+        if not g:
+            while m and norm(m[0]) in TITLES:
+                m = m[1:]
+            g, m = m[:1], m[1:]
+        given, middle = " ".join(g), " ".join(m)
         out.add(norm(" ".join(x for x in (given, middle, family) if x)))
         if g:
             out.add(norm(f"{g[0]} {family}"))
