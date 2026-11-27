@@ -5,6 +5,8 @@ able to rapidly discard these and identify ones that need more consideration. le
 based on what is discarded. each name-form should only be listed for judging once").
 
     python -m links.forms_review build [--n 1500]    the next set, name-forms-<k>, into the review folder
+    python -m links.forms_review absorb              every set's junk and wrong-kind answers into links/forms_judged.json,
+                                                     which the form build reads (links.sightings.JUDGED)
 
 WHICH FORMS. A form of links.name_forms the name pass has found at least MIN_HITS times (links.sightings, every lane)
 that holds a small word ("of the", "in their") or is found HITS_PER_ROW times as often as the registers file it (a
@@ -95,10 +97,42 @@ def build(n: int = N, log=print) -> Path:
     return p
 
 
+#: Arthur's rulings on whole classes of the closer-look forms (27 November 2026: "G. junk"): the fragments of a minister's
+#: diary lines and portfolios
+CLASS_RULINGS = {f: {"choice": "junk", "by": "Arthur, 27 November 2026, class G (portfolio fragments): junk"}
+                 for f in ("social development", "economic development", "covid 19", "crown entities", "of health")}
+
+
+def absorb(folder: Path = None, out: Path = None) -> dict:
+    """Each answered junk or wrong-kind form into the judged file, newest answer of a form winning; class rulings over
+    them. Keep, closer look and unanswered forms are not carried: they rule nothing."""
+    from links import sightings as S
+    folder, out = folder or REVIEW, out or S.JUDGED
+    got = {}
+    for p in sorted(folder.glob(f"{PREFIX}*.json"), key=lambda q: int(q.stem[len(PREFIX):]) if q.stem[len(PREFIX):].isdigit() else 0):
+        try:
+            forms = {q["id"]: q["form"] for q in json.loads(p.read_text())["questions"]}
+            answers = json.loads((folder / "answers" / p.name).read_text())
+        except (OSError, ValueError, KeyError):
+            continue
+        for qid_, a in answers.items():
+            if qid_ in forms and a.get("choice") in ("junk", "kind"):
+                got[forms[qid_]] = {"choice": a["choice"], "by": f"Arthur, review set {p.stem}", **({"note": a["note"]} if a.get("note") else {})}
+    got.update(CLASS_RULINGS)
+    out.write_text(json.dumps(dict(sorted(got.items())), ensure_ascii=False, indent=1) + "\n")
+    return {"forms": len(got), "junk": sum(1 for v in got.values() if v["choice"] == "junk"),
+            "kind": sum(1 for v in got.values() if v["choice"] == "kind")}
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ["build"]:
         build(int(argv[argv.index("--n") + 1]) if "--n" in argv else N)
+        return 0
+    if argv[:1] == ["absorb"]:
+        from products.board import review
+        review.export(sorted(p.stem for p in REVIEW.glob(f"{PREFIX}*.json")))
+        print(json.dumps(absorb()))
         return 0
     print(__doc__)
     return 2

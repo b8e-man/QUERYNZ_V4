@@ -247,6 +247,19 @@ SOURCES = (
     ("iwi_directory", "iwi_directory_entities", """
         SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.iwi_directory_entities WHERE name IS NOT NULL AND name <> ''"""),
+    # C (Arthur, 27 November 2026): a party by every name the register gives it (registered, former, abbreviation, as
+    # printed), and each name's short form ("The", "of Aotearoa New Zealand" and a last "Party" off): "New Zealand First
+    # Party" is also "New Zealand First", "The Green Party of Aotearoa New Zealand" "Green Party". A body, dated by the name
+    ("parties", "party_names", """
+        SELECT key, name, NULL, from_on, to_on, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.party_names WHERE name IS NOT NULL AND name <> ''
+        UNION ALL
+        SELECT key || '/short', short, NULL, from_on, to_on, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM (SELECT key, name, from_on, to_on, document,
+                     trim(regexp_replace(regexp_replace(regexp_replace(name, '^(greens, )?the\\s+', '', 'i'),
+                          '\\s+(of\\s+)?aotearoa\\s*/?\\s*new zealand$', '', 'i'), '\\s+party$', '', 'i')) AS short
+              FROM pub.party_names WHERE name IS NOT NULL) x
+        WHERE short <> name AND short ~ ' '"""),
     # 3 November 2026 (Arthur: "the views the links never read, yes"; "exact number joins come first"): the views that print a
     # body's official number, each read with its number (NUMBERS), so `official-number@1` joins the row to the body that holds
     # it. A Gazette liquidation notice names the company it winds up
@@ -390,7 +403,7 @@ MODEL_VIEWS = frozenset({"beehive_people", "hansard_people", "parliament_people"
 #: the views every row of which is a body, whatever its name's words (9 November 2026, the diagnostic report's finding 17:
 #: 2,545 of the iwi directory's 2,697 iwi, hapū, marae and governance entities were read as people, a name with no
 #: organisation word in English)
-BODY_VIEWS = frozenset({"iwi_directory_entities"})
+BODY_VIEWS = frozenset({"iwi_directory_entities", "party_names"})
 _DASHES = (" – ", " — ", " - ")
 _TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
 _BRACKETED = re.compile(r"\s*\([^()]*\)")
@@ -545,7 +558,13 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
         read = read_name(bare)
         return (ref, register, view, key, "person", name, read["given"], read["middle"], read["family"], read["name_key"], read["fl_key"],
                 read["full_key"], read["has_middle"], entity, started, ended, election, electorate, True, document, None, suppressed)
-    kind = "organisation" if view in BODY_VIEWS else kn.name_kind(name)
+    if view == "party_names" and key.endswith("/short") and (kn.name_kind(name) == "person" or not (
+            set(_NOT_LETTER.sub(" ", name.lower()).split()) - {"new", "zealand", "aotearoa", "nz", "of", "the"})):
+        # a party's short form that reads as a person ("Leighton Baker" of the Leighton Baker Party) or is a country alone
+        if catch is not None:
+            catch["a party's short form that is a person or a country"] = catch.get("a party's short form that is a person or a country", 0) + 1
+        return None
+    kind = "organisation" if view in BODY_VIEWS else "office" if kn.is_office(name) else kn.name_kind(name)
     if kind == "person" and view in DONATION_VIEWS and kn.is_joint_name(name) is True:
         # one donor, two people: read as nobody alone; its part rows carry the people (part_records)
         read = {"given": None, "middle": None, "family": None, "name_key": kn.person_key(name),

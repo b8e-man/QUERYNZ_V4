@@ -156,7 +156,6 @@ EXCLUDED = {
     "parties": "a registered party: the party lane's own entity (`parties:<key>`), which donor and board rows name as theirs",
     "party_events": "a registered party's change of name: the party lane's own entity",
     "party_labels": "a party's label as a return prints it: the party lane's own entity",
-    "party_names": "a registered party's names: the party lane's own entity",
     "sanctions_lists": "a sanctions list's name (its listings, pub.sanctions_listings, are read)",
     # owed, each named in the report of 3 November 2026
     "parliament_api_items": "OWED: the member a bill or paper names (`member_name`, 783 rows) is a fifth member view for "

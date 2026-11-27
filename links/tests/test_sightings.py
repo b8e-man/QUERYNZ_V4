@@ -91,3 +91,25 @@ def test_the_ddl_runs_once_and_a_lane_whose_ddl_is_current_takes_no_lock():
     assert again.sql and all("obj_description" in q for q in again.sql)
     changed = _Catalogue("sightings ddl 0000000000000000")
     assert S.ensure_tables(changed) is True and S.DDL in changed.sql
+
+
+def test_an_honorific_is_never_part_of_a_form_filed_whole():
+    from links.sightings import forms_of
+    assert forms_of("person", "Rt. Hon Trevor Mallard", None, None, None) == {"trevor mallard"}
+    assert forms_of("person", "Hon Dr Duncan Webb", None, None, None) == {"duncan webb"}
+    assert forms_of("organisation", "Dr Pharmacy Ltd", None, None, None) == {"dr pharmacy ltd"}
+
+
+def test_a_judged_class_and_the_review_answers_become_the_judged_file(tmp_path):
+    import json
+    from links import forms_review as F
+    (tmp_path / "answers").mkdir()
+    (tmp_path / "name-forms-1.json").write_text(json.dumps({"questions": [
+        {"id": "a", "form": "of the"}, {"id": "b", "form": "waitangi tribunal"}, {"id": "c", "form": "in their"}]}))
+    (tmp_path / "answers" / "name-forms-1.json").write_text(json.dumps({"a": {"choice": "junk", "note": ""},
+                                                                       "b": {"choice": "look", "note": ""}}))
+    out = tmp_path / "judged.json"
+    got = F.absorb(tmp_path, out)
+    j = json.loads(out.read_text())
+    assert j["of the"]["choice"] == "junk" and "waitangi tribunal" not in j and "in their" not in j
+    assert j["social development"]["choice"] == "junk" and got["junk"] == 1 + len(F.CLASS_RULINGS)

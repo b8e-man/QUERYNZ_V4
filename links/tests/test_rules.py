@@ -381,7 +381,9 @@ def test_an_iwi_hapu_or_marae_is_a_body_whatever_its_name_s_words():
     rec = rows.row_record("iwi_directory", "iwi_directory_entities",
                           ("iwi/hapu/x", "Ngāti Example", None, None, None, None, None, "doc", False, None, None, None))
     assert rec[4] == "organisation" and rec[10] is None and rec[11] is None
-    assert rows.row_record("house", "candidates", ("k", "Ngāti Example", None, None, None, None, None, "doc", False, None, None, None))[4] == "person"
+    assert rows.row_record("house", "candidates", ("k", "Tama Example", None, None, None, None, None, "doc", False, None, None, None))[4] == "person"
+    # ruling A (Arthur, 27 November 2026): a name that opens "Ngāti" is an iwi wherever it is filed
+    assert rows.row_record("house", "candidates", ("k", "Ngāti Example", None, None, None, None, None, "doc", False, None, None, None))[4] == "organisation"
 
 
 def test_middle_names_agree_by_initial_prefix_and_extra_names_in_any_order():
@@ -395,3 +397,11 @@ def test_middle_names_agree_by_initial_prefix_and_extra_names_in_any_order():
 def test_a_politician_with_a_different_middle_name_is_a_different_person_too():
     a = dict(row("Graeme Richard HART", "Graeme", "Richard", "HART"), politician=True)
     assert rules.judge(a, row("Graeme Eric HART", "Graeme", "Eric", "HART"))["grade"] == "different"
+
+
+def test_a_party_is_a_body_by_each_of_its_names_and_its_short_forms_not_a_person_or_a_country():
+    def rec(key, name):
+        return rows.row_record("parties", "party_names", (key, name, None, None, None, None, None, "doc", False, None, None, None))
+    assert rec("p/name/1", "New Zealand First Party")[4] == "organisation"
+    assert rec("p/name/1/short", "New Zealand First")[4] == "organisation"
+    assert rec("p/name/2/short", "Leighton Baker") is None and rec("p/name/3/short", "Aotearoa/New Zealand") is None

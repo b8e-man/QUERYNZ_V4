@@ -45,3 +45,19 @@ docs/research/curation-plan.md. One line a close, the time first.
   articles read before it take the subjects pass alone (reader `registers.news.subjects 1`, its own reading, recorded
   in news_private.subjects_done): job qv4-news-subjects, a row of 8,000 a night at 02:00, before the corpus read
   while it lasts. The inspector, the paper and links.news read either shape.
+- 27 Nov **Arthur's reviews read.** Name forms list 1: 52 judged (14 junk, 38 closer look); office rule 20 of 20 yes;
+  subjects s1 15 of 22 wrong. Rulings A–G on the closer-look classes (all yes; G junk; F places and languages out):
+  - A: `keys.names.GOV_WORDS` (Crown bodies, courts, tribunals, iwi and rūnanga are organisations); the capture of the
+    public sector's own lists asked of the provider (estate-public-sector-organisations@2026-11-27; legal position
+    docs/legal/positions/public-sector-organisations.md, draft).
+  - B: kind "office" (`keys.names.is_office`; links.rows): "Minister of Health", "the Attorney-General"; an office
+    before a name is the person's title. Resolving an office to its holder on a date is next.
+  - C: the parties register's names and their short forms are body rows (links.rows party_names); joining a party's
+    several names into one entity is next.
+  - D: an honorific is never part of a form filed whole. E: a form's kind is its rows' majority, not the first row's.
+    F: a LINZ place name or a place abroad is no form unless a register that files people by name parts gives it.
+    G and every junk answer: links/forms_judged.json (`python -m links.forms_review absorb`), read by the form build.
+  - Measured on 10.6 M register rows: 10,497 person rows become offices, 9,768 organisations, 1,157 organisations offices.
+- 27 Nov **Subjects s2** (prompt from Arthur's notes; micro events never subjects) on the same 22: review set
+  news-subjects-s2. qv4-news-subjects held until s2 passes. **Offices pass** (registers.news.offices, a trial): review
+  set news-offices-o1, the twenty office-rule articles.

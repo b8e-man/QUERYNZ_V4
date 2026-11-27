@@ -136,3 +136,23 @@ def test_a_joint_name_names_each_person(name, parts):
 ])
 def test_no_person_is_cut_out_of_an_organisation_or_a_title(name):
     assert n.joint_parts(name) == (), name
+
+
+def test_crown_bodies_courts_and_iwi_are_organisations_and_an_office_is_an_office():
+    from keys import names as kn
+    for n in ("WAITANGI TRIBUNAL", "Ngāi Tahu", "Te Rūnanga o Ngāti Awa", "Oranga Tamariki", "MINISTRY OF JUSTICE", "High Court"):
+        assert kn.name_kind(n) == "organisation", n
+    for n in ("Margaret Court", "Tau Henare", "Ngaire Smith", "NIGEL PETER MCGLONE (Police Officer of Tauranga)"):
+        assert kn.name_kind(n) == "person", n
+    for n in ("Minister of Health", "THE ATTORNEY-GENERAL", "Commissioner of Inland Revenue", "Principal Family Court Judge"):
+        assert kn.is_office(n), n
+    assert not kn.is_office("Ministry of Health") and not kn.is_office("Ian Minister")
+
+
+def test_an_office_before_a_name_is_a_title_and_a_person_before_a_body_is_the_person():
+    from keys import names as kn
+    for n in ("Prime Minister Charlot Salwai", "Governor-General Dame Cindy Kiro"):
+        assert not kn.is_office(n), n
+    for n in ("Prime Minister", "Prime Minister of Niue", "Governor-General", "Solicitor-General", "Minister for Women"):
+        assert kn.is_office(n), n
+    assert kn.name_kind("Gaye Searancke, Public Service Commission") == "person"

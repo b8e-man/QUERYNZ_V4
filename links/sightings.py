@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 import re
 import sys
 import time
@@ -164,9 +165,57 @@ def forms_of(kind: str, name_filed: str, given: str, middle: str, family: str) -
         out.add(norm(" ".join(x for x in (given, middle, family) if x)))
         if g:
             out.add(norm(f"{g[0]} {family}"))
+    elif kind == "person":
+        # D (Arthur, 27 November 2026): an honorific is never part of a form; "Rt. Hon Trevor Mallard", filed whole by a
+        # minister's diary, is the form "trevor mallard"
+        w = norm(name_filed).split()
+        while w and w[0] in TITLES:
+            w = w[1:]
+        out.add(" ".join(w))
     else:
         out.add(norm(name_filed))
     return {f for f in out if len(f) >= MIN_CHARS and 2 <= len(f.split()) <= MAX_WORDS and not generic(f)}
+
+
+#: F (Arthur, 27 November 2026: places and languages are no name form). LINZ's place names give New Zealand's; these are
+#: the places of more than one word beyond them that the name pass found as forms (countries, regions of the world) and
+#: the languages
+ABROAD = frozenset("""united states|united kingdom|great britain|northern ireland|new caledonia|papua new guinea|south africa|
+south korea|north korea|saudi arabia|sri lanka|costa rica|el salvador|cook islands|solomon islands|marshall islands|
+american samoa|western samoa|french polynesia|united arab emirates|czech republic|dominican republic|hong kong|viet nam|
+timor leste|east timor|puerto rico|sierra leone|burkina faso|ivory coast|cote d ivoire|bosnia and herzegovina|
+trinidad and tobago|north macedonia|central african republic|equatorial guinea|new south wales|western australia|
+south australia|northern territory|gold coast|sunshine coast|asia pacific|south pacific|middle east|south east asia|
+southeast asia|latin america|north america|south america|central america|united states of america|people s republic of china|
+te reo|te reo maori|sign language|new zealand sign language""".replace("\n", "").split("|"))
+
+#: the views that file a person by name parts (a register's own given and family fields: links.rows.SOURCES with name
+#: columns), the members' own views and their interest returns: a form one of them gives is a person's name, whatever a
+#: place or a body is also called ("glen innes")
+PARTS_VIEWS = frozenset({v for _r, v, sql in __import__("links.rows", fromlist=["SOURCES"]).SOURCES
+                         if not re.search(r"NULL,\s*NULL,\s*NULL\s+FROM", sql)}
+                        | set(__import__("links.rows", fromlist=["MEMBER_DAY_VIEWS"]).MEMBER_DAY_VIEWS) | {"mp_interest_returns"})
+
+#: forms Arthur judged (the review tab's name-forms sets, carried into the repository by `python -m links.forms_review
+#: absorb`, and his rulings on whole classes): junk is no form; "kind" is the other kind
+JUDGED = Path(__file__).with_name("forms_judged.json")
+
+
+def judged() -> dict:
+    try:
+        return json.loads(JUDGED.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def places(conn) -> set:
+    """New Zealand's place names (LINZ: every feature, its district and region) and ABROAD, as forms."""
+    got = set(ABROAD)
+    for (n,) in conn.execute("SELECT name FROM pub.linz_place_names UNION SELECT territorial_authority FROM pub.linz_place_names "
+                             "UNION SELECT region FROM pub.linz_place_names").fetchall():
+        if n:
+            got.add(norm(n))
+    return got
 
 
 #: the scan's rule, part of the version a document is scanned under, so a change of rule rescans every lane.
@@ -203,19 +252,42 @@ def build_forms(conn, log=print) -> dict:
         cur.itersize = 50000
         # a register's filing only: a name a model read is no form (links.rows.MODEL_VIEWS); a suppressed name is no form either
         # (ruling 142 carries its flag on the row, and a sighting found by its form would carry none)
-        cur.execute("SELECT kind, name_filed, given, middle, family FROM links.rows WHERE NOT (view = ANY(%s)) AND NOT suppressed",
+        cur.execute("SELECT kind, name_filed, given, middle, family, view FROM links.rows WHERE NOT (view = ANY(%s)) AND NOT suppressed",
                     (sorted(MODEL_VIEWS),))
-        for kind, filed, given, middle, family in cur:
+        split = set()                     # forms a register that files people by their name parts gives as a person's
+        votes = {}
+        for kind, filed, given, middle, family, view in cur:
             for f in forms_of(kind, filed, given, middle, family):
                 counts[f] = counts.get(f, 0) + 1
-                kinds.setdefault(f, kind)
+                v = votes.setdefault(f, {})
+                v[kind] = v.get(kind, 0) + 1
+                if kind == "person" and view in PARTS_VIEWS:
+                    split.add(f)
     conn.commit()
+    # E (Arthur, 27 November 2026): a form is the kind most of its rows file it as, a tie an organisation; it was the
+    # first row's ("ngai tahu" a person, first seen as an overseas-investment party, though the iwi directory files a body)
+    rank = {"organisation": 3, "office": 2, "person": 1}
+    for f, v in votes.items():
+        kinds[f] = max(v, key=lambda k: (v[k], rank.get(k, 0)))
+    rule, place = judged(), places(conn)
+    dropped = {"junk": 0, "place": 0}
+    for f in list(counts):
+        j = (rule.get(f) or {}).get("choice")
+        if j == "junk":
+            dropped["junk"] += 1
+            del counts[f]
+        elif f in place and f not in split:   # F: a place, unless a row files it as a person's given and family names
+            dropped["place"] += 1
+            del counts[f]
+        elif j == "kind":
+            kinds[f] = "organisation" if kinds[f] == "person" else "person"
+    kinds = {f: kinds[f] for f in counts}
     conn.execute("DELETE FROM links.name_forms")
     with conn.cursor().copy("COPY links.name_forms (form, kind, rows, words) FROM STDIN") as cp:
         for f, c in counts.items():
             cp.write_row((f, kinds[f], c, len(f.split())))
     conn.commit()
-    out = {"forms": len(counts), "seconds": round(time.monotonic() - t, 1),
+    out = {"forms": len(counts), "dropped": dropped, "seconds": round(time.monotonic() - t, 1),
            "by_kind": {k: sum(1 for f in kinds if kinds[f] == k) for k in set(kinds.values())}}
     log(json.dumps(out))
     return out

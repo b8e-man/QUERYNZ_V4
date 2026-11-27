@@ -205,6 +205,43 @@ def _person_with_a_weak_surname(entity: str) -> bool:
     return toks[0] in given_names()
 
 
+#: A (Arthur, 27 November 2026): the Crown's bodies, the courts and tribunals, and iwi and their rūnanga are organisations.
+#: Court party lines and ministers' diaries file them whole ("WAITANGI TRIBUNAL", "Ngāi Tahu"), and no organisation word
+#: above says so. Read on the name with any bracketed note taken off ("NIGEL McGLONE (Police Officer of Tauranga)" is a person)
+GOV_WORDS = re.compile(
+    r"\b(ministry|tribunal|authority|commission|agency|department|inland revenue|police|crown law|corrections|"
+    r"(high|district|supreme|environment|employment|family|youth|land|coroners?|m[aā]ori land|disputes|tenancy|"
+    r"military|criminal|appeal) court|court of appeal|university|polytechnic|k[aā]inga ora|oranga tamariki|waka kotahi|"
+    r"te whatu ora|health new zealand|te p[uū]kenga)\b"
+    r"|^(ng[aā]ti|ng[aā]i|ng[aā]|te r[uū]nanga|te r[uū]naka|r[uū]nanga|r[uū]naka|te kaahui)\b", re.I)
+#: B (Arthur, 27 November 2026): an office is not a person: "Minister of Health", "the Attorney-General", "Commissioner of
+#: Inland Revenue", "Principal Family Court Judge". Its holder changes; a mention resolves to the holder on its date.
+OFFICE_WORDS = re.compile(
+    r"^(the\s+)?((associate|acting|deputy|former)\s+)?(minister (of|for|responsible)|attorney[- ]general|solicitor[- ]general|"
+    r"auditor[- ]general|controller and auditor[- ]general|commissioner (of|for)|chief executive (of|for)|"
+    r"director[- ]general (of|for)|registrar[- ]general|registrar (of|for)|secretary (of|for|to)|chief (judge|justice|coroner|"
+    r"executive)\b|principal [a-z ]*judge|ombudsman|privacy commissioner|children'?s commissioner|health and disability "
+    r"commissioner|commissioner of police|prime minister|deputy prime minister|speaker of the house|governor[- ]general|"
+    r"official assignee|valuer[- ]general|surveyor[- ]general|chief electoral officer|electoral commission)\b", re.I)
+
+
+_OFFICE_TAIL = re.compile(r"^\s*($|(of|for|to|responsible|in)\b|[,;(])", re.I)
+
+
+def is_office(name: str) -> bool:
+    """The whole name is the office, or the office and whose it is ("Minister of Health", "Prime Minister of Niue"); an
+    office before a person's name is that person's title ("Prime Minister Charlot Salwai", "Governor-General Dame Cindy
+    Kiro" are people)."""
+    s = _BRACKET.sub(" ", name or "").strip()
+    m = OFFICE_WORDS.search(s)
+    if not m:
+        return False
+    return bool(m.group(0).rstrip().lower().endswith((" of", " for", " to", " responsible")) or _OFFICE_TAIL.match(s[m.end():]))
+
+
+_BRACKET = re.compile(r"\([^()]*\)")
+
+
 def name_kind(name: str, party_keys=()) -> str:
     """'person' | 'organisation' | 'estate' | 'party'. A party's own organ
     (branch, electorate committee) is the party when `party_keys` holds the
@@ -215,7 +252,9 @@ def name_kind(name: str, party_keys=()) -> str:
     entity, _ = split_via(name or "")
     if party_keys and organisation_key(entity) in party_keys:
         return "party"
-    return "organisation" if is_organisation(entity) else "person"
+    if is_organisation(entity) or GOV_WORDS.search(_BRACKET.sub(" ", entity).split(",")[0].strip()):
+        return "organisation"
+    return "person"
 
 
 def is_joint_name(name: str):

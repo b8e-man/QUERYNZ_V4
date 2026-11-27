@@ -491,6 +491,9 @@ def kind_of(v: "View", r: dict) -> str:
 
 
 NOT_READ = {
+    "news_read": "each read news article's outcome and counts; its people are tied through links.news (news_ties), not read here",
+    "news_read_items": "every gated item of a news reading, kept or dropped: the reader's audit, not a register's rows",
+    "news_read_text": "a read news article's text, for the name pass (links.sightings, lane news): a document, not rows",
     "agency_contract_costs": "an agency's contract totals by year: a figure on an agency, no person or body is a party",
     "beehive_release_annotations": "a model's notes on a release; the people it names are in beehive_people",
     "beehive_releases": "the release itself, a document; its people are in beehive_people and its ministers in beehive_release_ministers",
