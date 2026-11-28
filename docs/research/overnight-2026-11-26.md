@@ -82,3 +82,8 @@ docs/research/curation-plan.md. One line a close, the time first.
   (keys.names.person_sign; "te" never counts): 39,621 of the 41,788 move back. H2: a low-confidence court party (35,791)
   keeps its row and gives no form. Both take effect at the 07:45 links build and its form build; then measure what is
   left of name-forms-1's 425 phrase people, and rebuild the list without what the rules settle.
+- 28 Nov morning. Full tier's four reds fixed (8e9e457). The 07:45 links build ran clean (09:15): no title forms
+  left but two one-row strays; name-forms-1 against it: 294 forms gone, 419 changed kind, 787 as filed; 182 phrase
+  people of two rows or fewer remain (66 court parties, 56 LINZ owners, 23 diary attendees). Councillor interests:
+  the provider answered on 25 Nov that seq keeps holes and the change was ours; made in fbda16b, re-walked, cursor
+  587 to 545, pulls green. The scheduled re-walk (row 7571) held the lock four hours and logged nothing; not explained.
