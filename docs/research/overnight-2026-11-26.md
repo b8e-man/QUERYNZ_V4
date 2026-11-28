@@ -104,3 +104,9 @@ docs/research/curation-plan.md. One line a close, the time first.
   right 218 entries in 9 releases (a release naming one month, at least two entries on the day that is the month's
   number, nine in ten inside the month once exchanged); date_as_released keeps what was served. Five releases have
   nothing after the 12th (Potaka Feb 2024, Chhour Oct 2024, Brown Jan, Sep and Oct 2025): asked of the provider.
+- 29 Nov morning. Three reds fixed: the pull red on estate-news since 25 Nov (the provider's provenance on our
+  back-fill request, `backfill` and `meta`, not in the recorded shape: 968 records); links-news failing four times
+  (the read gave whole sentences as a person's name, a 6,712-byte key broke the build's index: a person's name is at
+  most 80 characters and 8 words, an organisation's 200); the full tier's live board test (node2's firewall takes
+  nothing on the board's port from node1: the page is fetched on node2 over ssh). Standing reds left: the board's
+  module checks, the site build's candidate-money comparison, the site compare (daily red since at least 21 Nov).

@@ -31,3 +31,14 @@ def test_a_person_the_article_gives_a_political_office_is_marked_for_the_office_
                      {"who": "e3", "role": "leader"}]}
     by = {e["entity"]: e for e in N.entities_of(got, "")}
     assert by["e1"]["office"] and not by["e2"]["office"] and not by["e3"]["office"]
+
+
+def test_a_name_a_sentence_long_is_no_entity_and_a_long_form_gives_no_key():
+    # 29 November 2026: the read gave a paragraph as a person's name; its key broke the build's index
+    from links import news
+    para = "Police have arrested a man following a firearms incident in Martinborough early this morning. " * 3
+    got = {"entities": {"e1": {"name": para, "kind": "person"},
+                        "e2": {"name": "Jacinda Ardern", "kind": "person", "forms": ["Ardern", para]},
+                        "e3": {"name": "Tōpūtanga Tapuhi Kaitiaki o Aotearoa", "kind": "organisation"}}}
+    ents = {e["entity"]: e for e in news.entities_of(got, "")}
+    assert set(ents) == {"e2", "e3"} and all(len(k) < 100 for e in ents.values() for k in e["keys"])

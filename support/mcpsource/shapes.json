@@ -4440,6 +4440,12 @@
    ],
    "http_status": [
     "int"
+   ],
+   "backfill": [
+    "dict"
+   ],
+   "meta": [
+    "dict"
    ]
   },
   "items": {
@@ -4486,6 +4492,28 @@
     ],
     "fetched": [
      "str"
+    ]
+   },
+   "backfill": {
+    "lane": [
+     "str"
+    ],
+    "request": [
+     "str"
+    ],
+    "url_key": [
+     "str"
+    ],
+    "wave": [
+     "str"
+    ]
+   },
+   "meta": {
+    "response_stated": [
+     "dict"
+    ],
+    "site_stated": [
+     "dict"
     ]
    }
   }

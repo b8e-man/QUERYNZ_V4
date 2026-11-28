@@ -41,9 +41,17 @@ def test_board_tab_defaults_to_the_one_report():
 
 @pytest.mark.slow
 def test_live_board_opens_on_the_diagnostic_template():
-    # the board runs on node2 alone; the full tier runs on either box (28 November 2026: refused on node1)
-    url = os.environ.get("QV4_BOARD_URL") or "http://10.0.0.2:8420"
-    with urllib.request.urlopen(f"{url}/subject-report", timeout=30) as r:
-        page = r.read().decode("utf-8")
+    # the board runs on node2 alone and node2's firewall takes nothing on its port from node1; the full tier runs on
+    # either box, so on node1 the page is fetched on node2 over ssh (28 November 2026: refused; 29 November: no route)
+    import socket
+    import subprocess
+    url = os.environ.get("QV4_BOARD_URL")
+    if url or socket.gethostname().split(".")[0] == "node2":
+        with urllib.request.urlopen(f"{url or 'http://127.0.0.1:8420'}/subject-report", timeout=30) as r:
+            page = r.read().decode("utf-8")
+    else:
+        page = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "10.0.0.2",
+                               "curl -sf -m 30 http://127.0.0.1:8420/subject-report"],
+                              capture_output=True, text=True, timeout=60, check=True).stdout
     selected = re.findall(r'<option value="([a-z0-9-]+)" selected', page)
     assert selected == ["diagnostic"], f"the live tab opens on {selected}"

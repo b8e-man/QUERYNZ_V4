@@ -107,8 +107,17 @@ def keys_of(name: str, kind: str, forms=()) -> list[str]:
     return out
 
 
+#: the longest a name is taken to be (29 November 2026: the read gave whole sentences as a person's name, up to 6,712
+#: bytes, and the build failed on its key's index); longer is not a name and gives no entity
+NAME_MAX = {"person": 80, "organisation": 200}
+
+
+def is_name_length(name: str, kind: str) -> bool:
+    return len(name) <= NAME_MAX.get(kind, 200) and (kind != "person" or len(name.split()) <= 8)
+
+
 def entities_of(got: dict, title: str) -> list[dict]:
-    """The reading's people and organisations with how the article holds each."""
+    """The reading's people and organisations with how the article holds each; a "name" a sentence long is none."""
     ents = got.get("entities") if isinstance(got.get("entities"), dict) else {}
     quoted = {q.get(k) for q in got.get("quotes") or [] if isinstance(q, dict) for k in QUOTE_KEYS}
     roles = {r.get(k) for r in got.get("roles") or [] if isinstance(r, dict) for k in ROLE_KEYS}
@@ -118,9 +127,9 @@ def entities_of(got: dict, title: str) -> list[dict]:
     for eid, e in ents.items():
         e = e or {}
         name, kind = (e.get("name") or "").strip(), e.get("kind")
-        if not name or kind not in KINDS:
+        if not name or kind not in KINDS or not is_name_length(name, kind):
             continue
-        forms = [f for f in (e.get("forms") or []) if isinstance(f, str)]
+        forms = [f for f in (e.get("forms") or []) if isinstance(f, str) and is_name_length(f, kind)]
         keys = keys_of(name, kind, forms)
         if not keys:
             continue
