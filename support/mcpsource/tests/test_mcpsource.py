@@ -576,3 +576,48 @@ def test_comment_and_substack_records_point_at_their_raw_file():
     for kind in ("comment_capture", "substack_post", "substack_comments", "substack_archive"):
         rec = {"kind": kind, "url": "https://x.substack.com/api/v1/posts/p", "capture": {"sha256": sha, "bytes": 3}}
         assert M.file_pointer(rec) == ("https://x.substack.com/api/v1/posts/p", M.UNTYPED, sha, 3)
+
+
+def test_a_page_whose_seq_has_holes_is_taken_and_one_below_its_place_or_out_of_order_is_refused():
+    # the provider, 25 November 2026: seq is a stable number with holes by design, cursor counts places
+    recs = corpus_of("parliament-bills", 8)
+    holed = [recs[0], recs[1], recs[4], recs[7]]                 # 2, 3, 5 and 6 withdrawn
+    page = {"records": holed[2:], "cursor": 2, "next_cursor": 4, "total": 4}
+    assert M.check_page(page, "parliament-bills", 2) == holed[2:]
+    with pytest.raises(M.ShapeError, match="seq"):
+        M.check_page({**page, "records": [recs[1], recs[4]]}, "parliament-bills", 2)    # seq 1 at place 2
+    with pytest.raises(M.ShapeError, match="seq"):
+        M.check_page({**page, "records": [recs[7], recs[4]]}, "parliament-bills", 2)
+
+
+def test_a_withdrawal_that_leaves_holes_is_rewalked_and_the_next_arrival_and_change_are_taken(conn):
+    served = {"parliament-bills": corpus_of("parliament-bills", 10)}
+    server, lands = FakeServer(served), Lands()
+    M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    del served["parliament-bills"][3:5]                          # withdrawn; seq 3 and 4 stay gone (councillor interests, 25 Nov)
+    res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    assert not M.outcome(res) and "fewer than the 10 taken" in res["parliament-bills"]["error"]
+    walk = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep, rewalk=True)["parliament-bills"]
+    assert (walk["landed"], walk["held"], walk["cursor reset"]) == (0, 8, "10 to 8") and "error" not in walk
+    assert _count(conn, "arrivals") == 10                        # no arrival row moved to another record's seq
+    fresh = made_record("parliament-bills", 10, M.shapes()["parliament-bills"])
+    served["parliament-bills"].append(fresh)
+    rec = served["parliament-bills"][6]                          # seq 8, at place 6
+    rec["title"], rec["updated_at"] = rec["title"] + " (amended)", "2099-01-01T00:00:00Z"
+    after = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)["parliament-bills"]
+    assert (after["landed"], after["to"]) == (1, 9) and "error" not in after
+    assert after["changes"]["changes"] == 1 and after["changes"]["changed"] == 1   # seq 8 is above the cursor (9 places) less one
+
+
+def test_a_caught_record_past_a_hole_is_asked_for_in_its_window_and_landed(conn):
+    served = {"parliament-bills": corpus_of("parliament-bills", 10)}
+    del served["parliament-bills"][2:4]                          # places 0..7 hold seq 0, 1, 4..9
+    server, lands = FakeServer(served), Lands()
+    M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    rec = served["parliament-bills"][5]                          # seq 7 at place 5
+    conn.execute(f"DELETE FROM {TEST_SCHEMA}.arrivals WHERE seq = 7")
+    conn.execute(f"INSERT INTO {TEST_SCHEMA}.catch (corpus, seq, record_id, stage, reason) "
+                 "VALUES ('parliament-bills', 7, %s, 'land', 'made')", (rec["id"],))
+    n = M.retry_caught(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    assert n == {"asked": 1, "landed": 1}
+    assert _count(conn, "arrivals", "WHERE seq = 7") == 1

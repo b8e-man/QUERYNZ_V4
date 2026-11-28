@@ -10,16 +10,17 @@ it stored last, 200 a page, one request at a time.
 
 Every record lands whole as a captured document through the landing
 wrapper: its bytes are the record's JSON, keys sorted, no spaces, UTF-8,
-without `seq` (the record's place in the MCP's arrival order, which is the
-server's bookkeeping and not the record: an unchanged record that arrives
+without `seq` (the record's stable number in the MCP's arrival order, with
+holes where records were withdrawn; the server's bookkeeping and not the
+record: an unchanged record that arrives
 again is the same document). Source `query-nz`; names `<corpus>/<id>` and
 the record's `url` where it has one. A record the MCP later serves changed
 has other bytes, so it lands as a second document under the same names,
 never over the first (one frozen reading each). `arrivals` keeps each
 record's `seq`, hash and `landed_at`; a lane takes as a record's current
 version the one the pull saw last (by `landed_at`), never the highest `seq`
-(after the MCP removes records, a re-rendered one comes back at a lower
-place).
+(before 15 November 2026 a removal renumbered the records after it, so an old
+arrival row can sit at a seq another record now holds).
 
 The cursor advances only after its page is landed, in the same transaction
 as the page's arrival rows and catch lines. A record that cannot be landed
@@ -73,6 +74,7 @@ SOURCE = "query-nz"
 SCHEMA = "mcpsource"
 JOB = "qv4-mcp-pull"
 PAGE = 200
+RETRY_WINDOW = PAGE      # places below a caught record's seq a retry looks for it in (one hole per withdrawn record)
 PAUSE_S = 1.0
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOCK_KEY = 0x6D6370                                   # 'mcp': one pull at a time per database
@@ -171,7 +173,11 @@ def drift_of(record: dict, shape: dict) -> list:
 def check_page(page, corpus: str, cursor: int) -> list:
     """The page's records, or ShapeError: the MCP's page carries `records`
     and `next_cursor`, starts where it was asked, and numbers its records
-    from there one by one."""
+    upward. A record's `seq` is its stable arrival number, never reused, and
+    a withdrawal leaves a hole; the cursor counts places in the feed, so a
+    record's seq is never below its place (the provider, 25 November 2026,
+    estate-councillor-interests-seq@2026-11-26: "seq is now a stable number
+    with holes by design, cursor counts positions")."""
     if not isinstance(page, dict) or not isinstance(page.get("records"), list) or "next_cursor" not in page:
         raise ShapeError(f"{corpus}: the page at {cursor} is not the MCP's shape: "
                          f"{sorted(page) if isinstance(page, dict) else type(page).__name__}")
@@ -180,10 +186,14 @@ def check_page(page, corpus: str, cursor: int) -> list:
         raise ShapeError(f"{corpus}: asked for {cursor}, the page starts at {page.get('cursor')}")
     if page["next_cursor"] != cursor + len(recs):
         raise ShapeError(f"{corpus}: {len(recs)} records from {cursor} but next_cursor {page['next_cursor']}")
+    last = None
     for i, r in enumerate(recs):
-        if not isinstance(r, dict) or r.get("seq") != cursor + i:
+        seq = r.get("seq") if isinstance(r, dict) else None
+        if not isinstance(seq, int) or isinstance(seq, bool) or seq < cursor + i or (last is not None and seq <= last):
             raise ShapeError(f"{corpus}: record {i} of the page at {cursor} has seq "
-                             f"{r.get('seq') if isinstance(r, dict) else type(r).__name__}, not {cursor + i}")
+                             f"{seq if isinstance(r, dict) else type(r).__name__}, not above {last if last is not None else cursor + i - 1} "
+                             f"and at least its place {cursor + i}")
+        last = seq
     return recs
 
 
@@ -226,6 +236,11 @@ class Tables:
         if not first or first[0] is None:
             return None
         return (first[0] - dt.timedelta(hours=1)).astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def last_seq(self, corpus: str):
+        """The highest seq taken of `corpus`, or None: every record at or below it has been taken (a new arrival
+        always takes a number above every existing one)."""
+        return self.conn.execute(f"SELECT max(seq) FROM {self.t('arrivals')} WHERE corpus = %s", (corpus,)).fetchone()[0]
 
     def rewalk_at(self, corpus: str) -> int:
         row = self.conn.execute(f"SELECT rewalk_at FROM {self.t('cursors')} WHERE corpus = %s", (corpus,)).fetchone()
@@ -411,11 +426,13 @@ def follow_changes(conn, client, corpus: str, schema: str = SCHEMA, limit: int =
     """The MCP's change feed for `corpus` from the stamp followed last: each
     record it serves lands (bytes it changed are a second document under
     the same names; the rest are found held) with an arrival row at its
-    own `seq`. Only records already taken by the cursor (`seq` below it) are
-    counted as changes; a fresh arrival is left to the cursor."""
+    own `seq`. Only records already taken (`seq` at or below the highest
+    taken; seq has holes, so the cursor, a count of places, is not the
+    bound) are counted as changes; a fresh arrival is left to the cursor."""
     t = Tables(conn, schema)
     shape = shape if shape is not None else shapes().get(corpus)
     since, upto = t.changes_since(corpus), t.cursor_of(corpus)
+    top = t.last_seq(corpus)
     out = {"since": since, "changes": 0, "changed": 0, "unchanged": 0, "caught": 0, "drift": 0, "pages": 0}
     if since is None:
         out["stopped"] = "nothing taken yet"
@@ -432,7 +449,7 @@ def follow_changes(conn, client, corpus: str, schema: str = SCHEMA, limit: int =
             out["stopped"] = "end"
             break
         cursor += len(recs)
-        taken = [r for r in recs if r["seq"] < upto]
+        taken = [r for r in recs if top is not None and r["seq"] <= top]
         newest = max([newest] + [r["updated_at"] for r in recs])
         arrivals, catches, drift, n, files = _land_page(conn, corpus, taken, shape, root, land, log)
         t.commit_page(corpus, upto, page.get("total"), arrivals, catches, drift, move=False, files=files)
@@ -454,8 +471,9 @@ def retry_caught(conn, client, schema: str = SCHEMA, root: str = None, land=None
                  sleep=time.sleep) -> dict:
     """Each unresolved catch line asked for again (one request each) and
     landed; resolved when it lands. A record's line (stage shape or land) is
-    asked for by its place; a file's (stage `file`) by its pointer, through
-    `download` again."""
+    asked for in the window of places that can hold its seq (a place is never
+    above its seq; the window reaches RETRY_WINDOW places below it); a file's
+    (stage `file`) by its pointer, through `download` again."""
     t = Tables(conn, schema)
     rows = conn.execute(f"SELECT corpus, seq, stage FROM {t.t('catch')} WHERE resolved_at IS NULL "
                         "ORDER BY corpus, seq").fetchall()
@@ -473,9 +491,10 @@ def retry_caught(conn, client, schema: str = SCHEMA, root: str = None, land=None
                                      "AND stage = 'file'", (corpus, seq))
                     n["landed"] += 1
             continue
-        page = client.call_retrying("records", {"corpus": corpus, "cursor": seq, "limit": 1, "include_text": True},
-                                    sleep=sleep, log=log)
-        recs = check_page(page, corpus, seq)[:1]
+        at = max(0, seq - RETRY_WINDOW + 1)
+        page = client.call_retrying("records", {"corpus": corpus, "cursor": at, "limit": seq - at + 1,
+                                                "include_text": True}, sleep=sleep, log=log)
+        recs = [r for r in check_page(page, corpus, at) if r["seq"] == seq]
         n["asked"] += 1
         if not recs:
             continue
