@@ -100,3 +100,7 @@ docs/research/curation-plan.md. One line a close, the time first.
   with its portfolios, and the holder's entries in that portfolio nearest the date. Found on the way: some diary
   releases are dated with day and month swapped ("September 2025.pdf" read as 9 January to 9 December; 31 of 2,560
   releases' first day is outside their named month), which the holder rule reads. Not yet fixed.
+- 29 Nov. Diary dates read month for day (Arthur: "fix it yes. for sure"): registers.ministers_diaries.read 3 puts
+  right 218 entries in 9 releases (a release naming one month, at least two entries on the day that is the month's
+  number, nine in ten inside the month once exchanged); date_as_released keeps what was served. Five releases have
+  nothing after the 12th (Potaka Feb 2024, Chhour Oct 2024, Brown Jan, Sep and Oct 2025): asked of the provider.

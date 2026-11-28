@@ -308,3 +308,25 @@ def test_every_sample_entry_s_attendees_reconcile_and_carry_the_entry_s_flags_do
     today = dt.date.today()
     for r in filled["attendees"]:
         assert rowcontract.validate({**r, "loaded_at": r["loaded_at"].isoformat()}, today) == [], r["key"]
+
+
+def test_a_release_s_dates_read_month_for_day_are_put_right_and_nothing_else_moves():
+    # 29 November 2026: "September 2025.pdf" served 4 September as 2025-04-09
+    from registers.ministers_diaries import read as R
+    sep = "https://www.beehive.govt.nz/sites/default/files/2026-01/September%202025.pdf"
+    apr = "https://www.beehive.govt.nz/sites/default/files/2023-05/Ministerial%20Diary%20April%202023.pdf"
+    span = "https://www.beehive.govt.nz/sites/default/files/2019-01/October%202017%20-%20December%202018.pdf"
+    one = "https://www.beehive.govt.nz/sites/default/files/2024-04/March%202024.pdf"
+    es = [{"key": f"s{i}", "release": sep, "entry_on": d} for i, d in enumerate(["2025-01-09", "2025-04-09", "2025-12-09", "2025-09-09"])]
+    es += [{"key": f"a{i}", "release": apr, "entry_on": d}            # days 1-12 swapped, 13-30 right (a mixed release)
+           for i, d in enumerate(["2023-03-04", "2023-11-04", "2023-04-20", "2023-04-28", "2023-04-13", "2023-04-14",
+                                  "2023-04-15", "2023-04-16", "2023-04-17", "2023-04-18"])]
+    es += [{"key": "x0", "release": span, "entry_on": "2018-05-10"}, {"key": "x1", "release": span, "entry_on": "2018-06-10"}]
+    es += [{"key": f"o{i}", "release": one, "entry_on": d} for i, d in enumerate(["2024-04-03", "2024-03-20", "2024-03-21"])]
+    n = {}
+    got = {e["key"]: e["entry_on"] for e in R.unswapped(es, n)}
+    assert [got[f"s{i}"] for i in range(4)] == ["2025-09-01", "2025-09-04", "2025-09-12", "2025-09-09"]
+    assert (got["a0"], got["a1"], got["a2"]) == ("2023-04-03", "2023-04-11", "2023-04-20")
+    assert (got["x0"], got["x1"]) == ("2018-05-10", "2018-06-10")          # a span of months names no one month
+    assert got["o0"] == "2024-04-03"                                         # one stray entry is not a swapped release
+    assert n == {"dates read month for day, put right": 5, "releases with dates put right": 2}

@@ -41,7 +41,9 @@ import re
 import urllib.parse
 from dataclasses import dataclass, field
 
-READER = "registers.ministers_diaries.read 2"
+#: 3 (29 November 2026): a release's dates the provider read month for day are put right (`unswapped`); the date as
+#: served stays in `date_as_released`
+READER = "registers.ministers_diaries.read 3"
 PROFILE = "mcp-diary-entry"
 PROFILE_VERSION = 3       # v3, 24 November 2026: the provider's `sha256` and `pdf_fetched_at` (v2, 4 November: `file`, `path`, `capture.path`)
 SOURCE_NOTE = ("one meeting of a minister's monthly diary release (a Beehive proactive release), read from the "
@@ -255,6 +257,49 @@ def releases_of(entries: list, loaded_at: str) -> list:
     return out
 
 
+#: the share of a release's entries that must fall in its named month once its swapped dates are put right
+UNSWAP_INSIDE = 0.9
+
+
+def unswapped(entries: list, counts: dict = None) -> list:
+    """The entries with the dates the provider read month for day put right, release by release (29 November 2026:
+    "September 2025.pdf" served 4 September as 2025-04-09, every day of the 1st to the 12th as the 9th of a month; its
+    13th to 30th, which no month can hold, were not served at all). A release whose file name gives one month
+    (`release_parts` month_named) is put right when at least two of its entries lie outside that month, sit on the
+    day that is the month's number in its year, and come into the month with day and month exchanged, and when, so
+    exchanged, nine in ten of the release's dated entries lie in the month. Only those entries change; `date_as_released`
+    keeps what was served. A release of several months, or one whose entries are elsewhere for another reason, is left
+    as served."""
+    by: dict = {}
+    for e in entries:
+        by.setdefault(e["release"], []).append(e)
+    for src, es in by.items():
+        month = release_parts(src)["month_named"]
+        dated = [e for e in es if e["entry_on"]]
+        if not month or not dated:
+            continue
+        y, m = int(month[:4]), int(month[5:7])
+        swap = {}
+        for e in dated:
+            d = dt.date.fromisoformat(e["entry_on"])
+            if (d.year, d.month) == (y, m) or d.year != y or d.day != m:
+                continue
+            try:
+                swap[e["key"]] = dt.date(y, m, d.month).isoformat()
+            except ValueError:
+                continue
+        inside = sum(1 for e in dated if swap.get(e["key"], e["entry_on"])[:7] == month)
+        if len(swap) < 2 or inside < UNSWAP_INSIDE * len(dated):
+            continue
+        for e in es:
+            if e["key"] in swap:
+                e["entry_on"] = swap[e["key"]]
+        if counts is not None:
+            _bump(counts, "dates read month for day, put right", len(swap))
+            _bump(counts, "releases with dates put right")
+    return entries
+
+
 def read(items, get_bytes, loaded_at: str = None) -> Result:
     """Every document in `items` (in the order the pull saw them) read or set
     aside, then the releases built from the entries. A document's record id is
@@ -291,6 +336,7 @@ def read(items, get_bytes, loaded_at: str = None) -> Result:
         read_one(sha, rec, newest[sha], len(versions), out, loaded_at)
         out.files.append((sha, rid, newest[sha], "read"))
         out.files += [(s, rid, newest[s], "older version") for _, s, _ in versions[:-1]]
+    unswapped(out.entries, out.counts)
     out.releases = releases_of(out.entries, loaded_at)
     out.counts.update({k: out.counts.get(k, 0) for k in FLAGS})        # the flagged entries, by key, zero included
     out.counts.update({"documents": len(order), "entries": len(out.entries), "releases": len(out.releases),

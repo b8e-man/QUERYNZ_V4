@@ -282,16 +282,16 @@
    "registers/ministers_diaries/attendees.py",
    "registers/ministers_diaries/read.py"
   ],
-  "reader": "registers.ministers_diaries.attendees 2",
-  "sha256": "29d40ccd4bff69bc9bd1530764473f198d872e741839531f114399eccf044a60"
+  "reader": "registers.ministers_diaries.attendees 3",
+  "sha256": "3b5a2b3c08627163c6923716e5769653d15af2ce7a28107e5d150032fab04403"
  },
  "registers/ministers_diaries/read.py": {
   "files": [
    "registers/ministers_diaries/attendees.py",
    "registers/ministers_diaries/read.py"
   ],
-  "reader": "registers.ministers_diaries.read 2",
-  "sha256": "29d40ccd4bff69bc9bd1530764473f198d872e741839531f114399eccf044a60"
+  "reader": "registers.ministers_diaries.read 3",
+  "sha256": "3b5a2b3c08627163c6923716e5769653d15af2ce7a28107e5d150032fab04403"
  },
  "registers/mp_interests/read.py": {
   "files": [

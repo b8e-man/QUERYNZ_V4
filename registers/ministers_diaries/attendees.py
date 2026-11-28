@@ -69,7 +69,8 @@ import re
 from keys import names as N
 from registers.ministers_diaries.read import WITHHELD
 
-READER = "registers.ministers_diaries.attendees 2"
+#: 3 (29 November 2026): the entry reader it builds on puts right dates read month for day; the attendees unchanged
+READER = "registers.ministers_diaries.attendees 3"
 KINDS = ("person", "organisation", "crown", "group", "role", "withheld")
 
 SEP = re.compile(r"\s*[;,]\s*(?:(?:and|&|\+)\s+)?|\s+(?:and|&|\+)\s+", re.I)
