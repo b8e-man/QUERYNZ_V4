@@ -5,6 +5,9 @@ able to rapidly discard these and identify ones that need more consideration. le
 based on what is discarded. each name-form should only be listed for judging once").
 
     python -m links.forms_review build [--n 1500]    the next set, name-forms-<k>, into the review folder
+    python -m links.forms_review refresh SET         the set brought up to the forms built now, answers kept (export
+                                                     its answers first): a form gone and unanswered leaves the list, the
+                                                     rest carry their kind, rows, hits and filing rows as built now
     python -m links.forms_review absorb              every set's junk and wrong-kind answers into links/forms_judged.json,
                                                      which the form build reads (links.sightings.JUDGED); export the
                                                      answers first (python -m products.board.review --export SET): the
@@ -58,9 +61,77 @@ def next_name(folder: Path = None) -> str:
     return f"{PREFIX}{max(ks, default=0) + 1}"
 
 
+def question(form, kind, rows_n, hits, lanes, examples) -> dict:
+    return {"id": qid(form), "kind": "form", "label": "Name form", "form": form, "filed_as": kind, "rows": rows_n,
+            "hits": int(hits), "lanes": lanes or {}, "filed": [{"register": a, "view": b, "name": c} for a, b, c in examples],
+            "choices": CHOICES}
+
+
+def filed_rows(conn, want: set) -> dict:
+    """Up to three (register, view, name as filed) rows that make each form of `want`, as build_forms makes them."""
+    from links import sightings as S
+    examples: dict = {f: [] for f in want}
+    with conn.cursor(name="filed") as cur:
+        cur.itersize = 50000
+        cur.execute("SELECT kind, name_filed, given, middle, family, register, view FROM links.rows "
+                    "WHERE NOT (view = ANY(%s)) AND NOT suppressed", (sorted(S.MODEL_VIEWS),))
+        for kind, filed, given, middle, family, register, view in cur:
+            for f in S.forms_of(kind, filed, given, middle, family):
+                if f in want and len(examples[f]) < 3 and (register, view, filed) not in examples[f]:
+                    examples[f].append((register, view, filed))
+    return examples
+
+
+def refreshed(d: dict, answered: set, now: dict, examples: dict) -> tuple:
+    """The set `d` brought up to the forms built now: `now` {form: (kind, rows, hits, lanes)}. A form no longer built
+    leaves the list unless answered (an answer is never orphaned; it keeps its question as it was, marked gone);
+    the rest carry what they are filed as now. Returns (set, counts)."""
+    qs, n = [], {"kept": 0, "changed_kind": 0, "gone_dropped": 0, "gone_answered": 0}
+    for q in d["questions"]:
+        got = now.get(q["form"])
+        if got is None:
+            if q["id"] in answered:
+                qs.append({**q, "gone": True})
+                n["gone_answered"] += 1
+            else:
+                n["gone_dropped"] += 1
+            continue
+        kind, rows_n, hits, lanes = got
+        n["changed_kind" if kind != q["filed_as"] else "kept"] += 1
+        qs.append(question(q["form"], kind, rows_n, hits, lanes, examples.get(q["form"], [])))
+    return {**d, "questions": qs}, n
+
+
+def refresh(name: str, folder: Path = None, log=print) -> dict:
+    """`name` brought up to the forms built now (Arthur, 28 November 2026: "yes i want that"), its answers kept:
+    the ids are the forms' hashes, so an answer stays on its form. Read from the answers file the board exports."""
+    from support import db
+    folder = folder or REVIEW
+    p = folder / f"{name}.json"
+    d = json.loads(p.read_text())
+    a = folder / "answers" / f"{name}.json"
+    answered = set(json.loads(a.read_text())) if a.exists() else set()
+    forms = [q["form"] for q in d["questions"]]
+    t0 = time.monotonic()
+    with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
+        conn.execute("SET statement_timeout = 0")
+        built = {f: (k, r) for f, k, r in conn.execute(
+            "SELECT form, kind, rows FROM links.name_forms WHERE form = ANY(%s)", (forms,)).fetchall()}
+        hits = {f: (n, l) for f, n, l in conn.execute("""
+            WITH lanes AS (SELECT form, lane, count(*) AS n FROM links.sightings WHERE form = ANY(%s) GROUP BY 1, 2)
+            SELECT form, sum(n), jsonb_object_agg(lane, n) FROM lanes GROUP BY 1""", (list(built),)).fetchall()}
+        log(f"{name}: {len(built):,} of {len(forms):,} forms built now ({time.monotonic() - t0:.0f} s)")
+        examples = filed_rows(conn, set(built))
+        conn.commit()
+    now = {f: (k, r, *(hits.get(f) or (0, {}))) for f, (k, r) in built.items()}
+    out, n = refreshed(d, answered, now, examples)
+    p.write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    log(f"{p}: {len(out['questions'])} forms, {time.monotonic() - t0:.0f} s")
+    return n
+
+
 def build(n: int = N, log=print) -> Path:
     from support import db
-    from links import sightings as S
     t0 = time.monotonic()
     before = listed()
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
@@ -75,19 +146,9 @@ def build(n: int = N, log=print) -> Path:
         pick = [r for r in rows if r[0] not in before][:n]
         want = {r[0] for r in pick}
         log(f"forms: {len(rows):,} suspect, {len(before):,} listed before, {len(pick):,} this set ({time.monotonic() - t0:.0f} s)")
-        examples: dict = {f: [] for f in want}
-        with conn.cursor(name="filed") as cur:          # the rows that make each form, as build_forms makes them
-            cur.itersize = 50000
-            cur.execute("SELECT kind, name_filed, given, middle, family, register, view FROM links.rows "
-                        "WHERE NOT (view = ANY(%s)) AND NOT suppressed", (sorted(S.MODEL_VIEWS),))
-            for kind, filed, given, middle, family, register, view in cur:
-                for f in S.forms_of(kind, filed, given, middle, family):
-                    if f in want and len(examples[f]) < 3 and (register, view, filed) not in examples[f]:
-                        examples[f].append((register, view, filed))
+        examples = filed_rows(conn, want)
         conn.commit()
-    qs = [{"id": qid(form), "kind": "form", "label": "Name form", "form": form, "filed_as": kind, "rows": rows_n,
-           "hits": int(hits), "lanes": lanes or {}, "filed": [{"register": a, "view": b, "name": c} for a, b, c in examples[form]],
-           "choices": CHOICES} for form, kind, rows_n, hits, lanes in pick]
+    qs = [question(form, kind, rows_n, hits, lanes, examples[form]) for form, kind, rows_n, hits, lanes in pick]
     name = next_name()
     p = REVIEW / f"{name}.json"
     REVIEW.mkdir(parents=True, exist_ok=True)
@@ -130,6 +191,9 @@ def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ["build"]:
         build(int(argv[argv.index("--n") + 1]) if "--n" in argv else N)
+        return 0
+    if argv[:1] == ["refresh"] and len(argv) == 2:
+        print(json.dumps(refresh(argv[1])))
         return 0
     if argv[:1] == ["absorb"]:
         print(json.dumps(absorb()))

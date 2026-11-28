@@ -87,3 +87,6 @@ docs/research/curation-plan.md. One line a close, the time first.
   people of two rows or fewer remain (66 court parties, 56 LINZ owners, 23 diary attendees). Councillor interests:
   the provider answered on 25 Nov that seq keeps holes and the change was ours; made in fbda16b, re-walked, cursor
   587 to 545, pulls green. The scheduled re-walk (row 7571) held the lock four hours and logged nothing; not explained.
+- 28 Nov evening. name-forms-1 refreshed in place (links.forms_review refresh, Arthur: "yes i want that"): 269 forms
+  gone and unanswered left the list; 25 gone but answered stay, marked gone; 419 carry their new kind; 1,231 forms
+  now, all 52 exported answers on their forms.

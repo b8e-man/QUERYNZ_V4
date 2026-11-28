@@ -141,3 +141,20 @@ def test_an_organisation_form_of_company_words_and_small_words_only_is_no_form()
 def test_a_view_that_files_names_whole_is_no_parts_view_whatever_it_carries_after_them():
     assert "minister_diary_attendees" not in S.PARTS_VIEWS and "court_judgment_parties" not in S.PARTS_VIEWS
     assert "directors" in S.PARTS_VIEWS
+
+
+def test_a_refreshed_review_set_keeps_every_answer_and_drops_only_an_unanswered_form_gone():
+    # Arthur, 28 November 2026: name-forms-1 brought up to the rebuild, answers kept
+    from links import forms_review as F
+    q = lambda form, kind: F.question(form, kind, 1, 50, {"news": 50}, [])
+    d = {"set": "name-forms-1", "questions": [q("of the", "person"), q("hon trevor mallard", "person"),
+                                             q("callaghan innovation", "person"), q("john key", "person")]}
+    answered = {F.qid("hon trevor mallard"), F.qid("callaghan innovation")}
+    now = {"callaghan innovation": ("organisation", 40, 900, {"news": 900}), "john key": ("person", 15270, 72993, {})}
+    out, n = F.refreshed(d, answered, now, {"john key": [("house", "members", "John KEY")]})
+    forms = {x["form"]: x for x in out["questions"]}
+    assert set(forms) == {"hon trevor mallard", "callaghan innovation", "john key"}       # "of the": gone, unanswered
+    assert forms["hon trevor mallard"]["gone"] and forms["hon trevor mallard"]["id"] == F.qid("hon trevor mallard")
+    assert forms["callaghan innovation"]["filed_as"] == "organisation" and forms["callaghan innovation"]["rows"] == 40
+    assert forms["john key"]["filed"] == [{"register": "house", "view": "members", "name": "John KEY"}]
+    assert n == {"kept": 1, "changed_kind": 1, "gone_dropped": 1, "gone_answered": 1}
