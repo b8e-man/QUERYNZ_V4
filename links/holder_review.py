@@ -3,6 +3,13 @@ pairs, Arthur rules; ruling B, 27 November 2026: "an office is not a person ... 
 date").
 
     python -m links.holder_review build [--n 20]     measure, and write the set office-holder-1 into the review folder
+    python -m links.holder_review evidence           the set's cases given their evidence again, ids kept
+
+THE EVIDENCE (Arthur, 29 November 2026: "regenerate the sample texts where it does not contain the information
+required to answer the question"). Each case shows the register row as its register files it (a court party with its
+judgment's citation, court and date; a diary attendee with the entry it is in), the proposed holder's diary release for
+the month with the portfolios it lists, and the holder's own diary entries in that portfolio nearest the date; the whole
+of it opens as the case's article.
 
 THE PROPOSAL. A register row that is an office ("Minister of Health", keys.names.is_office) and is dated (links.rows
 started_on) is held by the minister whose own diary release for that month lists the portfolio by its own name ("Health",
@@ -54,6 +61,91 @@ def holders(conn) -> dict:
             f = "prime minister" if f in ("prime minister", "pm") else f
             for m in months:
                 out.setdefault((f, m), set()).add(minister)
+    return out
+
+
+def _row_lines(conn, view: str, key: str) -> list:
+    """The register row as its register files it: [(label, text)]."""
+    if view == "court_judgment_parties":
+        r = conn.execute("SELECT p.name, p.role, p.citation, j.court_name, p.judgment_date, j.heading FROM pub.court_judgment_parties p "
+                         "LEFT JOIN pub.court_judgments j ON j.key = p.judgment WHERE p.key = %s", (key,)).fetchone()
+        if r:
+            return [("Court party", f"{r[0]}, {r[1] or 'a party'}"),
+                    ("Judgment", f"{r[2]}, {r[3] or ''}, {r[4].isoformat() if r[4] else 'undated'}".replace(", ,", ","))]
+    if view == "minister_diary_attendees":
+        r = conn.execute("SELECT a.attendee, e.minister, e.portfolio, e.entry_on, e.time, e.meeting, "
+                         "CASE WHEN e.attendees_names_address THEN NULL ELSE e.attendees END "
+                         "FROM pub.minister_diary_attendees a JOIN pub.minister_diary_entries e ON e.key = a.entry WHERE a.key = %s",
+                         (key,)).fetchone()
+        if r:
+            return [("Diary attendee", r[0]),
+                    ("In the diary of", f"{r[1]}, {r[3].isoformat() if r[3] else ''} {r[4] or ''} ({r[2] or 'no portfolio'})"),
+                    ("Meeting", r[5] or ""), ("Attendees as released", r[6] or "(not shown: the line names an address)")]
+    return [("Register row", f"{view} {key}")]
+
+
+def _holder_lines(conn, holder: str, p: str, on) -> list:
+    """The holder's release for the month of `on`, its portfolios, and the holder's entries in portfolio `p` nearest `on`."""
+    out = []
+    rel = conn.execute("SELECT key, file_name, portfolios, first_on, last_on FROM pub.minister_diary_releases "
+                       "WHERE minister = %s AND first_on <= %s AND coalesce(last_on, first_on) >= date_trunc('month', %s::date) "
+                       "ORDER BY first_on", (holder, on, on)).fetchall()
+    for key, fname, ports, first, last in rel:
+        out.append(("Diary release", f"{fname} ({first.isoformat()} to {(last or first).isoformat()})"))
+        out.append(("Its portfolios", "; ".join(x for x in ports or [] if x)))
+        ent = conn.execute("SELECT entry_on, time, portfolio, meeting FROM pub.minister_diary_entries WHERE release = %s "
+                           "AND entry_on IS NOT NULL ORDER BY abs(entry_on - %s::date), entry_on LIMIT 400", (key, on)).fetchall()
+        near = [e for e in ent if fold(e[2] or "") in (p, "pm" if p == "prime minister" else p)][:3]
+        for e in sorted(near):
+            out.append(("Entry", f"{e[0].isoformat()} {e[1] or ''} ({e[2]}): {e[3] or ''}"))
+        if not near:
+            out.append(("Entry", f"no entry of this release is in the portfolio {p}"))
+    if not rel:
+        out.append(("Diary release", f"none of {holder} covers {on.isoformat()}"))
+    return out
+
+
+def evidence(conn, view: str, key: str, name: str, p: str, holder: str, on) -> tuple:
+    """(article, context) for one case: the lines that answer it, the office and holder marked."""
+    lines = _row_lines(conn, view, key) + _holder_lines(conn, holder, p, on)
+    body = "\n".join(f"{a}: {b}" for a, b in lines)
+    ctx = []
+    for a, b in lines:
+        ctx.append({"text": f"{a}: "})
+        marks = [(b.find(w), w) for w in (name, holder) if w and b.find(w) >= 0]
+        pos = 0
+        for i, w in sorted(marks):
+            if i < pos:
+                continue
+            ctx += [{"text": b[pos:i]}, {"text": w, "mark": "who" if w == name else "role"}]
+            pos = i + len(w)
+        ctx.append({"text": b[pos:] + "\n"})
+    return {"title": f"{name} on {on.isoformat()}", "site": "", "date": on.isoformat(), "body": body, "tags": []}, \
+        [r for r in ctx if r["text"]]
+
+
+def refresh_evidence(log=print) -> Path:
+    """The set's cases, ids and asks kept, each given its evidence (the register row found by view, name and date)."""
+    import datetime as dt
+    from support import db
+    out = REVIEW / "office-holder-1.json"
+    d = json.loads(out.read_text())
+    arts = {}
+    with db.connect(db.READ_KEY, "querynz_v4") as conn:
+        conn.execute("SET statement_timeout = '120s'")
+        for q in d["questions"]:
+            ask = q["ask"] if isinstance(q["ask"], list) else json.loads(q["ask"])
+            name, holder = ask[1]["text"], ask[3]["text"]
+            m = re.search(r"\((\w+), dated (\d{4}-\d\d-\d\d)\)", ask[2]["text"])
+            view, on = m.group(1), dt.date.fromisoformat(m.group(2))
+            row = conn.execute("SELECT key FROM links.rows WHERE view = %s AND name_filed = %s AND started_on = %s "
+                               "ORDER BY key LIMIT 1", (view, name, on)).fetchone()
+            p = portfolio_of(name)
+            arts[q["id"]], q["context"] = evidence(conn, view, row[0] if row else "", name, p, holder, on)
+            q["article"] = q["id"]
+    d["articles"] = arts
+    out.write_text(json.dumps(d, ensure_ascii=False, indent=1))
+    log(f"{out}: {len(d['questions'])} cases given their evidence")
     return out
 
 
@@ -120,6 +212,9 @@ def build(n: int = 20, log=print) -> Path:
 
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["evidence"]:
+        refresh_evidence()
+        return 0
     if argv[:1] == ["build"]:
         build(int(argv[argv.index("--n") + 1]) if "--n" in argv else 20)
         return 0

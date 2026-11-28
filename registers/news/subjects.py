@@ -280,9 +280,11 @@ def review(run: str) -> Path:
 # have spare capacity. however I agree. we will need to schedule the reread". Job qv4-news-subjects: a row a night.
 
 #: 2 (28 November 2026): the trial prompts s3 and s3b, and the gate takes s3's kinds; the pass itself (s1) is unchanged
-READER = "registers.news.subjects 2"
+#: 3 (29 November 2026): the review sample's sentences (registers.news.offices.context_runs) match folded and show the
+#: headline; the pass and its prompts unchanged
+READER = "registers.news.subjects 3"
 #: the news readers whose reading has the subjects pass in it (6 added it); an article they read needs no pass of its own
-WITH_SUBJECTS = ("registers.news.read 6", "registers.news.read 7")
+WITH_SUBJECTS = ("registers.news.read 6", "registers.news.read 7", "registers.news.read 8")
 SETTINGS = {"temperature": 0.0, "max_tokens": 12000, "thinking": False, "passes": ["subjects"],
             "prompt": __import__("hashlib").sha256(PROMPT.encode()).hexdigest()[:16], "gate": GATE}
 LIMIT = 8000

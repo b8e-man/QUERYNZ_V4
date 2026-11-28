@@ -173,24 +173,83 @@ def describe(o: dict, people: dict) -> str:
     return f"{people.get(o['who'], o['who'])}: " + " ".join(b for b in bits if b)
 
 
-def context_runs(text: str, offices: list) -> list:
+_FOLD = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-", " ": " "})
+
+
+def _folded(s: str) -> tuple:
+    """`s` lowercased, curly quotes and dashes made plain and each run of space one space, with the place in `s` of
+    each folded character, so a match in the folded text maps back to the article's own characters."""
+    out, at, space = [], [], False
+    for i, ch in enumerate(s):
+        ch = ch.translate(_FOLD).lower()
+        if ch.isspace():
+            if space:
+                continue
+            ch, space = " ", True
+        else:
+            space = False
+        out.append(ch)
+        at.append(i)
+    return "".join(out), at
+
+
+def _find(s: str, words: str):
+    """(start, end) of `words` in `s`, matched folded (case, curly quotes, spacing), or None."""
+    f, at = _folded(s)
+    w = _folded(words.strip())[0]
+    i = f.find(w) if w else -1
+    if i < 0:
+        return None
+    return at[i], at[i + len(w) - 1] + 1
+
+
+def context_runs(text: str, offices: list, people: dict = None, title: str = None) -> list:
     """The article's own sentences that hold each office's words, the words marked, in the article's order: the sample
-    the review page shows (Arthur, 27 November 2026: "the sample text rarely contains the relevant context")."""
-    body = text.split("\n\n", 1)[1] if "\n\n" in text else text
+    the review page shows (Arthur, 27 November 2026: "the sample text rarely contains the relevant context"). Words found
+    only in the headline show the headline; an office whose holder the sentence does not name brings the nearest
+    sentence that does (`people`: the reading's {entity id: name}); words found nowhere are said so, never left out
+    (Arthur, 29 November 2026: "regenerate the sample texts where it does not contain the information required")."""
+    if text.startswith("HEADLINE:"):            # a trial's text: the headline and byline, a blank line, the article
+        head, _, body = text.partition("\n\n")
+        title = head.split("\n")[0].removeprefix("HEADLINE: ").strip()
+    else:                                       # the read's text is the article alone; its headline comes apart
+        body, title = text, (title or "").strip()
     spans = [(m.start(), m.end()) for m in re.finditer(r"[^.!?\n]+[.!?]?", body)]
-    picked = {}
+    picked, in_title, nowhere = {}, [], []
+
+    def sentence(i):
+        return next(((a, b) for a, b in spans if a <= i < b), None)
+
     for o in offices:
         w = (o.get("words") or "").strip()
         if not w:
             continue
-        i = body.lower().find(w.lower())
-        if i < 0:
+        got = _find(body, w)
+        if got is None:
+            t = _find(title, w)
+            (in_title.append(t) if t else nowhere.append(w))
             continue
-        for a, b in spans:
-            if a <= i < b:
-                picked.setdefault((a, b), []).append((i, i + len(w)))
-                break
+        span = sentence(got[0])
+        if span is None:
+            continue
+        picked.setdefault(span, []).append(got)
+        who = (people or {}).get(o.get("who")) if isinstance(o.get("who"), str) else None
+        if who and _find(body[span[0]:span[1]], who) is None and _find(body[span[0]:span[1]], who.split()[-1]) is None:
+            naming = [(a, b) for a, b in spans if _find(body[a:b], who.split()[-1])]
+            if naming:
+                a, b = min(naming, key=lambda ab: abs(ab[0] - got[0]))
+                n = _find(body[a:b], who) or _find(body[a:b], who.split()[-1])
+                picked.setdefault((a, b), []).append((a + n[0], a + n[1]))
     runs = []
+    if in_title:
+        pos = 0
+        runs.append({"text": "Headline: "})
+        for i, j in sorted(set(in_title)):
+            if i < pos:
+                continue
+            runs += [{"text": title[pos:i]}, {"text": title[i:j], "mark": "role"}]
+            pos = j
+        runs.append({"text": title[pos:] + "\n"})
     for (a, b), marks in sorted(picked.items()):
         pos = a
         for i, j in sorted(set(marks)):
@@ -199,6 +258,8 @@ def context_runs(text: str, offices: list) -> list:
             runs += [{"text": body[pos:i]}, {"text": body[i:j], "mark": "role"}]
             pos = j
         runs += [{"text": body[pos:b].rstrip() + "\n"}]
+    for w in nowhere:
+        runs.append({"text": f"(not in the text: “{w}”)\n"})
     return [r for r in runs if r["text"]] or [{"text": "(no office in the text)"}]
 
 
@@ -217,7 +278,7 @@ def review(run: str) -> Path:
             ask.append({"text": "Dropped by the gate: " + "; ".join(f"{o.get('words')} ({o['rule']})" for o in r["dropped"]) + "\n"})
         ask.append({"text": "Are these the offices, complete and right?"})
         qs.append({"id": r["id"][:40], "kind": "offices", "label": "Offices", "article": r["id"], "ask": ask,
-                   "context": context_runs(r["text"], r["offices"] + r["dropped"]),
+                   "context": context_runs(r["text"], r["offices"] + r["dropped"], r.get("people"), r.get("title")),
                    "choices": [{"key": "yes", "label": "Yes: right and complete"},
                                {"key": "wrong", "label": "One or more is wrong (note which)"},
                                {"key": "missing", "label": "One or more is missing (note what)"},

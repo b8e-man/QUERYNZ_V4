@@ -90,3 +90,13 @@ docs/research/curation-plan.md. One line a close, the time first.
 - 28 Nov evening. name-forms-1 refreshed in place (links.forms_review refresh, Arthur: "yes i want that"): 269 forms
   gone and unanswered left the list; 25 gone but answered stay, marked gone; 419 carry their new kind; 1,231 forms
   now, all 52 exported answers on their forms.
+- 29 Nov. The three review sets regenerated (Arthur: "regenerate the sample texts where it does not contain the
+  information required"). news-offices-o2 and news-subjects-s3b: the sample sentences were matched case- and
+  quote-exactly and never looked at the headline, and the offices' read text (no HEADLINE line) lost its first
+  paragraph; 9 items in 7 articles had no sentence shown. Now folded matching, the headline shown where the words are
+  there, the holder's sentence beside an office that does not name him, and words found nowhere said so: every item
+  of both sets has its sentence. office-holder-1 showed only the office and the name: each case now carries the
+  register row as filed (the court party with its judgment, or the diary entry), the holder's release for the month
+  with its portfolios, and the holder's entries in that portfolio nearest the date. Found on the way: some diary
+  releases are dated with day and month swapped ("September 2025.pdf" read as 9 January to 9 December; 31 of 2,560
+  releases' first day is outside their named month), which the holder rule reads. Not yet fixed.

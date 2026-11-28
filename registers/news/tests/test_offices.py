@@ -30,3 +30,25 @@ def test_the_sample_is_the_sentences_that_hold_the_offices_marked():
     runs = O.context_runs(text, [{"words": "caretaker Health Minister"}, {"words": "Labour finance spokesperson"}])
     assert [r["text"] for r in runs if r.get("mark")] == ["Labour finance spokesperson", "caretaker Health Minister"]
     assert "Nothing here" not in "".join(r["text"] for r in runs) and "A first line" not in "".join(r["text"] for r in runs)
+
+
+def test_the_sample_finds_words_however_quoted_in_the_headline_and_names_the_holder():
+    # Arthur, 29 November 2026: "regenerate the sample texts where it does not contain the information required"
+    text = ("HEADLINE: Green Party co-leader keen\n\nThe Prime Minister says she is on leave. Christopher Luxon said so. "
+            "New Zealand’s first   female Prime Minister spoke.")
+    runs = O.context_runs(text, [{"words": "Green Party co-leader"}, {"who": "e1", "words": "the Prime Minister"},
+                                 {"words": "New Zealand's first female Prime Minister"}, {"words": "Minister for Nothing"}],
+                          {"e1": "Christopher Luxon"})
+    out = "".join(r["text"] for r in runs)
+    marked = [r["text"] for r in runs if r.get("mark")]
+    assert out.startswith("Headline: ") and "Green Party co-leader" in marked
+    assert "Christopher Luxon" in marked and "The Prime Minister" in marked            # the holder's sentence comes too
+    assert "New Zealand’s first   female Prime Minister" in marked                 # the article's own characters
+    assert "(not in the text: “Minister for Nothing”)" in out
+
+
+def test_the_read_s_text_has_no_headline_line_so_its_first_paragraph_is_the_article():
+    text = "Minister for Women Nicola Grigg is taking leave.\n\nLuxon confirmed it."
+    runs = O.context_runs(text, [{"words": "Minister for Women"}, {"words": "Grigg reveals"}], title="Grigg reveals diagnosis")
+    out = "".join(r["text"] for r in runs)
+    assert "Minister for Women Nicola Grigg is taking leave." in out and out.startswith("Headline: ")

@@ -40,7 +40,9 @@ from registers.news import subjects as S
 
 #: 7 (28 November 2026): the subjects module took the trial prompts s3 and s3b and a gate that also takes s3's kinds; the
 #: live prompt (s1) and its kinds are unchanged, so a 7 reading reads as a 6 does
-READER = "registers.news.read 7"   # 6 (27 November 2026): the subjects pass, a fourth
+#: 8 (29 November 2026): the offices module's review sample matches folded and shows the headline; nothing the read
+#: does changed, so an 8 reading reads as a 6 does
+READER = "registers.news.read 8"   # 6 (27 November 2026): the subjects pass, a fourth
 LANE = "news"
 PROFILE = "news-article"
 #: the document profile's version from the ledger (support/profiles/profiles.jsonl), registered 26 November 2026; it was

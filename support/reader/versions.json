@@ -308,8 +308,8 @@
    "registers/news/read.py",
    "registers/news/subjects.py"
   ],
-  "reader": "registers.news.read 7",
-  "sha256": "ca3455ea750ab5b373517104191ad07289e54576eeceb96cdcc49e3f20ca659a"
+  "reader": "registers.news.read 8",
+  "sha256": "e6251da17e31160ae2c713c8570924c9723106850787192e0a2937101946dd81"
  },
  "registers/news/subjects.py": {
   "files": [
@@ -318,8 +318,8 @@
    "registers/news/read.py",
    "registers/news/subjects.py"
   ],
-  "reader": "registers.news.subjects 2",
-  "sha256": "35a6141d29cf274142dac571f5d256efe8ef20f88d036aa0c4f7d6372231e88c"
+  "reader": "registers.news.subjects 3",
+  "sha256": "9a8d3e30878db8c7814067f8bf1ad79fd180ffb722a4380c25b093aea204472e"
  },
  "registers/openlaw/read.py": {
   "files": [
